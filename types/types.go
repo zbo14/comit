@@ -55,21 +55,21 @@ func (js JustFiles) Open(filename string) (http.File, error) {
 
 type Templates map[string]*template.Template
 
-func RegisterTemplates(ts ...string) Templates {
-	var tmpl = Templates{}
+var Tmpl = Templates{}
+
+func RegisterTemplates(ts ...string) {
 	for _, t := range ts {
-		tmpl[t] = template.Must(template.ParseFiles(t, "base.html"))
+		Tmpl[t] = template.Must(template.ParseFiles(t, "base.html"))
 	}
-	return tmpl
 }
 
-func RenderTemplate(wr http.ResponseWriter, tmpl Templates, t string, pg *Page) {
-	tmpl[t].ExecuteTemplate(wr, "base", &pg)
+func RenderTemplate(wr http.ResponseWriter, t string, pg *Page) {
+	Tmpl[t].ExecuteTemplate(wr, "base", &pg)
 }
 
 // Handler
 
-func SubmitHandler(wr http.ResponseWriter, req *http.Request, tmpl Templates) {
+func SubmitHandler(wr http.ResponseWriter, req *http.Request) {
 	pg, _ := LoadPage(string(req.URL.Path[1:]))
-	RenderTemplate(wr, tmpl, "submit.html", pg)
+	RenderTemplate(wr, "submit.html", pg)
 }

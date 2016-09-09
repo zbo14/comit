@@ -2,6 +2,7 @@ package app
 
 import (
 	"crypto/md5"
+	"errors"
 	"fmt"
 	lib "github.com/zballs/3ii/lib"
 	"time"
@@ -43,35 +44,39 @@ func Time(tm time.Time) Item {
 
 func Type(tx []byte) Item {
 	return func(form *Form) error {
-		(*form).Type = lib.SERVICE.Type(tx)
+		(*form).Type = lib.SERVICE.ReadType(tx)
 		return nil
 	}
 }
 
 func Address(tx []byte) Item {
 	return func(form *Form) error {
-		(*form).Address = lib.SERVICE.Address(tx)
+		(*form).Address = lib.SERVICE.ReadAddress(tx)
 		return nil
 	}
 }
 
 func Description(tx []byte) Item {
 	return func(form *Form) error {
-		(*form).Description = lib.SERVICE.Description(tx)
+		(*form).Description = lib.SERVICE.ReadDescription(tx)
 		return nil
 	}
 }
 
 func SpecField(tx []byte) Item {
 	return func(form *Form) error {
-		(*form).SpecField = lib.SERVICE.SpecField(tx)
-		return nil
+		t := (*form).Type
+		if len(t) > 0 {
+			(*form).SpecField = lib.SERVICE.ReadSpecField(tx, t)
+			return nil
+		}
+		return errors.New("cannot set form spec-field without type")
 	}
 }
 
 func PubkeyBytes(tx []byte) Item {
 	return func(form *Form) error {
-		(*form).PubkeyBytes = lib.SERVICE.PubkeyBytes(tx)
+		(*form).PubkeyBytes = lib.SERVICE.ReadPubkeyBytes(tx)
 		return nil
 	}
 }

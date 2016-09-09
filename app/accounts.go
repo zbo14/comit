@@ -5,7 +5,7 @@ import (
 	"fmt"
 	. "github.com/tendermint/go-crypto"
 	types "github.com/tendermint/tmsp/types"
-	. "github.com/zballs/3ii/util"
+	util "github.com/zballs/3ii/util"
 )
 
 // Account
@@ -14,20 +14,20 @@ type Account struct {
 	PubKeyEd25519
 }
 
-func (a Account) Sign() []byte {
-	return []byte(fmt.Sprintf("PubKeyEd25519{%X}", a.Bytes()))
+func (a *Account) Sign() []byte {
+	return []byte(fmt.Sprintf("PubKeyEd25519{%X}", (*a).Bytes()))
 }
 
-func (a Account) SubmitForm(tx []byte, app *Application) types.Result {
-	tx = append(tx, a.Sign()...)
+func (a *Account) SubmitForm(tx []byte, app *Application) types.Result {
+	tx = append(tx, (*a).Sign()...)
 	return app.AppendTx(tx)
 }
 
-func (Account) QueryForm(tx []byte, cache *Cache) *Form {
+func (*Account) QueryForm(tx []byte, cache *Cache) *Form {
 	return (*cache).QueryForm(string(tx))
 }
 
-func (Account) QueryResolved(tx []byte, cache *Cache) *Form {
+func (*Account) QueryResolved(tx []byte, cache *Cache) *Form {
 	return (*cache).QueryResolved(string(tx))
 }
 
@@ -90,7 +90,7 @@ func CreateAccountManager() *AccountManager {
 	return &AccountManager{CreateAccountdb()}
 }
 
-func (am AccountManager) CreateAccount(secret []byte) (PrivKeyEd25519, error) {
+func (am *AccountManager) CreateAccount(secret []byte) (PrivKeyEd25519, error) {
 	account := Account{}
 	privkey := GenPrivKeyEd25519FromSecret(secret)
 	copy(account.Bytes(), privkey.PubKey().Bytes())
@@ -103,51 +103,51 @@ func (am AccountManager) CreateAccount(secret []byte) (PrivKeyEd25519, error) {
 	return privkey, err
 }
 
-func (am AccountManager) RemoveAccount(privkey PrivKeyEd25519) error {
+func (am *AccountManager) RemoveAccount(privkey PrivKeyEd25519) error {
 	return am.Remove(privkey)
 }
 
-func (am AccountManager) SubmitForm(tx []byte, app *Application) types.Result {
+func (am *AccountManager) SubmitForm(tx []byte, app *Application) types.Result {
 	accounts := am.Access()
-	privkey := ExtractPrivKeyEd25519(tx)
-	accountPtr := accounts[string(privkey[:])]
+	privkey := util.ReadPrivKeyEd25519(tx)
+	account := accounts[string(privkey[:])]
 	done := make(chan struct{}, 1)
 	go am.Return(accounts, done)
 	select {
 	case <-done:
-		if accountPtr == nil {
+		if account == nil {
 			return types.NewResult(types.CodeType_InternalError, nil, "account with private key does not exist")
 		}
-		return (*accountPtr).SubmitForm(tx, app)
+		return account.SubmitForm(tx, app)
 	}
 }
 
-func (am AccountManager) QueryForm(tx []byte, cache *Cache) *Form {
+func (am *AccountManager) QueryForm(tx []byte, cache *Cache) *Form {
 	accounts := am.Access()
-	privkey := ExtractPrivKeyEd25519(tx)
-	accountPtr := accounts[string(privkey[:])]
+	privkey := util.ReadPrivKeyEd25519(tx)
+	account := accounts[string(privkey[:])]
 	done := make(chan struct{}, 1)
 	go am.Return(accounts, done)
 	select {
 	case <-done:
-		if accountPtr == nil {
+		if account == nil {
 			return nil
 		}
-		return (*accountPtr).QueryForm(tx, cache)
+		return account.QueryForm(tx, cache)
 	}
 }
 
-func (am AccountManager) QueryResolved(tx []byte, cache *Cache) *Form {
+func (am *AccountManager) QueryResolved(tx []byte, cache *Cache) *Form {
 	accounts := am.Access()
-	privkey := ExtractPrivKeyEd25519(tx)
-	accountPtr := accounts[string(privkey[:])]
+	privkey := util.ReadPrivKeyEd25519(tx)
+	account := accounts[string(privkey[:])]
 	done := make(chan struct{}, 1)
 	go am.Return(accounts, done)
 	select {
 	case <-done:
-		if accountPtr == nil {
+		if account == nil {
 			return nil
 		}
-		return (*accountPtr).QueryResolved(tx, cache)
+		return account.QueryResolved(tx, cache)
 	}
 }
