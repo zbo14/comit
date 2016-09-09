@@ -1,0 +1,44 @@
+{{define "head"}}
+	<title>{{ .Title}}</title>
+{{end}}
+
+{{define "body"}}
+	<div class="container">
+		<p>Service Type</p>
+		<textarea id="type"></textarea> 
+	</div>
+	<div class="container">
+		<p>Location</p>
+		<textarea id="location"></textarea>
+	</div>
+	<div class="container">
+		<p>Description</p>
+		<textarea id="description"></textarea>
+	</div>
+	<div class="container">
+		<p>Details</p>
+		<textarea id="spec-field"></textarea>
+	</div>
+	<div class="container">
+		<p>Private Key</p>
+		<textarea id="private-key"></textarea>
+	</div>
+	<div class="container">
+		<button type="button" id="submit">submit</button>
+	</div>
+
+	<script type="text/javascript" charset="utf-8">
+	$(function() {
+		var socket = io();
+		$('#submit').bind('click', function() {
+			var type = $('#type').val();
+			var location = $('#location').val();
+			var description = $('#description').val();
+			var spec_field = $('spec-field').val();
+			var private_key = $('private-key').val();
+			socket.emit('submit', type, location, description, spec_field, private_key)
+		})
+	})
+	</script>
+
+{{end}}

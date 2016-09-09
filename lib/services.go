@@ -1,6 +1,7 @@
 package lib
 
 import (
+	. "github.com/zballs/3ii/util"
 	re "regexp"
 )
 
@@ -11,12 +12,12 @@ type ServiceInterface interface {
 	Address(tx []byte) []byte
 	Description(tx []byte) []byte
 	SpecField(tx []byte) []byte
-	Pubkey(tx []byte) []byte
+	PubkeyBytes(tx []byte) []byte
 }
 
 var SpecFields = map[string]FieldMethod{
-	"txeet light out":              FIELD.CompletelyOut,
-	"pothole in txeet":             FIELD.PotholeLocation,
+	"street light out":             FIELD.CompletelyOut,
+	"pothole in street":            FIELD.PotholeLocation,
 	"rodent baiting/rat complaint": FIELD.BackyardBaited,
 	"tree trim":                    nil,
 }
@@ -37,8 +38,8 @@ func (serv Service) SpecField(tx []byte) []byte {
 	return SpecFields[string(serv.Type(tx))](tx)
 }
 
-func (Service) Pubkey(tx []byte) []byte {
-	return re.MustCompile(`pubkey:([\w]+)$`).FindSubmatch(tx)[1]
+func (Service) PubkeyBytes(tx []byte) []byte {
+	return ExtractPubKeyBytes(tx)
 }
 
 var SERVICE ServiceInterface = Service{}

@@ -24,12 +24,21 @@ func (cache *Cache) Init(form *Form) {
 
 func (cache *Cache) NewForm(id string, form *Form) error {
 	forms := <-cache.Forms
+	var err error = nil
 	if forms[id] != nil {
-		return errors.New("form with ID already exists")
+		err = errors.New("form with ID already exists")
+	} else {
+		forms[id] = form
 	}
-	forms[id] = form
-	cache.Forms <- forms
-	return nil
+	done := make(chan struct{}, 1)
+	go func() {
+		cache.Forms <- forms
+		done <- struct{}{}
+	}()
+	select {
+	case <-done:
+		return err
+	}
 }
 
 func (cache *Cache) ResolveForm(id string) {
@@ -45,7 +54,7 @@ func (cache *Cache) ResolveForm(id string) {
 func (cache *Cache) QueryForm(id string) (form *Form) {
 	forms := <-cache.Forms
 	form = forms[id]
-	done := make(chan struct{})
+	done := make(chan struct{}, 1)
 	go func() {
 		cache.Forms <- forms
 		done <- struct{}{}

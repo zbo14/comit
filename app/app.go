@@ -33,7 +33,10 @@ func (app *Application) SetOption(key string, value string) (log string) {
 func (app *Application) AppendTx(tx []byte) types.Result {
 	form, _ := MakeForm(tx)
 	id := FormID(form)
-	go app.cache.NewForm(id, form)
+	err := app.cache.NewForm(id, form)
+	if err != nil {
+		return types.NewResult(types.CodeType_InternalError, nil, err.Error())
+	}
 	app.state.Set([]byte(id), tx)
 	return types.NewResultOK(nil, id)
 }

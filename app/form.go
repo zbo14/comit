@@ -13,7 +13,7 @@ type Form struct {
 	Address     []byte
 	Description []byte
 	SpecField   []byte
-	Pubkey      []byte
+	PubkeyBytes []byte
 
 	//==============//
 
@@ -71,7 +71,7 @@ func SpecField(tx []byte) Item {
 
 func PubkeyBytes(tx []byte) Item {
 	return func(form *Form) error {
-		(*form).Pubkey = lib.SERVICE.Pubkey(tx)
+		(*form).PubkeyBytes = lib.SERVICE.PubkeyBytes(tx)
 		return nil
 	}
 }
@@ -98,7 +98,7 @@ func FormID(form *Form) string {
 		(*form).Address,
 		(*form).Description,
 		(*form).SpecField,
-		(*form).Pubkey,
+		(*form).PubkeyBytes,
 	}
 	for _, item := range items {
 		for idx, _ := range bytes {
