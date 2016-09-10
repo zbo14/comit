@@ -27,12 +27,14 @@ func main() {
 		"remove_account.html",
 		"submit_form.html",
 		"query_form.html",
+		"resolve_form.html",
 	)
 	CreatePages(
 		"create_account",
 		"remove_account",
 		"submit_form",
 		"query_form",
+		"resolve_form",
 	)
 
 	action_listener, err := CreateActionListener()
@@ -47,6 +49,7 @@ func main() {
 	http.HandleFunc("/remove_account", RemoveAccountHandler)
 	http.HandleFunc("/submit_form", SubmitFormHandler)
 	http.HandleFunc("/query_form", QueryFormHandler)
+	http.HandleFunc("/resolve_form", ResolveFormHandler)
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(js)))
 	http.ListenAndServe(":8888", nil)
 

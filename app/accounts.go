@@ -38,6 +38,15 @@ func (a *Account) QueryForm(str string, cache *Cache) (*Form, error) {
 	return cache.QueryForm(id)
 }
 
+func (a *Account) ResolveForm(str string, cache *Cache) error {
+	pubKeyString := util.ReadPubKeyString(str)
+	if !a.Validate(pubKeyString) {
+		return errors.New("invalid public-private key pair")
+	}
+	id := util.ReadFormID(str)
+	return cache.ResolveForm(id)
+}
+
 // Accounts, Accountdb
 
 type Accounts map[string]*Account
@@ -154,5 +163,20 @@ func (am *AccountManager) QueryForm(str string, cache *Cache) (*Form, error) {
 			return nil, errors.New("account with private key does not exist")
 		}
 		return account.QueryForm(util.RemovePrivKeyString(str), cache)
+	}
+}
+
+func (am *AccountManager) ResolveForm(str string, cache *Cache) error {
+	accounts := am.Access()
+	privKeyString := util.ReadPrivKeyString(str)
+	account := accounts[privKeyString]
+	done := make(chan struct{}, 1)
+	go am.Return(accounts, done)
+	select {
+	case <-done:
+		if account == nil {
+			return errors.New("account with private key does not exist")
+		}
+		return account.ResolveForm(util.RemovePrivKeyString(str), cache)
 	}
 }

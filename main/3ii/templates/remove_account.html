@@ -19,7 +19,7 @@
 				var privKeyString = $('#private-key').val();
 				socket.emit('remove-account', pubKeyString, privKeyString)
 				socket.on('remove-msg', function(msg) {
-					$('#remove-msg').text("removed account " + msg)
+					$('#remove-msg').text(msg)
 				})
 			})
 		})

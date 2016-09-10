@@ -62,25 +62,6 @@ func (cache *Cache) NewForm(id string, form *Form) error {
 	}
 }
 
-func (cache *Cache) ResolveForm(id string) {
-	forms1 := cache.AccessUnresolved()
-	form := forms1[id]
-	go Resolve(time.Now())(form)
-	forms2 := cache.AccessResolved()
-	forms2[id] = form
-	done := make(chan struct{}, 1)
-	go cache.ReturnResolved(forms2, done)
-	select {
-	case <-done:
-		delete(forms1, id)
-		go cache.ReturnUnresolved(forms1, done)
-		select {
-		case <-done:
-			return
-		}
-	}
-}
-
 func (cache *Cache) QueryUnresolved(id string) (form *Form, err error) {
 	forms := cache.AccessUnresolved()
 	form = forms[id]
@@ -118,6 +99,30 @@ func (cache *Cache) QueryForm(id string) (*Form, error) {
 		return form2, nil
 	}
 	return nil, errors.New("form with ID does not exist")
+}
+
+func (cache *Cache) ResolveForm(id string) error {
+	forms1 := cache.AccessUnresolved()
+	form := forms1[id]
+	done := make(chan struct{}, 1)
+	if form != nil {
+		go Resolve(time.Now())(form)
+		forms2 := cache.AccessResolved()
+		forms2[id] = form
+		go cache.ReturnResolved(forms2, done)
+		select {
+		case <-done:
+			delete(forms1, id)
+		}
+	}
+	go cache.ReturnUnresolved(forms1, done)
+	select {
+	case <-done:
+		if form == nil {
+			return errors.New("unresolved form with ID does not exist")
+		}
+		return nil
+	}
 }
 
 // Stats

@@ -1,0 +1,50 @@
+{{define "head"}}
+	<title>{{ .Title}}</title>
+{{end}}
+
+{{define "body"}}
+	<div class="container">
+		<p id="formID-label">Form ID</p>
+		<textarea id="formID"></textarea>
+		<p id="pubkey-label">Public Key</p>
+		<textarea id="pubkey"></textarea>
+		<p id="privkey-label">Private Key</p>
+		<textarea id="privkey"></textarea>
+		<button type="button" id="resolve">resolve</button>
+		<p id="resolve-msg"></p>
+	</div>
+	<script type="text/javascript" charset="utf-8">
+	$(function() {
+		var socket = io();
+		$('#resolve').bind('click', function() {
+			var valid_entry = true
+			var _formID = $('#formID').val();
+			if (_formID.length == 0) {
+				$('#formID-label').html("<span style='color:red;'>Enter Form ID</span>"); 
+				valid_entry = false;
+			}
+			var _pubkey = $('#pubkey').val();
+			if (_pubkey.length == 0) {
+				$('#pubkey-label').html("<span style='color:red;'>Enter Public Key</span>"); 
+				valid_entry = false;
+			}
+			var _privkey = $('#privkey').val();
+			if (_privkey.length == 0) {
+				$('#privkey-label').html("<span style='color:red;'>Enter Private Key</span>"); 
+				valid_entry = false;
+			}
+			if (valid_entry) {
+				$('#formID-label').html("<span style='color:black;'>Form ID</span>"); 
+				$('#pubkey-label').html("<span style='color:black;'>Public Key</span>"); 
+				$('#privkey-label').html("<span style='color:black;'>Private Key</span>"); 
+				socket.emit('resolve-form', _formID, _pubkey, _privkey)
+				socket.on('resolve-msg', function(msg){
+					$('#resolve-msg').text(msg)
+				})
+			}
+			// redirect
+		})
+	})
+	</script>
+
+{{end}}

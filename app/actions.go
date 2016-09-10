@@ -39,7 +39,7 @@ func (al ActionListener) Run(app *Application) {
 			if err != nil {
 				log.Println(err.Error())
 			} else {
-				so.Emit("remove-msg", fmt.Sprintf("[PubKeyEd25519{%v}, PrivKeyEd25519{%v}]", pubKeyString, privKeyString))
+				so.Emit("remove-msg", fmt.Sprintf("remove account [PubKeyEd25519{%v}, PrivKeyEd25519{%v}]", pubKeyString, privKeyString))
 			}
 		})
 
@@ -58,6 +58,17 @@ func (al ActionListener) Run(app *Application) {
 				log.Println(err.Error())
 			} else {
 				so.Emit("return-form", ParseForm(form))
+			}
+		})
+
+		// Resolve Forms
+		so.On("resolve-form", func(_formID string, _pubkey string, _privkey string) {
+			str := lib.SERVICE.WriteFormID(_formID) + lib.SERVICE.WritePubkeyString(_pubkey) + lib.SERVICE.WritePrivkeyString(_privkey)
+			err := app.account_manager.ResolveForm(str, app.cache)
+			if err != nil {
+				log.Println(err.Error())
+			} else {
+				so.Emit("resolve-msg", "resolved form with ID "+_formID)
 			}
 		})
 

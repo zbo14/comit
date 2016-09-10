@@ -88,3 +88,8 @@ func QueryFormHandler(wr http.ResponseWriter, req *http.Request) {
 	pg, _ := LoadPage(string(req.URL.Path[1:]))
 	RenderTemplate(wr, "query_form.html", pg)
 }
+
+func ResolveFormHandler(wr http.ResponseWriter, req *http.Request) {
+	pg, _ := LoadPage(string(req.URL.Path[1:]))
+	RenderTemplate(wr, "resolve_form.html", pg)
+}
