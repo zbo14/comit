@@ -13,12 +13,12 @@ type Page struct {
 
 func (p *Page) Save() error {
 	filename := p.Title + ".txt"
-	return ioutil.WriteFile(filename, p.Body, 0600)
+	return ioutil.WriteFile("pages/"+filename, p.Body, 0600)
 }
 
 func LoadPage(title string) (*Page, error) {
 	filename := title + ".txt"
-	body, err := ioutil.ReadFile(filename)
+	body, err := ioutil.ReadFile("pages/" + filename)
 	if err != nil {
 		return nil, err
 	}
@@ -59,7 +59,7 @@ var Tmpl = Templates{}
 
 func RegisterTemplates(ts ...string) {
 	for _, t := range ts {
-		Tmpl[t] = template.Must(template.ParseFiles(t, "base.html"))
+		Tmpl[t] = template.Must(template.ParseFiles("templates/"+t, "templates/base.html"))
 	}
 }
 
@@ -82,4 +82,9 @@ func RemoveAccountHandler(wr http.ResponseWriter, req *http.Request) {
 func SubmitFormHandler(wr http.ResponseWriter, req *http.Request) {
 	pg, _ := LoadPage(string(req.URL.Path[1:]))
 	RenderTemplate(wr, "submit_form.html", pg)
+}
+
+func QueryFormHandler(wr http.ResponseWriter, req *http.Request) {
+	pg, _ := LoadPage(string(req.URL.Path[1:]))
+	RenderTemplate(wr, "query_form.html", pg)
 }

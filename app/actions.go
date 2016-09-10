@@ -39,7 +39,7 @@ func (al ActionListener) Run(app *Application) {
 			if err != nil {
 				log.Println(err.Error())
 			} else {
-				log.Println(fmt.Sprintf("removed account [PubKeyEd25519{%v}, PrivKeyEd25519{%v}]", pubKeyString, privKeyString))
+				so.Emit("remove-msg", fmt.Sprintf("[PubKeyEd25519{%v}, PrivKeyEd25519{%v}]", pubKeyString, privKeyString))
 			}
 		})
 
@@ -47,26 +47,17 @@ func (al ActionListener) Run(app *Application) {
 		so.On("submit-form", func(_type string, _address string, _description string, _specfield string, _pubkey string, _privkey string) {
 			str := lib.SERVICE.WriteType(_type) + lib.SERVICE.WriteAddress(_address) + lib.SERVICE.WriteDescription(_description) + lib.SERVICE.WriteSpecField(_specfield, _type) + lib.SERVICE.WritePubkeyString(_pubkey) + lib.SERVICE.WritePrivkeyString(_privkey)
 			result := app.account_manager.SubmitForm(str, app)
-			log.Println(result.Log)
+			so.Emit("return-formID", result.Log)
 		})
 
 		// Query Forms
-		so.On("query-form", func(str string) {
-			form := app.account_manager.QueryForm(str, app.cache)
-			if form != nil {
-				log.Println(*form)
+		so.On("query-form", func(_formID string, _pubkey string, _privkey string) {
+			str := lib.SERVICE.WriteFormID(_formID) + lib.SERVICE.WritePubkeyString(_pubkey) + lib.SERVICE.WritePrivkeyString(_privkey)
+			form, err := app.account_manager.QueryForm(str, app.cache)
+			if err != nil {
+				log.Println(err.Error())
 			} else {
-				log.Println("no form found")
-			}
-		})
-
-		// Query Resolved Forms
-		so.On("query-resolved", func(str string) {
-			form := app.account_manager.QueryResolved(str, app.cache)
-			if form != nil {
-				log.Println(*form)
-			} else {
-				log.Println("no form found")
+				so.Emit("return-form", ParseForm(form))
 			}
 		})
 

@@ -22,8 +22,18 @@ func main() {
 		Exit(err.Error())
 	}
 
-	RegisterTemplates("create_account.html", "remove_account.html", "submit_form.html")
-	CreatePages("create_account", "remove_account", "submit_form")
+	RegisterTemplates(
+		"create_account.html",
+		"remove_account.html",
+		"submit_form.html",
+		"query_form.html",
+	)
+	CreatePages(
+		"create_account",
+		"remove_account",
+		"submit_form",
+		"query_form",
+	)
 
 	action_listener, err := CreateActionListener()
 	if err != nil {
@@ -36,6 +46,7 @@ func main() {
 	http.HandleFunc("/create_account", CreateAccountHandler)
 	http.HandleFunc("/remove_account", RemoveAccountHandler)
 	http.HandleFunc("/submit_form", SubmitFormHandler)
+	http.HandleFunc("/query_form", QueryFormHandler)
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(js)))
 	http.ListenAndServe(":8888", nil)
 

@@ -20,6 +20,8 @@ type ServiceInterface interface {
 	WritePubkeyString(str string) string
 	WritePrivkeyString(str string) string
 	ReadPubkeyString(str string) string
+	WriteFormID(str string) string
+	ReadFormID(str string) string
 }
 
 var SpecFields = map[string]FieldGroup{
@@ -71,6 +73,14 @@ func (Service) ReadPubkeyString(str string) string {
 
 func (Service) WritePrivkeyString(str string) string {
 	return util.WritePrivKeyString(str)
+}
+
+func (Service) WriteFormID(str string) string {
+	return util.WriteFormID(str)
+}
+
+func (Service) ReadFormID(str string) string {
+	return util.ReadFormID(str)
 }
 
 var SERVICE ServiceInterface = Service{}

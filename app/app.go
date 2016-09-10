@@ -4,7 +4,6 @@ import (
 	. "github.com/tendermint/go-common"
 	"github.com/tendermint/go-merkle"
 	types "github.com/tendermint/tmsp/types"
-	"log"
 )
 
 type Application struct {
@@ -35,7 +34,6 @@ func (app *Application) SetOption(key string, value string) (log string) {
 
 func (app *Application) AppendTx(tx []byte) types.Result {
 	form, _ := MakeForm(string(tx))
-	log.Println(*form)
 	id := FormID(form)
 	err := app.cache.NewForm(id, form)
 	if err != nil {

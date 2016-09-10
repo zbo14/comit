@@ -29,12 +29,13 @@ func (a *Account) SubmitForm(str string, app *Application) types.Result {
 	return app.AppendTx(tx)
 }
 
-func (*Account) QueryForm(str string, cache *Cache) *Form {
-	return (*cache).QueryForm(str)
-}
-
-func (*Account) QueryResolved(str string, cache *Cache) *Form {
-	return (*cache).QueryResolved(str)
+func (a *Account) QueryForm(str string, cache *Cache) (*Form, error) {
+	pubKeyString := util.ReadPubKeyString(str)
+	if !a.Validate(pubKeyString) {
+		return nil, errors.New("invalid public-private key pair")
+	}
+	id := util.ReadFormID(str)
+	return cache.QueryForm(id)
 }
 
 // Accounts, Accountdb
@@ -55,16 +56,16 @@ func CreateAccountdb() Accountdb {
 	}
 }
 
-func (db Accountdb) Access() Accounts {
-	return <-db
+func (db *Accountdb) Access() Accounts {
+	return <-(*db)
 }
 
-func (db Accountdb) Return(accounts Accounts, done chan struct{}) {
-	db <- accounts
+func (db *Accountdb) Return(accounts Accounts, done chan struct{}) {
+	(*db) <- accounts
 	done <- struct{}{}
 }
 
-func (db Accountdb) Add(privkey PrivKeyEd25519, account *Account) error {
+func (db *Accountdb) Add(privkey PrivKeyEd25519, account *Account) error {
 	accounts := db.Access()
 	if accounts[util.PrivKeyToString(privkey)] != nil {
 		return errors.New("account with private key already exists")
@@ -79,7 +80,7 @@ func (db Accountdb) Add(privkey PrivKeyEd25519, account *Account) error {
 	}
 }
 
-func (db Accountdb) Remove(pubKeyString string, privKeyString string) error {
+func (db *Accountdb) Remove(pubKeyString string, privKeyString string) error {
 	var err error = nil
 	accounts := db.Access()
 	account := accounts[privKeyString]
@@ -127,7 +128,7 @@ func (am *AccountManager) RemoveAccount(pubKeyString string, privKeyString strin
 }
 
 func (am *AccountManager) SubmitForm(str string, app *Application) types.Result {
-	accounts := (*am).Access()
+	accounts := am.Access()
 	privKeyString := util.ReadPrivKeyString(str)
 	account := accounts[privKeyString]
 	done := make(chan struct{}, 1)
@@ -141,8 +142,8 @@ func (am *AccountManager) SubmitForm(str string, app *Application) types.Result 
 	}
 }
 
-func (am *AccountManager) QueryForm(str string, cache *Cache) *Form {
-	accounts := (*am).Access()
+func (am *AccountManager) QueryForm(str string, cache *Cache) (*Form, error) {
+	accounts := am.Access()
 	privKeyString := util.ReadPrivKeyString(str)
 	account := accounts[privKeyString]
 	done := make(chan struct{}, 1)
@@ -150,23 +151,8 @@ func (am *AccountManager) QueryForm(str string, cache *Cache) *Form {
 	select {
 	case <-done:
 		if account == nil {
-			return nil
+			return nil, errors.New("account with private key does not exist")
 		}
-		return account.QueryForm(str, cache)
-	}
-}
-
-func (am *AccountManager) QueryResolved(str string, cache *Cache) *Form {
-	accounts := (*am).Access()
-	privKeyString := util.ReadPrivKeyString(str)
-	account := accounts[privKeyString]
-	done := make(chan struct{}, 1)
-	go am.Return(accounts, done)
-	select {
-	case <-done:
-		if account == nil {
-			return nil
-		}
-		return account.QueryResolved(str, cache)
+		return account.QueryForm(util.RemovePrivKeyString(str), cache)
 	}
 }

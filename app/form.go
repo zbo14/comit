@@ -96,6 +96,25 @@ func MakeForm(str string) (*Form, error) {
 	return form, nil
 }
 
+func CheckStatus(tm time.Time) string {
+	var nilTime = time.Time{}
+	if tm == nilTime {
+		return "unresolved"
+	}
+	return "resolved " + tm.String()[:16]
+}
+
+func ParseForm(form *Form) string {
+	_posted := (*form).Time.String()[:16] // up to the minute
+	_type := lib.SERVICE.WriteType((*form).Type)
+	_address := lib.SERVICE.WriteAddress((*form).Address)
+	_description := lib.SERVICE.WriteDescription((*form).Description)
+	_specfield := lib.SERVICE.WriteSpecField((*form).SpecField, (*form).Type)
+	_pubkey := lib.SERVICE.WritePubkeyString((*form).Pubkey)
+	_resolved := CheckStatus((*form).Resolved)
+	return _posted + _type + _address + _description + _specfield + _pubkey + _resolved
+}
+
 func FormID(form *Form) string {
 	bytes := make([]byte, 32)
 	items := []string{
