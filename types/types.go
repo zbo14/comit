@@ -69,7 +69,17 @@ func RenderTemplate(wr http.ResponseWriter, t string, pg *Page) {
 
 // Handler
 
-func SubmitHandler(wr http.ResponseWriter, req *http.Request) {
+func CreateAccountHandler(wr http.ResponseWriter, req *http.Request) {
 	pg, _ := LoadPage(string(req.URL.Path[1:]))
-	RenderTemplate(wr, "submit.html", pg)
+	RenderTemplate(wr, "create_account.html", pg)
+}
+
+func RemoveAccountHandler(wr http.ResponseWriter, req *http.Request) {
+	pg, _ := LoadPage(string(req.URL.Path[1:]))
+	RenderTemplate(wr, "remove_account.html", pg)
+}
+
+func SubmitFormHandler(wr http.ResponseWriter, req *http.Request) {
+	pg, _ := LoadPage(string(req.URL.Path[1:]))
+	RenderTemplate(wr, "submit_form.html", pg)
 }

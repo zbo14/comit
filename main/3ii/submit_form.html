@@ -1,0 +1,50 @@
+{{define "head"}}
+	<title>{{ .Title}}</title>
+{{end}}
+
+{{define "body"}}
+	<div class="container">
+		<p>Service Type</p>
+		<textarea id="type"></textarea> 
+	</div>
+	<div class="container">
+		<p>Address</p>
+		<textarea id="address"></textarea>
+	</div>
+	<div class="container">
+		<p>Description</p>
+		<textarea id="description"></textarea>
+	</div>
+	<div class="container">
+		<p>Details</p>
+		<textarea id="specfield"></textarea>
+	</div>
+	<div class="container">
+		<p>Public Key</p>
+		<textarea id="public-key"></textarea>
+	</div>
+	<div class="container">
+		<p>Private Key</p>
+		<textarea id="private-key"></textarea>
+	</div>
+	<div class="container">
+		<button type="button" id="submit">submit</button>
+	</div>
+
+	<script type="text/javascript" charset="utf-8">
+	$(function() {
+		var socket = io();
+		$('#submit').bind('click', function() {
+			var _type = $('#type').val();
+			var _address = $('#address').val();
+			var _description = $('#description').val();
+			var _specfield = $('#specfield').val();
+			var _pubkey = $('#public-key').val();
+			var _privkey = $('#private-key').val();
+			socket.emit('submit-form', _type, _address, _description, _specfield, _pubkey, _privkey)
+			// redirect
+		})
+	})
+	</script>
+
+{{end}}

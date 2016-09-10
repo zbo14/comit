@@ -6,54 +6,62 @@ import (
 	re "regexp"
 )
 
-// Privkey funcs
+// Pubkey funcs
 
-func ReadPrivKeyEd25519(tx []byte) (privkey PrivKeyEd25519) {
-	bytes := re.MustCompile(`PrivKeyEd25519{(.*?)}`).FindSubmatch(tx)[1]
-	copy(privkey[:], bytes)
-	return
+func PubKeyToString(pubkey PubKeyEd25519) string {
+	return fmt.Sprintf("%x", pubkey[:])
 }
 
-func ReadPrivKeyBytes(tx []byte) []byte {
-	return re.MustCompile(`PrivKeyEd25519{(.*?)}`).FindSubmatch(tx)[1]
+func ReadPubKeyBytes(bytes []byte) []byte {
+	return re.MustCompile(`PubKeyEd25519{(.*?)}`).FindSubmatch(bytes)[1]
+}
+
+func WritePubKeyBytes(pubKeyBytes []byte) []byte {
+	return []byte(fmt.Sprintf("PubKeyEd25519{%x}", pubKeyBytes))
+}
+
+func WritePubKeyString(pubKeyString string) string {
+	return fmt.Sprintf("PubKeyEd25519{%v}", pubKeyString)
+}
+
+func ReadPubKeyString(str string) string {
+	return re.MustCompile(`PubKeyEd25519{(.*?)}`).FindStringSubmatch(str)[1]
+}
+
+func RemovePubKeyBytes(bytes []byte) []byte {
+	return bytes[:re.MustCompile(`PubKeyEd25519{.*?}`).FindIndex(bytes)[0]]
+}
+
+func RemovePubKeyString(str string) string {
+	return str[:re.MustCompile(`PubKeyEd25519{.*?}`).FindStringIndex(str)[0]]
+}
+
+// Privkey funcs
+
+func PrivKeyToString(privkey PrivKeyEd25519) string {
+	return fmt.Sprintf("%x", privkey[:])
+}
+
+func ReadPrivKeyBytes(bytes []byte) []byte {
+	return re.MustCompile(`PrivKeyEd25519{(.*?)}`).FindSubmatch(bytes)[1]
 }
 
 func WritePrivKeyBytes(privKeyBytes []byte) []byte {
-	return []byte(fmt.Sprintf("PrivKeyEd25519{%v}", string(privKeyBytes)))
+	return []byte(fmt.Sprintf("PrivKeyEd25519{%x}", privKeyBytes))
 }
 
-func WritePrivKeyToString(privkey PrivKeyEd25519) string {
-	return fmt.Sprintf("PrivKeyEd25519{%v}", string(privkey[:]))
+func WritePrivKeyString(privKeyString string) string {
+	return fmt.Sprintf("PrivKeyEd25519{%v}", privKeyString)
 }
 
-func WritePrivKeyToBytes(privkey PrivKeyEd25519) []byte {
-	return []byte(WritePrivKeyToString(privkey))
+func ReadPrivKeyString(str string) string {
+	return re.MustCompile(`PrivKeyEd25519{(.*?)}`).FindStringSubmatch(str)[1]
 }
 
-func ReadPrivKeyString(tx []byte) string {
-	return string(ReadPrivKeyBytes(tx))
+func RemovePrivKeyBytes(bytes []byte) []byte {
+	return bytes[:re.MustCompile(`PrivKeyEd25519{.*?}`).FindIndex(bytes)[0]]
 }
 
-// Pubkey funcs
-
-func ReadPubKeyEd25519(tx []byte) (pubkey PubKeyEd25519) {
-	bytes := re.MustCompile(`PubKeyEd25519{(.*?)}`).FindSubmatch(tx)[1]
-	copy(pubkey[:], bytes)
-	return
-}
-
-func ReadPubKeyBytes(tx []byte) []byte {
-	return re.MustCompile(`PubKeyEd25519{(.*?)}`).FindSubmatch(tx)[1]
-}
-
-func WritePubKeyToString(pubkey PubKeyEd25519) string {
-	return fmt.Sprintf("PubKeyEd25519{%v}", string(pubkey[:]))
-}
-
-func WritePubKeyToBytes(pubkey PubKeyEd25519) []byte {
-	return []byte(WritePubKeyToString(pubkey))
-}
-
-func ReadPubKeyString(tx []byte) string {
-	return string(ReadPubKeyBytes(tx))
+func RemovePrivKeyString(str string) string {
+	return str[:re.MustCompile(`PrivKeyEd25519{.*?}`).FindStringIndex(str)[0]]
 }

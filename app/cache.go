@@ -2,39 +2,58 @@ package app
 
 import (
 	"errors"
+	"log"
 	"time"
 )
 
+type Forms map[string]*Form
+
 type Cache struct {
-	Forms    chan map[string]*Form
-	Resolved chan map[string]*Form
+	Forms    chan Forms
+	Resolved chan Forms
 }
 
 func CreateCache() *Cache {
 	return &Cache{
-		Forms:    make(chan map[string]*Form, 1),
-		Resolved: make(chan map[string]*Form, 1),
+		Forms:    make(chan Forms, 1),
+		Resolved: make(chan Forms, 1),
 	}
 }
 
 func (cache *Cache) Init(form *Form) {
-	cache.Forms <- map[string]*Form{}
-	cache.Resolved <- map[string]*Form{}
+	cache.Forms <- Forms{}
+	cache.Resolved <- Forms{}
+}
+
+func (cache *Cache) AccessForms() Forms {
+	return <-cache.Forms
+}
+
+func (cache *Cache) AccessResolved() Forms {
+	return <-cache.Resolved
+}
+
+func (cache *Cache) ReturnForms(forms Forms, done chan struct{}) {
+	cache.Forms <- forms
+	done <- struct{}{}
+}
+
+func (cache *Cache) ReturnResolved(resolved Forms, done chan struct{}) {
+	cache.Resolved <- resolved
+	done <- struct{}{}
 }
 
 func (cache *Cache) NewForm(id string, form *Form) error {
-	forms := <-cache.Forms
 	var err error = nil
+	forms := cache.AccessForms()
 	if forms[id] != nil {
 		err = errors.New("form with ID already exists")
 	} else {
 		forms[id] = form
 	}
+	log.Println(*form)
 	done := make(chan struct{}, 1)
-	go func() {
-		cache.Forms <- forms
-		done <- struct{}{}
-	}()
+	go cache.ReturnForms(forms, done)
 	select {
 	case <-done:
 		return err
@@ -42,8 +61,8 @@ func (cache *Cache) NewForm(id string, form *Form) error {
 }
 
 func (cache *Cache) ResolveForm(id string) {
-	forms := <-cache.Forms
-	resolved := <-cache.Resolved
+	forms := cache.AccessForms()
+	resolved := cache.AccessResolved()
 	Resolve(time.Now())(forms[id])
 	resolved[id] = forms[id]
 	cache.Resolved <- resolved
@@ -52,13 +71,10 @@ func (cache *Cache) ResolveForm(id string) {
 }
 
 func (cache *Cache) QueryForm(id string) (form *Form) {
-	forms := <-cache.Forms
+	forms := cache.AccessForms()
 	form = forms[id]
 	done := make(chan struct{}, 1)
-	go func() {
-		cache.Forms <- forms
-		done <- struct{}{}
-	}()
+	go cache.ReturnForms(forms, done)
 	select {
 	case <-done:
 		return
@@ -66,13 +82,10 @@ func (cache *Cache) QueryForm(id string) (form *Form) {
 }
 
 func (cache *Cache) QueryResolved(id string) (form *Form) {
-	resolved := <-cache.Resolved
+	resolved := cache.AccessResolved()
 	form = resolved[id]
 	done := make(chan struct{})
-	go func() {
-		cache.Resolved <- resolved
-		done <- struct{}{}
-	}()
+	go cache.ReturnResolved(resolved, done)
 	select {
 	case <-done:
 		return

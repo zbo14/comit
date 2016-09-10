@@ -10,25 +10,31 @@ import (
 
 // Account
 
-type Account struct {
-	PubKeyEd25519
+type Account PubKeyEd25519
+
+func (a *Account) ToString() string {
+	return fmt.Sprintf("%x", a[:])
 }
 
-func (a *Account) Sign() []byte {
-	return []byte(fmt.Sprintf("PubKeyEd25519{%X}", (*a).Bytes()))
+func (a *Account) Validate(pubKeyString string) bool {
+	return pubKeyString == a.ToString()
 }
 
-func (a *Account) SubmitForm(tx []byte, app *Application) types.Result {
-	tx = append(tx, (*a).Sign()...)
+func (a *Account) SubmitForm(str string, app *Application) types.Result {
+	pubKeyString := util.ReadPubKeyString(str)
+	if !a.Validate(pubKeyString) {
+		return types.NewResult(types.CodeType_InternalError, nil, "invalid public-private key pair")
+	}
+	tx := []byte(str)
 	return app.AppendTx(tx)
 }
 
-func (*Account) QueryForm(tx []byte, cache *Cache) *Form {
-	return (*cache).QueryForm(string(tx))
+func (*Account) QueryForm(str string, cache *Cache) *Form {
+	return (*cache).QueryForm(str)
 }
 
-func (*Account) QueryResolved(tx []byte, cache *Cache) *Form {
-	return (*cache).QueryResolved(string(tx))
+func (*Account) QueryResolved(str string, cache *Cache) *Form {
+	return (*cache).QueryResolved(str)
 }
 
 // Accounts, Accountdb
@@ -37,7 +43,16 @@ type Accounts map[string]*Account
 type Accountdb chan Accounts
 
 func CreateAccountdb() Accountdb {
-	return make(chan Accounts, 1)
+	accountdb := make(chan Accounts, 1)
+	done := make(chan struct{}, 1)
+	go func() {
+		accountdb <- Accounts{}
+		done <- struct{}{}
+	}()
+	select {
+	case <-done:
+		return accountdb
+	}
 }
 
 func (db Accountdb) Access() Accounts {
@@ -51,10 +66,11 @@ func (db Accountdb) Return(accounts Accounts, done chan struct{}) {
 
 func (db Accountdb) Add(privkey PrivKeyEd25519, account *Account) error {
 	accounts := db.Access()
-	if accounts[string(privkey[:])] != nil {
+	if accounts[util.PrivKeyToString(privkey)] != nil {
 		return errors.New("account with private key already exists")
 	}
-	accounts[string(privkey[:])] = account
+	accounts[util.PrivKeyToString(privkey)] = account
+	fmt.Println(accounts)
 	done := make(chan struct{}, 1)
 	go db.Return(accounts, done)
 	select {
@@ -63,15 +79,21 @@ func (db Accountdb) Add(privkey PrivKeyEd25519, account *Account) error {
 	}
 }
 
-func (db Accountdb) Remove(privkey PrivKeyEd25519) error {
+func (db Accountdb) Remove(pubKeyString string, privKeyString string) error {
+	var err error = nil
 	accounts := db.Access()
-	var err error
-	if accounts[string(privkey[:])] != nil {
-		delete(accounts, string(privkey[:]))
-		err = nil
+	account := accounts[privKeyString]
+	if account != nil {
+		if account.Validate(pubKeyString) {
+			delete(accounts, privKeyString)
+			err = nil
+		} else {
+			err = errors.New("invalid public-private key pair")
+		}
 	} else {
 		err = errors.New("account with private key does not exist")
 	}
+	fmt.Println(accounts)
 	done := make(chan struct{}, 1)
 	go db.Return(accounts, done)
 	select {
@@ -90,27 +112,24 @@ func CreateAccountManager() *AccountManager {
 	return &AccountManager{CreateAccountdb()}
 }
 
-func (am *AccountManager) CreateAccount(secret []byte) (PrivKeyEd25519, error) {
-	account := Account{}
-	privkey := GenPrivKeyEd25519FromSecret(secret)
-	copy(account.Bytes(), privkey.PubKey().Bytes())
-	err := am.Add(privkey, &account)
-	if err != nil {
-		for idx, _ := range privkey {
-			privkey[idx] = byte(0)
-		}
-	}
-	return privkey, err
+func (am *AccountManager) CreateAccount(passphrase string) (pubkey PubKeyEd25519, privkey PrivKeyEd25519, err error) {
+	var account = Account{}
+	secret := util.GenerateSecret([]byte(passphrase))
+	privkey = GenPrivKeyEd25519FromSecret(secret)
+	copy(pubkey[:], privkey.PubKey().Bytes())
+	copy(account[:], pubkey[:])
+	err = am.Add(privkey, &account)
+	return pubkey, privkey, err
 }
 
-func (am *AccountManager) RemoveAccount(privkey PrivKeyEd25519) error {
-	return am.Remove(privkey)
+func (am *AccountManager) RemoveAccount(pubKeyString string, privKeyString string) error {
+	return am.Remove(pubKeyString, privKeyString)
 }
 
-func (am *AccountManager) SubmitForm(tx []byte, app *Application) types.Result {
-	accounts := am.Access()
-	privkey := util.ReadPrivKeyEd25519(tx)
-	account := accounts[string(privkey[:])]
+func (am *AccountManager) SubmitForm(str string, app *Application) types.Result {
+	accounts := (*am).Access()
+	privKeyString := util.ReadPrivKeyString(str)
+	account := accounts[privKeyString]
 	done := make(chan struct{}, 1)
 	go am.Return(accounts, done)
 	select {
@@ -118,14 +137,14 @@ func (am *AccountManager) SubmitForm(tx []byte, app *Application) types.Result {
 		if account == nil {
 			return types.NewResult(types.CodeType_InternalError, nil, "account with private key does not exist")
 		}
-		return account.SubmitForm(tx, app)
+		return account.SubmitForm(util.RemovePrivKeyString(str), app)
 	}
 }
 
-func (am *AccountManager) QueryForm(tx []byte, cache *Cache) *Form {
-	accounts := am.Access()
-	privkey := util.ReadPrivKeyEd25519(tx)
-	account := accounts[string(privkey[:])]
+func (am *AccountManager) QueryForm(str string, cache *Cache) *Form {
+	accounts := (*am).Access()
+	privKeyString := util.ReadPrivKeyString(str)
+	account := accounts[privKeyString]
 	done := make(chan struct{}, 1)
 	go am.Return(accounts, done)
 	select {
@@ -133,14 +152,14 @@ func (am *AccountManager) QueryForm(tx []byte, cache *Cache) *Form {
 		if account == nil {
 			return nil
 		}
-		return account.QueryForm(tx, cache)
+		return account.QueryForm(str, cache)
 	}
 }
 
-func (am *AccountManager) QueryResolved(tx []byte, cache *Cache) *Form {
-	accounts := am.Access()
-	privkey := util.ReadPrivKeyEd25519(tx)
-	account := accounts[string(privkey[:])]
+func (am *AccountManager) QueryResolved(str string, cache *Cache) *Form {
+	accounts := (*am).Access()
+	privKeyString := util.ReadPrivKeyString(str)
+	account := accounts[privKeyString]
 	done := make(chan struct{}, 1)
 	go am.Return(accounts, done)
 	select {
@@ -148,6 +167,6 @@ func (am *AccountManager) QueryResolved(tx []byte, cache *Cache) *Form {
 		if account == nil {
 			return nil
 		}
-		return account.QueryResolved(tx, cache)
+		return account.QueryResolved(str, cache)
 	}
 }

@@ -7,41 +7,41 @@ import (
 
 type Field struct{}
 
-type FieldMethod func(tx []byte) []byte
+type FieldMethod func(str string) string
 
 type FieldInterface interface {
-	ReadCompletelyOut(tx []byte) []byte
-	WriteCompletelyOut(tx []byte) []byte
-	ReadPotholeLocation(tx []byte) []byte
-	WritePotholeLocation(tx []byte) []byte
-	ReadBackyardBaited(tx []byte) []byte
-	WriteBackyardBaited(tx []byte) []byte
+	ReadCompletelyOut(str string) string
+	WriteCompletelyOut(str string) string
+	ReadPotholeLocation(str string) string
+	WritePotholeLocation(str string) string
+	ReadBackyardBaited(str string) string
+	WriteBackyardBaited(str string) string
 }
 
 type FieldGroup map[string]FieldMethod
 
-func (Field) ReadCompletelyOut(tx []byte) []byte {
-	return re.MustCompile(`completely-out{(yes|no)}`).FindSubmatch(tx)[1]
+func (Field) ReadCompletelyOut(str string) string {
+	return re.MustCompile(`completely-out{(yes|no)}`).FindStringSubmatch(str)[1]
 }
 
-func (Field) WriteCompletelyOut(tx []byte) []byte {
-	return []byte(fmt.Sprintf("completely-out{%v}", string(tx)))
+func (Field) WriteCompletelyOut(str string) string {
+	return fmt.Sprintf("completely-out{%v}", str)
 }
 
-func (Field) ReadPotholeLocation(tx []byte) []byte {
-	return re.MustCompile(`pothole-location{(bike\slane|crosswalk|curb\slane|intersection|traffic\slane)}`).FindSubmatch(tx)[1]
+func (Field) ReadPotholeLocation(str string) string {
+	return re.MustCompile(`pothole-location{(bike\slane|crosswalk|curb\slane|intersection|traffic\slane)}`).FindStringSubmatch(str)[1]
 }
 
-func (Field) WritePotholeLocation(tx []byte) []byte {
-	return []byte(fmt.Sprintf("pothole-location{%v}", string(tx)))
+func (Field) WritePotholeLocation(str string) string {
+	return fmt.Sprintf("pothole-location{%v}", str)
 }
 
-func (Field) ReadBackyardBaited(tx []byte) []byte {
-	return re.MustCompile(`backyard-baited{(yes|no)}`).FindSubmatch(tx)[1]
+func (Field) ReadBackyardBaited(str string) string {
+	return re.MustCompile(`backyard-baited{(yes|no)}`).FindStringSubmatch(str)[1]
 }
 
-func (Field) WriteBackyardBaited(tx []byte) []byte {
-	return []byte(fmt.Sprintf("backyard-baited{%v}", string(tx)))
+func (Field) WriteBackyardBaited(str string) string {
+	return fmt.Sprintf("backyard-baited{%v}", str)
 }
 
 var FIELD FieldInterface = Field{}

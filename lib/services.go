@@ -9,16 +9,17 @@ import (
 type Service struct{}
 
 type ServiceInterface interface {
-	ReadType(tx []byte) []byte
-	WriteType(tx []byte) []byte
-	ReadAddress(tx []byte) []byte
-	WriteAddress(tx []byte) []byte
-	ReadDescription(tx []byte) []byte
-	WriteDescription(tx []byte) []byte
-	ReadSpecField(tx []byte, t []byte) []byte
-	WriteSpecField(tx []byte, t []byte) []byte
-	ReadPubkeyBytes(tx []byte) []byte
-	WritePrivkeyBytes(tx []byte) []byte
+	ReadType(tx string) string
+	WriteType(str string) string
+	ReadAddress(str string) string
+	WriteAddress(str string) string
+	ReadDescription(str string) string
+	WriteDescription(str string) string
+	ReadSpecField(str string, _type string) string
+	WriteSpecField(str string, _type string) string
+	WritePubkeyString(str string) string
+	WritePrivkeyString(str string) string
+	ReadPubkeyString(str string) string
 }
 
 var SpecFields = map[string]FieldGroup{
@@ -28,44 +29,48 @@ var SpecFields = map[string]FieldGroup{
 	"tree trim":                    nil,
 }
 
-func (Service) ReadType(tx []byte) []byte {
-	return re.MustCompile(`type{([\w+\s]+)}`).FindSubmatch(tx)[1]
+func (Service) ReadType(str string) string {
+	return re.MustCompile(`type{([\w+\s]+)}`).FindStringSubmatch(str)[1]
 }
 
-func (Service) WriteType(tx []byte) []byte {
-	return []byte(fmt.Sprintf("type{%v}", string(tx)))
+func (Service) WriteType(str string) string {
+	return fmt.Sprintf("type{%v}", str)
 }
 
-func (Service) ReadAddress(tx []byte) []byte {
-	return re.MustCompile(`address{([\w\s'\-\.\,]+)}`).FindSubmatch(tx)[1]
+func (Service) ReadAddress(str string) string {
+	return re.MustCompile(`address{([\w\s'\-\.\,]+)}`).FindStringSubmatch(str)[1]
 }
 
-func (Service) WriteAddress(tx []byte) []byte {
-	return []byte(fmt.Sprintf("address{%v}", string(tx)))
+func (Service) WriteAddress(str string) string {
+	return fmt.Sprintf("address{%v}", str)
 }
 
-func (Service) ReadDescription(tx []byte) []byte {
-	return re.MustCompile(`description{([\w+'?\w?.?\s]+)}`).FindSubmatch(tx)[1]
+func (Service) ReadDescription(str string) string {
+	return re.MustCompile(`description{([\w+'?\w?.?\s]+)}`).FindStringSubmatch(str)[1]
 }
 
-func (Service) WriteDescription(tx []byte) []byte {
-	return []byte(fmt.Sprintf("description{%v}", string(tx)))
+func (Service) WriteDescription(str string) string {
+	return fmt.Sprintf("description{%v}", str)
 }
 
-func (Service) ReadSpecField(tx []byte, t []byte) []byte {
-	return SpecFields[string(t)]["read"](tx)
+func (Service) ReadSpecField(str string, _type string) string {
+	return SpecFields[_type]["read"](str)
 }
 
-func (Service) WriteSpecField(tx []byte, t []byte) []byte {
-	return SpecFields[string(t)]["write"](tx)
+func (Service) WriteSpecField(str string, _type string) string {
+	return SpecFields[_type]["write"](str)
 }
 
-func (Service) ReadPubkeyBytes(tx []byte) []byte {
-	return util.ReadPubKeyBytes(tx)
+func (Service) WritePubkeyString(str string) string {
+	return util.WritePubKeyString(str)
 }
 
-func (Service) WritePrivkeyBytes(tx []byte) []byte {
-	return util.WritePrivKeyBytes(tx)
+func (Service) ReadPubkeyString(str string) string {
+	return util.ReadPubKeyString(str)
+}
+
+func (Service) WritePrivkeyString(str string) string {
+	return util.WritePrivKeyString(str)
 }
 
 var SERVICE ServiceInterface = Service{}

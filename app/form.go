@@ -10,11 +10,11 @@ import (
 
 type Form struct {
 	Time        time.Time
-	Type        []byte
-	Address     []byte
-	Description []byte
-	SpecField   []byte
-	PubkeyBytes []byte
+	Type        string
+	Address     string
+	Description string
+	SpecField   string
+	Pubkey      string
 
 	//==============//
 
@@ -42,53 +42,53 @@ func Time(tm time.Time) Item {
 	}
 }
 
-func Type(tx []byte) Item {
+func Type(str string) Item {
 	return func(form *Form) error {
-		(*form).Type = lib.SERVICE.ReadType(tx)
+		(*form).Type = lib.SERVICE.ReadType(str)
 		return nil
 	}
 }
 
-func Address(tx []byte) Item {
+func Address(str string) Item {
 	return func(form *Form) error {
-		(*form).Address = lib.SERVICE.ReadAddress(tx)
+		(*form).Address = lib.SERVICE.ReadAddress(str)
 		return nil
 	}
 }
 
-func Description(tx []byte) Item {
+func Description(str string) Item {
 	return func(form *Form) error {
-		(*form).Description = lib.SERVICE.ReadDescription(tx)
+		(*form).Description = lib.SERVICE.ReadDescription(str)
 		return nil
 	}
 }
 
-func SpecField(tx []byte) Item {
+func SpecField(str string) Item {
 	return func(form *Form) error {
-		t := (*form).Type
-		if len(t) > 0 {
-			(*form).SpecField = lib.SERVICE.ReadSpecField(tx, t)
+		_type := (*form).Type
+		if len(_type) > 0 {
+			(*form).SpecField = lib.SERVICE.ReadSpecField(str, _type)
 			return nil
 		}
-		return errors.New("cannot set form spec-field without type")
+		return errors.New("cannot set form details without type")
 	}
 }
 
-func PubkeyBytes(tx []byte) Item {
+func Pubkey(str string) Item {
 	return func(form *Form) error {
-		(*form).PubkeyBytes = lib.SERVICE.ReadPubkeyBytes(tx)
+		(*form).Pubkey = lib.SERVICE.ReadPubkeyString(str)
 		return nil
 	}
 }
 
-func MakeForm(tx []byte) (*Form, error) {
+func MakeForm(str string) (*Form, error) {
 	form, err := NewForm(
 		Time(time.Now()),
-		Type(tx),
-		Address(tx),
-		Description(tx),
-		SpecField(tx),
-		PubkeyBytes(tx),
+		Type(str),
+		Address(str),
+		Description(str),
+		SpecField(str),
+		Pubkey(str),
 	)
 	if err != nil {
 		return nil, err
@@ -98,17 +98,17 @@ func MakeForm(tx []byte) (*Form, error) {
 
 func FormID(form *Form) string {
 	bytes := make([]byte, 32)
-	items := [][]byte{
+	items := []string{
 		(*form).Type,
 		(*form).Address,
 		(*form).Description,
 		(*form).SpecField,
-		(*form).PubkeyBytes,
+		(*form).Pubkey,
 	}
 	for _, item := range items {
 		for idx, _ := range bytes {
 			if idx < len(item) {
-				bytes[idx] ^= item[idx]
+				bytes[idx] ^= byte(item[idx])
 			} else {
 				break
 			}
