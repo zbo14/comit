@@ -4,7 +4,7 @@ import (
 	"errors"
 	. "github.com/tendermint/go-crypto"
 	util "github.com/zballs/3ii/util"
-	"log"
+	// "log"
 )
 
 // Admin

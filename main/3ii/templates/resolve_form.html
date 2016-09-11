@@ -23,13 +23,13 @@
 				$('#formID-label').html("<span style='color:red;'>Enter Form ID</span>"); 
 				valid_entry = false;
 			}
-			var _pubkey = $('#pubkey').val();
-			if (_pubkey.length == 0) {
+			var pubKeyString = $('#pubkey').val();
+			if (pubKeyString.length == 0) {
 				$('#pubkey-label').html("<span style='color:red;'>Enter Public Key</span>"); 
 				valid_entry = false;
 			}
-			var _privkey = $('#privkey').val();
-			if (_privkey.length == 0) {
+			var privKeyString = $('#privkey').val();
+			if (privKeyString.length == 0) {
 				$('#privkey-label').html("<span style='color:red;'>Enter Private Key</span>"); 
 				valid_entry = false;
 			}
@@ -37,7 +37,7 @@
 				$('#formID-label').html("<span style='color:black;'>Form ID</span>"); 
 				$('#pubkey-label').html("<span style='color:black;'>Public Key</span>"); 
 				$('#privkey-label').html("<span style='color:black;'>Private Key</span>"); 
-				socket.emit('resolve-form', _formID, _pubkey, _privkey)
+				socket.emit('resolve-form', _formID, pubKeyString, privKeyString)
 				socket.on('resolve-msg', function(msg){
 					$('#resolve-msg').html(msg)
 				})

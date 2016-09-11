@@ -94,12 +94,17 @@ func SubmitFormHandler(wr http.ResponseWriter, req *http.Request) {
 	RenderTemplate(wr, "submit_form.html", pg)
 }
 
-func QueryFormHandler(wr http.ResponseWriter, req *http.Request) {
+func FindFormHandler(wr http.ResponseWriter, req *http.Request) {
 	pg, _ := LoadPage(string(req.URL.Path[1:]))
-	RenderTemplate(wr, "query_form.html", pg)
+	RenderTemplate(wr, "find_form.html", pg)
 }
 
 func ResolveFormHandler(wr http.ResponseWriter, req *http.Request) {
 	pg, _ := LoadPage(string(req.URL.Path[1:]))
 	RenderTemplate(wr, "resolve_form.html", pg)
+}
+
+func SearchFormsHandler(wr http.ResponseWriter, req *http.Request) {
+	pg, _ := LoadPage(string(req.URL.Path[1:]))
+	RenderTemplate(wr, "search_forms.html", pg)
 }

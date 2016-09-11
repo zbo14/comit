@@ -21,7 +21,11 @@ type FieldInterface interface {
 type FieldGroup map[string]FieldMethod
 
 func (Field) ReadCompletelyOut(str string) string {
-	return re.MustCompile(`completely-out{(yes|no)}`).FindStringSubmatch(str)[1]
+	res := re.MustCompile(`completely-out{(yes|no)}`).FindStringSubmatch(str)
+	if len(res) > 1 {
+		return res[1]
+	}
+	return ""
 }
 
 func (Field) WriteCompletelyOut(str string) string {
@@ -29,7 +33,11 @@ func (Field) WriteCompletelyOut(str string) string {
 }
 
 func (Field) ReadPotholeLocation(str string) string {
-	return re.MustCompile(`pothole-location{(bike\slane|crosswalk|curb\slane|intersection|traffic\slane)}`).FindStringSubmatch(str)[1]
+	res := re.MustCompile(`pothole-location{(bike\slane|crosswalk|curb\slane|intersection|traffic\slane)}`).FindStringSubmatch(str)
+	if len(res) > 1 {
+		return res[1]
+	}
+	return ""
 }
 
 func (Field) WritePotholeLocation(str string) string {
@@ -37,7 +45,11 @@ func (Field) WritePotholeLocation(str string) string {
 }
 
 func (Field) ReadBackyardBaited(str string) string {
-	return re.MustCompile(`backyard-baited{(yes|no)}`).FindStringSubmatch(str)[1]
+	res := re.MustCompile(`backyard-baited{(yes|no)}`).FindStringSubmatch(str)
+	if len(res) > 1 {
+		return res[1]
+	}
+	return ""
 }
 
 func (Field) WriteBackyardBaited(str string) string {

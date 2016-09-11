@@ -2,7 +2,6 @@ package lib
 
 import (
 	"fmt"
-	util "github.com/zballs/3ii/util"
 	re "regexp"
 )
 
@@ -17,11 +16,6 @@ type ServiceInterface interface {
 	WriteDescription(str string) string
 	ReadSpecField(str string, _type string) string
 	WriteSpecField(str string, _type string) string
-	WritePubkeyString(str string) string
-	WritePrivkeyString(str string) string
-	ReadPubkeyString(str string) string
-	WriteFormID(str string) string
-	ReadFormID(str string) string
 }
 
 var SpecFields = map[string]FieldGroup{
@@ -32,7 +26,11 @@ var SpecFields = map[string]FieldGroup{
 }
 
 func (Service) ReadType(str string) string {
-	return re.MustCompile(`type{([\w+\s]+)}`).FindStringSubmatch(str)[1]
+	res := re.MustCompile(`type{([\w+\s]+)}`).FindStringSubmatch(str)
+	if len(res) > 1 {
+		return res[1]
+	}
+	return ""
 }
 
 func (Service) WriteType(str string) string {
@@ -40,7 +38,11 @@ func (Service) WriteType(str string) string {
 }
 
 func (Service) ReadAddress(str string) string {
-	return re.MustCompile(`address{([\w\s'\-\.\,]+)}`).FindStringSubmatch(str)[1]
+	res := re.MustCompile(`address{([\w\s'\-\.\,]+)}`).FindStringSubmatch(str)
+	if len(res) > 1 {
+		return res[1]
+	}
+	return ""
 }
 
 func (Service) WriteAddress(str string) string {
@@ -48,7 +50,11 @@ func (Service) WriteAddress(str string) string {
 }
 
 func (Service) ReadDescription(str string) string {
-	return re.MustCompile(`description{([\w+'?\w?.?\s]+)}`).FindStringSubmatch(str)[1]
+	res := re.MustCompile(`description{([\w+'?\w?.?\s]+)}`).FindStringSubmatch(str)
+	if len(res) > 1 {
+		return res[1]
+	}
+	return ""
 }
 
 func (Service) WriteDescription(str string) string {
@@ -61,26 +67,6 @@ func (Service) ReadSpecField(str string, _type string) string {
 
 func (Service) WriteSpecField(str string, _type string) string {
 	return SpecFields[_type]["write"](str)
-}
-
-func (Service) WritePubkeyString(str string) string {
-	return util.WritePubKeyString(str)
-}
-
-func (Service) ReadPubkeyString(str string) string {
-	return util.ReadPubKeyString(str)
-}
-
-func (Service) WritePrivkeyString(str string) string {
-	return util.WritePrivKeyString(str)
-}
-
-func (Service) WriteFormID(str string) string {
-	return util.WriteFormID(str)
-}
-
-func (Service) ReadFormID(str string) string {
-	return util.ReadFormID(str)
 }
 
 var SERVICE ServiceInterface = Service{}

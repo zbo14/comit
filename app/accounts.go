@@ -33,13 +33,21 @@ func (a *Account) SubmitForm(str string, app *Application) types.Result {
 	return app.AppendTx(tx)
 }
 
-func (a *Account) QueryForm(str string, cache *Cache) (*Form, error) {
+func (a *Account) FindForm(str string, cache *Cache) (*Form, error) {
 	pubKeyString := util.ReadPubKeyString(str)
 	if !a.Validate(pubKeyString) {
 		return nil, errors.New("invalid public-private key pair")
 	}
 	id := util.ReadFormID(str)
-	return cache.QueryForm(id)
+	return cache.FindForm(id)
+}
+
+func (a *Account) SearchForms(str string, _status string, cache *Cache) (Formlist, error) {
+	pubKeyString := util.ReadPubKeyString(str)
+	if !a.Validate(pubKeyString) {
+		return nil, errors.New("invalid public-private key pair")
+	}
+	return cache.SearchForms(str, _status), nil
 }
 
 // Accounts, Accountdb
@@ -144,7 +152,7 @@ func (am *AccountManager) SubmitForm(str string, app *Application) types.Result 
 	}
 }
 
-func (am *AccountManager) QueryForm(str string, cache *Cache) (*Form, error) {
+func (am *AccountManager) FindForm(str string, cache *Cache) (*Form, error) {
 	accounts := am.Access()
 	privKeyString := util.ReadPrivKeyString(str)
 	account := accounts[privKeyString]
@@ -155,6 +163,21 @@ func (am *AccountManager) QueryForm(str string, cache *Cache) (*Form, error) {
 		if account == nil {
 			return nil, errors.New("account with private key does not exist")
 		}
-		return account.QueryForm(util.RemovePrivKeyString(str), cache)
+		return account.FindForm(util.RemovePrivKeyString(str), cache)
+	}
+}
+
+func (am *AccountManager) SearchForms(str string, _status string, cache *Cache) (Formlist, error) {
+	accounts := am.Access()
+	privKeyString := util.ReadPrivKeyString(str)
+	account := accounts[privKeyString]
+	done := make(chan struct{}, 1)
+	go am.Restore(accounts, done)
+	select {
+	case <-done:
+		if account == nil {
+			return nil, errors.New("account with private key does not exist")
+		}
+		return account.SearchForms(util.RemovePrivKeyString(str), _status, cache)
 	}
 }

@@ -2,7 +2,6 @@ package app
 
 import (
 	"errors"
-	// "log"
 	"time"
 )
 
@@ -62,7 +61,7 @@ func (cache *Cache) NewForm(id string, form *Form) error {
 	}
 }
 
-func (cache *Cache) QueryUnresolved(id string) (form *Form, err error) {
+func (cache *Cache) FindUnresolved(id string) (form *Form, err error) {
 	forms := cache.AccessUnresolved()
 	form = forms[id]
 	if form == nil {
@@ -76,7 +75,7 @@ func (cache *Cache) QueryUnresolved(id string) (form *Form, err error) {
 	}
 }
 
-func (cache *Cache) QueryResolved(id string) (form *Form, err error) {
+func (cache *Cache) FindResolved(id string) (form *Form, err error) {
 	forms := cache.AccessResolved()
 	form = forms[id]
 	if form == nil {
@@ -90,9 +89,9 @@ func (cache *Cache) QueryResolved(id string) (form *Form, err error) {
 	}
 }
 
-func (cache *Cache) QueryForm(id string) (*Form, error) {
-	form1, err1 := cache.QueryUnresolved(id)
-	form2, err2 := cache.QueryResolved(id)
+func (cache *Cache) FindForm(id string) (*Form, error) {
+	form1, err1 := cache.FindUnresolved(id)
+	form2, err2 := cache.FindResolved(id)
 	if form1 != nil && err1 == nil && form2 == nil && err2 != nil {
 		return form1, nil
 	} else if form2 != nil && err2 == nil && form1 == nil && err1 != nil {
@@ -123,6 +122,45 @@ func (cache *Cache) ResolveForm(id string) error {
 		}
 		return nil
 	}
+}
+
+func (cache *Cache) SearchUnresolved(str string) (formlist Formlist) {
+	forms := cache.AccessUnresolved()
+	for _, form := range forms {
+		if MatchForm(str, form) {
+			formlist = append(formlist, form)
+		}
+	}
+	done := make(chan struct{}, 1)
+	go cache.RestoreUnresolved(forms, done)
+	select {
+	case <-done:
+		return
+	}
+}
+
+func (cache *Cache) SearchResolved(str string) (formlist Formlist) {
+	forms := cache.AccessResolved()
+	for _, form := range forms {
+		if MatchForm(str, form) {
+			formlist = append(formlist, form)
+		}
+	}
+	done := make(chan struct{}, 1)
+	go cache.RestoreResolved(forms, done)
+	select {
+	case <-done:
+		return
+	}
+}
+
+func (cache *Cache) SearchForms(str string, _status string) Formlist {
+	if _status == "unresolved" {
+		return cache.SearchUnresolved(str)
+	} else if _status == "resolved" {
+		return cache.SearchResolved(str)
+	}
+	return append(cache.SearchUnresolved(str), cache.SearchResolved(str)...)
 }
 
 // Stats

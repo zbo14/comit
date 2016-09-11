@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	lib "github.com/zballs/3ii/lib"
+	util "github.com/zballs/3ii/util"
 	"time"
 )
 
@@ -21,6 +22,8 @@ type Form struct {
 	Resolved     time.Time
 	ResponseTime float64
 }
+
+type Formlist []*Form
 
 type Item func(*Form) error
 
@@ -76,7 +79,7 @@ func SpecField(str string) Item {
 
 func Pubkey(str string) Item {
 	return func(form *Form) error {
-		(*form).Pubkey = lib.SERVICE.ReadPubkeyString(str)
+		(*form).Pubkey = util.ReadPubKeyString(str)
 		return nil
 	}
 }
@@ -110,9 +113,9 @@ func ParseForm(form *Form) string {
 	_address := lib.SERVICE.WriteAddress((*form).Address)
 	_description := lib.SERVICE.WriteDescription((*form).Description)
 	_specfield := lib.SERVICE.WriteSpecField((*form).SpecField, (*form).Type)
-	_pubkey := lib.SERVICE.WritePubkeyString((*form).Pubkey)
+	_pubkey := util.WritePubKeyString((*form).Pubkey)
 	_resolved := CheckStatus((*form).Resolved)
-	return _posted + "<br>" + _type + "<br>" + _address + "<br>" + _description + "<br>" + _specfield + "<br>" + _pubkey + "<br>" + _resolved
+	return _posted + "<br>" + _type + "<br>" + _address + "<br>" + _description + "<br>" + _specfield + "<br>" + _pubkey + "<br>" + _resolved + "<br><br>"
 }
 
 func FormID(form *Form) string {
@@ -134,6 +137,28 @@ func FormID(form *Form) string {
 		}
 	}
 	return fmt.Sprintf("%x", md5.Sum(bytes))
+}
+
+func MatchForm(str string, form *Form) bool {
+	_type := lib.SERVICE.ReadType(str)
+	if len(_type) > 0 {
+		if !(_type == (*form).Type) {
+			return false
+		}
+	}
+	_address := lib.SERVICE.ReadAddress(str)
+	if len(_address) > 0 {
+		if !util.SubstringMatch(_address, (*form).Address) {
+			return false
+		}
+	}
+	_specfield := lib.SERVICE.ReadSpecField(str, _type)
+	if len(_specfield) > 0 {
+		if !(_specfield == (*form).SpecField) {
+			return false
+		}
+	}
+	return true
 }
 
 //=========================================//

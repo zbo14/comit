@@ -70,8 +70,8 @@ func (al ActionListener) Run(app *Application) {
 		})
 
 		// Submit Forms
-		so.On("submit-form", func(_type string, _address string, _description string, _specfield string, _pubkey string, _privkey string) {
-			str := lib.SERVICE.WriteType(_type) + lib.SERVICE.WriteAddress(_address) + lib.SERVICE.WriteDescription(_description) + lib.SERVICE.WriteSpecField(_specfield, _type) + lib.SERVICE.WritePubkeyString(_pubkey) + lib.SERVICE.WritePrivkeyString(_privkey)
+		so.On("submit-form", func(_type string, _address string, _description string, _specfield string, pubKeyString string, privKeyString string) {
+			str := lib.SERVICE.WriteType(_type) + lib.SERVICE.WriteAddress(_address) + lib.SERVICE.WriteDescription(_description) + lib.SERVICE.WriteSpecField(_specfield, _type) + util.WritePubKeyString(pubKeyString) + util.WritePrivKeyString(privKeyString)
 			result := app.admin_manager.SubmitForm(str, app)
 			if result.IsErr() {
 				log.Println(result.Error())
@@ -81,10 +81,10 @@ func (al ActionListener) Run(app *Application) {
 			}
 		})
 
-		// Query Forms
-		so.On("query-form", func(_formID string, _pubkey string, _privkey string) {
-			str := lib.SERVICE.WriteFormID(_formID) + lib.SERVICE.WritePubkeyString(_pubkey) + lib.SERVICE.WritePrivkeyString(_privkey)
-			form, err := app.admin_manager.QueryForm(str, app.cache)
+		// Find Forms
+		so.On("find-form", func(_formID string, pubKeyString string, privKeyString string) {
+			str := util.WriteFormID(_formID) + util.WritePubKeyString(pubKeyString) + util.WritePrivKeyString(privKeyString)
+			form, err := app.admin_manager.FindForm(str, app.cache)
 			if err != nil {
 				log.Println(err.Error())
 				so.Emit("form-msg", "could not find form with ID "+_formID)
@@ -94,14 +94,40 @@ func (al ActionListener) Run(app *Application) {
 		})
 
 		// Resolve Forms
-		so.On("resolve-form", func(_formID string, _pubkey string, _privkey string) {
-			str := lib.SERVICE.WriteFormID(_formID) + lib.SERVICE.WritePubkeyString(_pubkey) + lib.SERVICE.WritePrivkeyString(_privkey)
+		so.On("resolve-form", func(_formID string, pubKeyString string, privKeyString string) {
+			str := util.WriteFormID(_formID) + util.WritePubKeyString(pubKeyString) + util.WritePrivKeyString(privKeyString)
 			err := app.admin_manager.ResolveForm(str, app.cache)
 			if err != nil {
 				log.Println(err.Error())
 				so.Emit("resolve-msg", "could not resolve form with ID "+_formID)
 			} else {
 				so.Emit("resolve-msg", "resolved form with ID "+_formID)
+			}
+		})
+
+		// Search forms
+		so.On("search-forms", func(_type string, _address string, _specfield string, _status string, pubKeyString string, privKeyString string) {
+			var str string = ""
+			if len(_type) > 0 {
+				str += lib.SERVICE.WriteType(_type)
+			}
+			if len(_address) > 0 {
+				str += lib.SERVICE.WriteAddress(_address)
+			}
+			if len(_specfield) > 0 {
+				str += lib.SERVICE.WriteSpecField(_specfield, _type)
+			}
+			str += util.WritePubKeyString(pubKeyString) + util.WritePrivKeyString(privKeyString)
+			formlist, err := app.admin_manager.SearchForms(str, _status, app.cache)
+			if err != nil || len(formlist) == 0 {
+				log.Println(err)
+				so.Emit("forms-msg", "could not find forms")
+			} else {
+				var msg string = ""
+				for _, form := range formlist {
+					msg += ParseForm(form)
+				}
+				so.Emit("forms-msg", msg)
 			}
 		})
 

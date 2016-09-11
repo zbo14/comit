@@ -1,0 +1,50 @@
+s{{define "head"}}
+	<title>{{ .Title}}</title>
+{{end}}
+
+{{define "body"}}
+	<div class="container">
+		<p id="formID-label">Form ID</p>
+		<textarea id="formID"></textarea>
+		<p id="pubkey-label">Public Key</p>
+		<textarea id="pubkey"></textarea>
+		<p id="privkey-label">Private Key</p>
+		<textarea id="privkey"></textarea>
+		<button type="button" id="find">find</button>
+		<p id="form"></p>
+	</div>
+	<script type="text/javascript" charset="utf-8">
+	$(function() {
+		var socket = io();
+		$('#find').bind('click', function() {
+			var valid_entry = true
+			var _formID = $('#formID').val();
+			if (_formID.length == 0) {
+				$('#formID-label').html("<span style='color:red;'>Enter Form ID</span>"); 
+				valid_entry = false;
+			}
+			var pubKeyString = $('#pubkey').val();
+			if (pubKeyString.length == 0) {
+				$('#pubkey-label').html("<span style='color:red;'>Enter Public Key</span>"); 
+				valid_entry = false;
+			}
+			var privKeyString = $('#privkey').val();
+			if (privKeyString.length == 0) {
+				$('#privkey-label').html("<span style='color:red;'>Enter Private Key</span>"); 
+				valid_entry = false;
+			}
+			if (valid_entry) {
+				$('#formID-label').html("<span style='color:black;'>Form ID</span>"); 
+				$('#pubkey-label').html("<span style='color:black;'>Public Key</span>"); 
+				$('#privkey-label').html("<span style='color:black;'>Private Key</span>"); 
+				socket.emit('find-form', _formID, pubKeyString, privKeyString)
+				socket.on('form-msg', function(msg){
+					$('#form').html(msg)
+				})
+			}
+			// redirect
+		})
+	})
+	</script>
+
+{{end}}
