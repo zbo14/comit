@@ -119,7 +119,7 @@ func ParseForm(form *Form) string {
 }
 
 func FormID(form *Form) string {
-	bytes := make([]byte, 32)
+	bytes := make([]byte, 32) // 64?
 	items := []string{
 		(*form).Type,
 		(*form).Address,

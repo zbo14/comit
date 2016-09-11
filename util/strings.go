@@ -14,11 +14,11 @@ func PubKeyToString(pubkey PubKeyEd25519) string {
 }
 
 func WritePubKeyString(pubKeyString string) string {
-	return fmt.Sprintf("PubKeyEd25519{%v}", pubKeyString)
+	return fmt.Sprintf("pubkey{%v}", pubKeyString)
 }
 
 func ReadPubKeyString(str string) string {
-	res := re.MustCompile(`PubKeyEd25519{(.*?)}`).FindStringSubmatch(str)
+	res := re.MustCompile(`pubkey{([a-z0-9]{64})}`).FindStringSubmatch(str)
 	if len(res) > 1 {
 		return res[1]
 	}
@@ -26,7 +26,7 @@ func ReadPubKeyString(str string) string {
 }
 
 func RemovePubKeyString(str string) string {
-	return str[:re.MustCompile(`PubKeyEd25519{.*?}`).FindStringIndex(str)[0]]
+	return str[:re.MustCompile(`pubkey{([a-z0-9]{64})}`).FindStringIndex(str)[0]]
 }
 
 // Privkeys
@@ -36,11 +36,11 @@ func PrivKeyToString(privkey PrivKeyEd25519) string {
 }
 
 func WritePrivKeyString(privKeyString string) string {
-	return fmt.Sprintf("PrivKeyEd25519{%v}", privKeyString)
+	return fmt.Sprintf("privkey{%v}", privKeyString)
 }
 
 func ReadPrivKeyString(str string) string {
-	res := re.MustCompile(`PrivKeyEd25519{(.*?)}`).FindStringSubmatch(str)
+	res := re.MustCompile(`privkey{([a-z0-9]{128})}`).FindStringSubmatch(str)
 	if len(res) > 1 {
 		return res[1]
 	}
@@ -48,13 +48,13 @@ func ReadPrivKeyString(str string) string {
 }
 
 func RemovePrivKeyString(str string) string {
-	return str[:re.MustCompile(`PrivKeyEd25519{.*?}`).FindStringIndex(str)[0]]
+	return str[:re.MustCompile(`privkey{([a-z0-9]{128})}`).FindStringIndex(str)[0]]
 }
 
 // Form IDs
 
 func ReadFormID(str string) string {
-	res := re.MustCompile(`form{(.*?)}`).FindStringSubmatch(str)
+	res := re.MustCompile(`form{([a-z0-9]{32})}`).FindStringSubmatch(str)
 	if len(res) > 1 {
 		return res[1]
 	}

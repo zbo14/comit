@@ -26,7 +26,7 @@ var SpecFields = map[string]FieldGroup{
 }
 
 func (Service) ReadType(str string) string {
-	res := re.MustCompile(`type{([\w+\s]+)}`).FindStringSubmatch(str)
+	res := re.MustCompile(`type{([\w\s]+)}`).FindStringSubmatch(str)
 	if len(res) > 1 {
 		return res[1]
 	}
@@ -50,7 +50,7 @@ func (Service) WriteAddress(str string) string {
 }
 
 func (Service) ReadDescription(str string) string {
-	res := re.MustCompile(`description{([\w+'?\w?.?\s]+)}`).FindStringSubmatch(str)
+	res := re.MustCompile(`description{([\w\s'\-\.\,\?\!\\]+)}`).FindStringSubmatch(str)
 	if len(res) > 1 {
 		return res[1]
 	}
