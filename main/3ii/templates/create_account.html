@@ -6,13 +6,8 @@
 	<div class="container">
 		<p>Enter passphrase</p>
 		<textarea id="passphrase"></textarea>
-	</div>
-	<div class="container">
 		<button type="button" id="create-account">create account</button>
-	</div>
-	<div class="container" id="content" style="display: hidden;">
-		<p id="pubkey"></p>
-		<p id="privkey"></p>
+		<p id="keys" style="display: hidden;"></p>
 	</div>
 	<script type="text/javascript">
 		$(function() {
@@ -20,10 +15,8 @@
 			$('#create-account').bind('click', function() {
 				var passphrase = $('#passphrase').val();
 				socket.emit('create-account', passphrase)
-				socket.on('return-keys', function(pubkey, privkey) {
-					$('#content').show(100, "linear")
-					$('#pubkey').text("Your public key is " + pubkey)
-					$('#privkey').text("Your private key is " + privkey + "\nDo not lose it or give it to anyone!")
+				socket.on('keys-msg', function(msg) {
+					$('#keys').show(100, "linear").html(msg)
 				})
 			})
 		})

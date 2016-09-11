@@ -74,9 +74,19 @@ func CreateAccountHandler(wr http.ResponseWriter, req *http.Request) {
 	RenderTemplate(wr, "create_account.html", pg)
 }
 
+func CreateAdminHandler(wr http.ResponseWriter, req *http.Request) {
+	pg, _ := LoadPage(string(req.URL.Path[1:]))
+	RenderTemplate(wr, "create_admin.html", pg)
+}
+
 func RemoveAccountHandler(wr http.ResponseWriter, req *http.Request) {
 	pg, _ := LoadPage(string(req.URL.Path[1:]))
 	RenderTemplate(wr, "remove_account.html", pg)
+}
+
+func RemoveAdminHandler(wr http.ResponseWriter, req *http.Request) {
+	pg, _ := LoadPage(string(req.URL.Path[1:]))
+	RenderTemplate(wr, "remove_admin.html", pg)
 }
 
 func SubmitFormHandler(wr http.ResponseWriter, req *http.Request) {

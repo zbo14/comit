@@ -9,7 +9,7 @@
 		<p>Enter private key</p>
 		<textarea id="private-key"></textarea>
 		<button type="button" id="remove-account">remove account</button>
-		<p id="remove-msg"></p>
+		<p id="remove"></p>
 	</div>
 	<script type="text/javascript">
 		$(function() {
@@ -19,7 +19,7 @@
 				var privKeyString = $('#private-key').val();
 				socket.emit('remove-account', pubKeyString, privKeyString)
 				socket.on('remove-msg', function(msg) {
-					$('#remove-msg').text(msg)
+					$('#remove-msg').html(msg)
 				})
 			})
 		})

@@ -1,0 +1,24 @@
+{{define "head"}}
+	<title>{{ .Title}}</title>
+{{end}}
+
+{{define "body"}}
+	<div class="container">
+		<p>Enter passphrase</p>
+		<textarea id="passphrase"></textarea>
+		<button type="button" id="create-admin">create admin</button>
+		<p id="keys" style="display: hidden;"></p>
+	</div>
+	<script type="text/javascript">
+		$(function() {
+			var socket = io();
+			$('#create-admin').bind('click', function() {
+				var passphrase = $('#passphrase').val();
+				socket.emit('create-admin', passphrase)
+				socket.on('admin-keys-msg', function(msg) {
+					$('#keys').show(100, "linear").html(msg)
+				})
+			})
+		})
+	</script>
+{{end}}

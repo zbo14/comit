@@ -39,7 +39,7 @@
 				$('#privkey-label').html("<span style='color:black;'>Private Key</span>"); 
 				socket.emit('resolve-form', _formID, _pubkey, _privkey)
 				socket.on('resolve-msg', function(msg){
-					$('#resolve-msg').text(msg)
+					$('#resolve-msg').html(msg)
 				})
 			}
 			// redirect

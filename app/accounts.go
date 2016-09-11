@@ -12,6 +12,10 @@ import (
 
 type Account PubKeyEd25519
 
+func (a *Account) CopyBytes(bytes []byte) {
+	copy(a[:], bytes)
+}
+
 func (a *Account) ToString() string {
 	return fmt.Sprintf("%x", a[:])
 }
@@ -38,15 +42,6 @@ func (a *Account) QueryForm(str string, cache *Cache) (*Form, error) {
 	return cache.QueryForm(id)
 }
 
-func (a *Account) ResolveForm(str string, cache *Cache) error {
-	pubKeyString := util.ReadPubKeyString(str)
-	if !a.Validate(pubKeyString) {
-		return errors.New("invalid public-private key pair")
-	}
-	id := util.ReadFormID(str)
-	return cache.ResolveForm(id)
-}
-
 // Accounts, Accountdb
 
 type Accounts map[string]*Account
@@ -69,7 +64,7 @@ func (db *Accountdb) Access() Accounts {
 	return <-(*db)
 }
 
-func (db *Accountdb) Return(accounts Accounts, done chan struct{}) {
+func (db *Accountdb) Restore(accounts Accounts, done chan struct{}) {
 	(*db) <- accounts
 	done <- struct{}{}
 }
@@ -80,9 +75,8 @@ func (db *Accountdb) Add(privkey PrivKeyEd25519, account *Account) error {
 		return errors.New("account with private key already exists")
 	}
 	accounts[util.PrivKeyToString(privkey)] = account
-	fmt.Println(accounts)
 	done := make(chan struct{}, 1)
-	go db.Return(accounts, done)
+	go db.Restore(accounts, done)
 	select {
 	case <-done:
 		return nil
@@ -96,7 +90,6 @@ func (db *Accountdb) Remove(pubKeyString string, privKeyString string) error {
 	if account != nil {
 		if account.Validate(pubKeyString) {
 			delete(accounts, privKeyString)
-			err = nil
 		} else {
 			err = errors.New("invalid public-private key pair")
 		}
@@ -105,7 +98,7 @@ func (db *Accountdb) Remove(pubKeyString string, privKeyString string) error {
 	}
 	fmt.Println(accounts)
 	done := make(chan struct{}, 1)
-	go db.Return(accounts, done)
+	go db.Restore(accounts, done)
 	select {
 	case <-done:
 		return err
@@ -127,7 +120,7 @@ func (am *AccountManager) CreateAccount(passphrase string) (pubkey PubKeyEd25519
 	secret := util.GenerateSecret([]byte(passphrase))
 	privkey = GenPrivKeyEd25519FromSecret(secret)
 	copy(pubkey[:], privkey.PubKey().Bytes())
-	copy(account[:], pubkey[:])
+	account.CopyBytes(pubkey[:])
 	err = am.Add(privkey, &account)
 	return pubkey, privkey, err
 }
@@ -141,7 +134,7 @@ func (am *AccountManager) SubmitForm(str string, app *Application) types.Result 
 	privKeyString := util.ReadPrivKeyString(str)
 	account := accounts[privKeyString]
 	done := make(chan struct{}, 1)
-	go am.Return(accounts, done)
+	go am.Restore(accounts, done)
 	select {
 	case <-done:
 		if account == nil {
@@ -156,27 +149,12 @@ func (am *AccountManager) QueryForm(str string, cache *Cache) (*Form, error) {
 	privKeyString := util.ReadPrivKeyString(str)
 	account := accounts[privKeyString]
 	done := make(chan struct{}, 1)
-	go am.Return(accounts, done)
+	go am.Restore(accounts, done)
 	select {
 	case <-done:
 		if account == nil {
 			return nil, errors.New("account with private key does not exist")
 		}
 		return account.QueryForm(util.RemovePrivKeyString(str), cache)
-	}
-}
-
-func (am *AccountManager) ResolveForm(str string, cache *Cache) error {
-	accounts := am.Access()
-	privKeyString := util.ReadPrivKeyString(str)
-	account := accounts[privKeyString]
-	done := make(chan struct{}, 1)
-	go am.Return(accounts, done)
-	select {
-	case <-done:
-		if account == nil {
-			return errors.New("account with private key does not exist")
-		}
-		return account.ResolveForm(util.RemovePrivKeyString(str), cache)
 	}
 }

@@ -112,7 +112,7 @@ func ParseForm(form *Form) string {
 	_specfield := lib.SERVICE.WriteSpecField((*form).SpecField, (*form).Type)
 	_pubkey := lib.SERVICE.WritePubkeyString((*form).Pubkey)
 	_resolved := CheckStatus((*form).Resolved)
-	return _posted + _type + _address + _description + _specfield + _pubkey + _resolved
+	return _posted + "<br>" + _type + "<br>" + _address + "<br>" + _description + "<br>" + _specfield + "<br>" + _pubkey + "<br>" + _resolved
 }
 
 func FormID(form *Form) string {

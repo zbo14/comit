@@ -7,9 +7,9 @@ import (
 )
 
 type Application struct {
-	state           merkle.Tree
-	account_manager *AccountManager
-	cache           *Cache
+	state         merkle.Tree
+	admin_manager *AdminManager
+	cache         *Cache
 }
 
 func NewApplication() *Application {
@@ -18,9 +18,9 @@ func NewApplication() *Application {
 		nil,
 	)
 	return &Application{
-		state:           state,
-		account_manager: CreateAccountManager(),
-		cache:           CreateCache(),
+		state:         state,
+		admin_manager: CreateAdminManager(8),
+		cache:         CreateCache(),
 	}
 }
 
@@ -40,7 +40,7 @@ func (app *Application) AppendTx(tx []byte) types.Result {
 		return types.NewResult(types.CodeType_InternalError, nil, err.Error())
 	}
 	app.state.Set([]byte(id), tx)
-	return types.NewResultOK(nil, id)
+	return types.NewResultOK(nil, "The form ID is "+id)
 }
 
 func (app *Application) CheckTx(tx []byte) types.Result {

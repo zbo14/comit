@@ -74,8 +74,8 @@
 				$('#pubkey-label').html("<span style='color:black;'>Public Key</span>"); 
 				$('#privkey-label').html("<span style='color:black;'>Private Key</span>"); 
 				socket.emit('submit-form', _type, _address, _description, _specfield, _pubkey, _privkey)
-				socket.on('return-formID', function(formID){
-					$('#formID').html("The ID # for your service request is " + formID)
+				socket.on('formID-msg', function(msg){
+					$('#formID').html(msg)
 				})
 			}
 			// redirect

@@ -1,0 +1,27 @@
+{{define "head"}}
+	<title>{{ .Title}}</title>
+{{end}}
+
+{{define "body"}}
+	<div class="container">
+		<p>Enter public key</p>
+		<textarea id="public-key"></textarea>
+		<p>Enter private key</p>
+		<textarea id="private-key"></textarea>
+		<button type="button" id="remove-admin">remove admin</button>
+		<p id="remove-msg"></p>
+	</div>
+	<script type="text/javascript">
+		$(function() {
+			var socket = io();
+			$('#remove-admin').bind('click', function() {
+				var pubKeyString = $('#public-key').val();
+				var privKeyString = $('#private-key').val();
+				socket.emit('remove-admin', pubKeyString, privKeyString)
+				socket.on('admin-remove-msg', function(msg) {
+					$('#remove-msg').html(msg)
+				})
+			})
+		})
+	</script>
+{{end}}

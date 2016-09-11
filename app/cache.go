@@ -32,7 +32,7 @@ func (cache *Cache) AccessUnresolved() Forms {
 	return <-cache.Unresolved
 }
 
-func (cache *Cache) ReturnUnresolved(forms Forms, done chan struct{}) {
+func (cache *Cache) RestoreUnresolved(forms Forms, done chan struct{}) {
 	cache.Unresolved <- forms
 	done <- struct{}{}
 }
@@ -41,7 +41,7 @@ func (cache *Cache) AccessResolved() Forms {
 	return <-cache.Resolved
 }
 
-func (cache *Cache) ReturnResolved(forms Forms, done chan struct{}) {
+func (cache *Cache) RestoreResolved(forms Forms, done chan struct{}) {
 	cache.Resolved <- forms
 	done <- struct{}{}
 }
@@ -55,7 +55,7 @@ func (cache *Cache) NewForm(id string, form *Form) error {
 		forms[id] = form
 	}
 	done := make(chan struct{}, 1)
-	go cache.ReturnUnresolved(forms, done)
+	go cache.RestoreUnresolved(forms, done)
 	select {
 	case <-done:
 		return err
@@ -69,7 +69,7 @@ func (cache *Cache) QueryUnresolved(id string) (form *Form, err error) {
 		err = errors.New("unresolved form with ID does not exist")
 	}
 	done := make(chan struct{}, 1)
-	go cache.ReturnUnresolved(forms, done)
+	go cache.RestoreUnresolved(forms, done)
 	select {
 	case <-done:
 		return form, err
@@ -83,7 +83,7 @@ func (cache *Cache) QueryResolved(id string) (form *Form, err error) {
 		err = errors.New("resolved form with ID does not exist")
 	}
 	done := make(chan struct{})
-	go cache.ReturnResolved(forms, done)
+	go cache.RestoreResolved(forms, done)
 	select {
 	case <-done:
 		return form, err
@@ -109,13 +109,13 @@ func (cache *Cache) ResolveForm(id string) error {
 		go Resolve(time.Now())(form)
 		forms2 := cache.AccessResolved()
 		forms2[id] = form
-		go cache.ReturnResolved(forms2, done)
+		go cache.RestoreResolved(forms2, done)
 		select {
 		case <-done:
 			delete(forms1, id)
 		}
 	}
-	go cache.ReturnUnresolved(forms1, done)
+	go cache.RestoreUnresolved(forms1, done)
 	select {
 	case <-done:
 		if form == nil {
@@ -136,7 +136,7 @@ func (cache *Cache) AvgResponseTime() float64 {
 		count += 1
 	}
 	done := make(chan struct{})
-	go cache.ReturnResolved(forms, done)
+	go cache.RestoreResolved(forms, done)
 	select {
 	case <-done:
 		return sum / count

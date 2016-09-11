@@ -38,8 +38,8 @@
 				$('#pubkey-label').html("<span style='color:black;'>Public Key</span>"); 
 				$('#privkey-label').html("<span style='color:black;'>Private Key</span>"); 
 				socket.emit('query-form', _formID, _pubkey, _privkey)
-				socket.on('return-form', function(form){
-					$('#form').text(form)
+				socket.on('form-msg', function(msg){
+					$('#form').html(msg)
 				})
 			}
 			// redirect
