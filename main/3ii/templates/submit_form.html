@@ -19,8 +19,8 @@
 		<p id="description-label">Description</p>
 		<textarea id="description" class="my-textarea"></textarea>
 		<br><br>
-		<p id="specfield-label"></p>
-		<select id="specfield"></select>
+		<p id="specfield-label" style="display:hidden;"></p>
+		<select id="specfield" style="display:hidden;"></select>
 		<br><br>
 		<p id="pubkey-label">Public Key</p>
 		<input type="text" id="pubkey" class="my-input"></input>
@@ -37,8 +37,8 @@
 		$('#type').on('change', function() {
 			socket.emit('select-type', $('#type').val())
 			socket.on('field-options', function(field, options) {
-				$('#specfield-label').html(field);
-				$('#specfield').html(options);
+				$('#specfield-label').show(100, 'linear').html(field);
+				$('#specfield').show(100, 'linear').html(options);
 			})
 		})
 		$('#submit').bind('click', function() {
@@ -59,10 +59,6 @@
 				valid_entry = false;
 			}
 			var _specfield = $('#specfield').val();
-			if (_specfield.length == 0) {
-				$('#specfield-label').html("<span style='color:red;'>Enter Details</span>");
-				 valid_entry = false;
-				}
 			var pubKeyString = $('#pubkey').val();
 			if (pubKeyString.length == 0) {
 				$('#pubkey-label').html("<span style='color:red;'>Enter Public Key</span>"); 
@@ -76,8 +72,7 @@
 			if (valid_entry) {
 				$('#type-label').html("<span style='color:black;'>Service Type</span>"); 
 				$('#address-label').html("<span style='color:black;'>Address</span>"); 
-				$('#description-label').html("<span style='color:black;'>Description</span>"); 
-				$('#specfield-label').html("<span style='color:black;'>Details</span>"); 
+				$('#description-label').html("<span style='color:black;'>Description</span>");
 				$('#pubkey-label').html("<span style='color:black;'>Public Key</span>"); 
 				$('#privkey-label').html("<span style='color:black;'>Private Key</span>"); 
 				socket.emit('submit-form', _type, _address, _description, _specfield, pubKeyString, privKeyString)
