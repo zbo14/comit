@@ -5,6 +5,41 @@
  */
 /*! normalize.css v3.0.3 | MIT License | github.com/necolas/normalize.css */
 
+.my-input {
+  transition: 0.3s;
+  border: solid 1px lightgray;
+  border-radius: 2px;
+}
+
+.my-input:hover {
+  transition: 0.3s;
+  box-shadow: 1px 1px 2px peachpuff;
+}
+
+.my-textarea {
+  transition: 0.3s;
+  border: solid 1px lightgray;
+  border-radius: 2px;
+}
+
+.my-textarea:hover {
+  transition: 0.3s;
+  box-shadow: 1px 1px 2px peachpuff;
+}
+
+.my-button {
+  transition: 0.3s;
+  background: #E8E8EE;
+  border: solid 1px lightgray;
+  border-radius: 2px;
+  opacity: 0.8;
+}
+
+.my-button:hover {
+  transition: 0.3s;
+  opacity: 1;
+}
+
 html {
   font-family: sans-serif;
   -webkit-text-size-adjust: 100%;

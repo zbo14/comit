@@ -5,10 +5,13 @@
 {{define "body"}}
 	<div class="container">
 		<p>Enter public key</p>
-		<textarea id="public-key"></textarea>
+		<input type="text" id="public-key" class="my-input"></input>
+		<br><br>
 		<p>Enter private key</p>
-		<textarea id="private-key"></textarea>
-		<button type="button" id="remove-admin">remove admin</button>
+		<input type="text" id="private-key" class="my-input"></input>
+		<br><br>
+		<button type="button" id="remove-admin" class="my-button">remove admin</button>
+		<br><br>
 		<p id="remove-msg"></p>
 	</div>
 	<script type="text/javascript">
