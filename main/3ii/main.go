@@ -31,6 +31,7 @@ func main() {
 		"find_form.html",
 		"resolve_form.html",
 		"search_forms.html",
+		"send_message.html",
 	)
 
 	CreatePages(
@@ -42,6 +43,7 @@ func main() {
 		"find_form",
 		"resolve_form",
 		"search_forms",
+		"send_message",
 	)
 
 	action_listener, err := CreateActionListener()
@@ -60,6 +62,7 @@ func main() {
 	http.HandleFunc("/find_form", FindFormHandler)
 	http.HandleFunc("/resolve_form", ResolveFormHandler)
 	http.HandleFunc("/search_forms", SearchFormsHandler)
+	http.HandleFunc("/send_message", SendMessageHandler)
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(js)))
 	http.ListenAndServe(":8888", nil)
 
