@@ -3,72 +3,51 @@ package lib
 import (
 	"fmt"
 	re "regexp"
+	"strings"
 )
 
 type Field struct{}
 
-type FieldMethod func(str string) string
+type FieldOptions struct {
+	Field   string
+	Options []string
+}
 
 type FieldInterface interface {
-	ReadCompletelyOut(str string) string
-	WriteCompletelyOut(str string) string
-	ReadPotholeLocation(str string) string
-	WritePotholeLocation(str string) string
-	ReadBackyardBaited(str string) string
-	WriteBackyardBaited(str string) string
+	ReadField(str string, fieldOpts *FieldOptions) string
+	WriteField(str string, fieldOpts *FieldOptions) string
 }
 
-type FieldGroup map[string]FieldMethod
-
-func (Field) ReadCompletelyOut(str string) string {
-	res := re.MustCompile(`completely-out{(yes|no)}`).FindStringSubmatch(str)
+func (Field) ReadField(str string, fieldOpts *FieldOptions) string {
+	field := fieldOpts.Field
+	options := strings.Join(fieldOpts.Options, `|`)
+	res := re.MustCompile(fmt.Sprintf(`%v{(%v)}`, field, options)).FindStringSubmatch(str)
 	if len(res) > 1 {
 		return res[1]
 	}
 	return ""
 }
 
-func (Field) WriteCompletelyOut(str string) string {
-	return fmt.Sprintf("completely-out{%v}", str)
-}
-
-func (Field) ReadPotholeLocation(str string) string {
-	res := re.MustCompile(`pothole-location{(bike\slane|crosswalk|curb\slane|intersection|traffic\slane)}`).FindStringSubmatch(str)
-	if len(res) > 1 {
-		return res[1]
-	}
-	return ""
-}
-
-func (Field) WritePotholeLocation(str string) string {
-	return fmt.Sprintf("pothole-location{%v}", str)
-}
-
-func (Field) ReadBackyardBaited(str string) string {
-	res := re.MustCompile(`backyard-baited{(yes|no)}`).FindStringSubmatch(str)
-	if len(res) > 1 {
-		return res[1]
-	}
-	return ""
-}
-
-func (Field) WriteBackyardBaited(str string) string {
-	return fmt.Sprintf("backyard-baited{%v}", str)
+func (Field) WriteField(str string, fieldOpts *FieldOptions) string {
+	field := fieldOpts.Field
+	return fmt.Sprintf("%v{%v}", field, str)
 }
 
 var FIELD FieldInterface = Field{}
 
-var CompletelyOut = FieldGroup{
-	"read":  FIELD.ReadCompletelyOut,
-	"write": FIELD.WriteCompletelyOut,
+// Field Options
+
+var CompletelyOut = &FieldOptions{
+	Field:   "Completely Out?",
+	Options: []string{"yes", "no"},
 }
 
-var PotholeLocation = FieldGroup{
-	"read":  FIELD.ReadPotholeLocation,
-	"write": FIELD.WritePotholeLocation,
+var PotholeLocation = &FieldOptions{
+	Field:   "Pothole Location",
+	Options: []string{"bike lane", "crosswalk", "curb lane", "intersection", "traffic lane"},
 }
 
-var BackyardBaited = FieldGroup{
-	"read":  FIELD.ReadBackyardBaited,
-	"write": FIELD.WriteBackyardBaited,
+var BackyardBaited = &FieldOptions{
+	Field:   "Backyard Baited?",
+	Options: []string{"yes", "no"},
 }

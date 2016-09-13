@@ -47,21 +47,21 @@ func Time(tm time.Time) Item {
 
 func Type(str string) Item {
 	return func(form *Form) error {
-		(*form).Type = lib.SERVICE.ReadType(str)
+		(*form).Type = lib.SERVICE.ReadField(str, "type")
 		return nil
 	}
 }
 
 func Address(str string) Item {
 	return func(form *Form) error {
-		(*form).Address = lib.SERVICE.ReadAddress(str)
+		(*form).Address = lib.SERVICE.ReadField(str, "address")
 		return nil
 	}
 }
 
 func Description(str string) Item {
 	return func(form *Form) error {
-		(*form).Description = lib.SERVICE.ReadDescription(str)
+		(*form).Description = lib.SERVICE.ReadField(str, "description")
 		return nil
 	}
 }
@@ -109,10 +109,22 @@ func CheckStatus(tm time.Time) string {
 
 func ParseForm(form *Form) string {
 	_posted := (*form).Time.String()[:16] // up to the minute
-	_type := lib.SERVICE.WriteType((*form).Type)
-	_address := lib.SERVICE.WriteAddress((*form).Address)
-	_description := lib.SERVICE.WriteDescription((*form).Description)
-	_specfield := lib.SERVICE.WriteSpecField((*form).SpecField, (*form).Type)
+	_type := lib.SERVICE.WriteField(
+		(*form).Type,
+		"type",
+	)
+	_address := lib.SERVICE.WriteField(
+		(*form).Address,
+		"address",
+	)
+	_description := lib.SERVICE.WriteField(
+		(*form).Description,
+		"description",
+	)
+	_specfield := lib.SERVICE.WriteSpecField(
+		(*form).SpecField,
+		(*form).Type,
+	)
 	_pubkey := util.WritePubKeyString((*form).Pubkey)
 	_resolved := CheckStatus((*form).Resolved)
 	return _posted + "<br>" + _type + "<br>" + _address + "<br>" + _description + "<br>" + _specfield + "<br>" + _pubkey + "<br>" + _resolved + "<br><br>"
@@ -140,13 +152,13 @@ func FormID(form *Form) string {
 }
 
 func MatchForm(str string, form *Form) bool {
-	_type := lib.SERVICE.ReadType(str)
+	_type := lib.SERVICE.ReadField(str, "type")
 	if len(_type) > 0 {
 		if !(_type == (*form).Type) {
 			return false
 		}
 	}
-	_address := lib.SERVICE.ReadAddress(str)
+	_address := lib.SERVICE.ReadField(str, "address")
 	if len(_address) > 0 {
 		if !util.SubstringMatch(_address, (*form).Address) {
 			return false

@@ -2,6 +2,7 @@ package app
 
 import (
 	"errors"
+	"fmt"
 	"time"
 )
 
@@ -53,6 +54,7 @@ func (cache *Cache) NewForm(id string, form *Form) error {
 	} else {
 		forms[id] = form
 	}
+	fmt.Println(form.SpecField)
 	done := make(chan struct{}, 1)
 	go cache.RestoreUnresolved(forms, done)
 	select {

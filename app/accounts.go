@@ -68,16 +68,16 @@ func CreateAccountdb() Accountdb {
 	}
 }
 
-func (db *Accountdb) Access() Accounts {
-	return <-(*db)
+func (db Accountdb) Access() Accounts {
+	return <-db
 }
 
-func (db *Accountdb) Restore(accounts Accounts, done chan struct{}) {
-	(*db) <- accounts
+func (db Accountdb) Restore(accounts Accounts, done chan struct{}) {
+	db <- accounts
 	done <- struct{}{}
 }
 
-func (db *Accountdb) Add(privkey PrivKeyEd25519, account *Account) error {
+func (db Accountdb) Add(privkey PrivKeyEd25519, account *Account) error {
 	accounts := db.Access()
 	if accounts[util.PrivKeyToString(privkey)] != nil {
 		return errors.New("account with private key already exists")
@@ -91,7 +91,7 @@ func (db *Accountdb) Add(privkey PrivKeyEd25519, account *Account) error {
 	}
 }
 
-func (db *Accountdb) Remove(pubKeyString string, privKeyString string) error {
+func (db Accountdb) Remove(pubKeyString string, privKeyString string) error {
 	var err error = nil
 	accounts := db.Access()
 	account := accounts[privKeyString]

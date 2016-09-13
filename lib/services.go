@@ -1,6 +1,7 @@
 package lib
 
 import (
+	"bytes"
 	"fmt"
 	re "regexp"
 )
@@ -8,65 +9,75 @@ import (
 type Service struct{}
 
 type ServiceInterface interface {
-	ReadType(tx string) string
-	WriteType(str string) string
-	ReadAddress(str string) string
-	WriteAddress(str string) string
-	ReadDescription(str string) string
-	WriteDescription(str string) string
+	Regex(field string) string
+	FieldOpts(_type string) *FieldOptions
+	ReadField(str string, field string) string
+	WriteField(str string, field string) string
 	ReadSpecField(str string, _type string) string
 	WriteSpecField(str string, _type string) string
+	FormatFieldOpts(_type string) (string, string)
 }
 
-var SpecFields = map[string]FieldGroup{
+var ServiceOptions = map[string]*FieldOptions{
 	"street light out":             CompletelyOut,
 	"pothole in street":            PotholeLocation,
 	"rodent baiting/rat complaint": BackyardBaited,
 	"tree trim":                    nil,
 }
 
-func (Service) ReadType(str string) string {
-	res := re.MustCompile(`type{([\w\s]+)}`).FindStringSubmatch(str)
+var RegexPatterns = map[string]string{
+	"type":        `[\w\s]+`,
+	"address":     `[\w\s'\-\.\,]+`,
+	"description": `[\w\s'\-\.\,\?\!\\]+`,
+}
+
+func (Service) FieldOpts(_type string) *FieldOptions {
+	return ServiceOptions[_type]
+}
+
+func (Service) Regex(field string) string {
+	return RegexPatterns[field]
+}
+
+func (serv Service) ReadField(str string, field string) string {
+	pattern := serv.Regex(field)
+	res := re.MustCompile(fmt.Sprintf(`%v{(%v)}`, field, pattern)).FindStringSubmatch(str)
 	if len(res) > 1 {
 		return res[1]
 	}
 	return ""
 }
 
-func (Service) WriteType(str string) string {
-	return fmt.Sprintf("type{%v}", str)
+func (Service) WriteField(str string, field string) string {
+	return fmt.Sprintf(`%v{%v}`, field, str)
 }
 
-func (Service) ReadAddress(str string) string {
-	res := re.MustCompile(`address{([\w\s'\-\.\,]+)}`).FindStringSubmatch(str)
-	if len(res) > 1 {
-		return res[1]
+func (serv Service) ReadSpecField(str string, _type string) string {
+	fieldOpts := serv.FieldOpts(_type)
+	if fieldOpts == nil {
+		return ""
 	}
-	return ""
+	return FIELD.ReadField(str, fieldOpts)
 }
 
-func (Service) WriteAddress(str string) string {
-	return fmt.Sprintf("address{%v}", str)
-}
-
-func (Service) ReadDescription(str string) string {
-	res := re.MustCompile(`description{([\w\s'\-\.\,\?\!\\]+)}`).FindStringSubmatch(str)
-	if len(res) > 1 {
-		return res[1]
+func (serv Service) WriteSpecField(str string, _type string) string {
+	fieldOpts := serv.FieldOpts(_type)
+	if fieldOpts == nil {
+		return ""
 	}
-	return ""
+	return FIELD.WriteField(str, fieldOpts)
 }
 
-func (Service) WriteDescription(str string) string {
-	return fmt.Sprintf("description{%v}", str)
-}
-
-func (Service) ReadSpecField(str string, _type string) string {
-	return SpecFields[_type]["read"](str)
-}
-
-func (Service) WriteSpecField(str string, _type string) string {
-	return SpecFields[_type]["write"](str)
+func (serv Service) FormatFieldOpts(_type string) (string, string) {
+	fieldOpts := serv.FieldOpts(_type)
+	if fieldOpts == nil {
+		return "No Options", ""
+	}
+	var Bytes bytes.Buffer
+	for _, opt := range fieldOpts.Options {
+		Bytes.WriteString(fmt.Sprintf(`<option value="%v">%v</option>`, opt, opt))
+	}
+	return fieldOpts.Field, Bytes.String()
 }
 
 var SERVICE ServiceInterface = Service{}
