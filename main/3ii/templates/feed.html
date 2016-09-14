@@ -1,0 +1,20 @@
+{{define "head"}}
+	<title>{{ .Title}}</title>
+{{end}}
+
+{{define "body"}}
+<div class="container">
+	<p>Feed</p>
+	<br>
+	<p id="updates"></p>
+</div>
+<script type="text/javascript">
+	$(function() {
+		var socket = io();
+		socket.on("update-feed", function(update) {
+			console.log(update)
+			$('#updates').html(update)
+		})
+	})
+</script>
+{{end}}

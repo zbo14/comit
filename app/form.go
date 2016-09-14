@@ -102,9 +102,9 @@ func MakeForm(str string) (*Form, error) {
 func CheckStatus(tm time.Time) string {
 	var nilTime = time.Time{}
 	if tm == nilTime {
-		return "unresolved"
+		return "status{unresolved}"
 	}
-	return "resolved " + tm.String()[:16]
+	return fmt.Sprintf("status{resolved %v}", tm.String()[:16])
 }
 
 func ParseForm(form *Form) string {

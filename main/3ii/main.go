@@ -31,7 +31,7 @@ func main() {
 		"find_form.html",
 		"resolve_form.html",
 		"search_forms.html",
-		"send_message.html",
+		"feed.html",
 	)
 
 	CreatePages(
@@ -43,7 +43,7 @@ func main() {
 		"find_form",
 		"resolve_form",
 		"search_forms",
-		"send_message",
+		"feed",
 	)
 
 	action_listener, err := CreateActionListener()
@@ -51,7 +51,10 @@ func main() {
 		Exit(err.Error())
 	}
 
+	action_listener.Sender.OnStart()
+	action_listener.Receiver.OnStart()
 	action_listener.Run(app)
+
 	js := JustFiles{http.Dir("static/")}
 	http.Handle("/", action_listener)
 	http.HandleFunc("/create_account", CreateAccountHandler)
@@ -62,7 +65,7 @@ func main() {
 	http.HandleFunc("/find_form", FindFormHandler)
 	http.HandleFunc("/resolve_form", ResolveFormHandler)
 	http.HandleFunc("/search_forms", SearchFormsHandler)
-	http.HandleFunc("/send_message", SendMessageHandler)
+	http.HandleFunc("/feed", FeedHandler)
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(js)))
 	http.ListenAndServe(":8888", nil)
 

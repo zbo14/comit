@@ -104,7 +104,6 @@ func (db Accountdb) Remove(pubKeyString string, privKeyString string) error {
 	} else {
 		err = errors.New("account with private key does not exist")
 	}
-	fmt.Println(accounts)
 	done := make(chan struct{}, 1)
 	go db.Restore(accounts, done)
 	select {

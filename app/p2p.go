@@ -1,9 +1,12 @@
 package app
 
 import (
+	// "fmt"
 	cfg "github.com/tendermint/go-config"
+	// . "github.com/tendermint/go-crypto"
 	"github.com/tendermint/go-logger"
 	. "github.com/tendermint/go-p2p"
+	"net"
 )
 
 var Log = logger.New("module", "p2p")
@@ -18,27 +21,28 @@ type PeerMessage struct {
 
 type MyReactor struct {
 	BaseReactor
-	name        string
 	channels    chan []*ChannelDescriptor
 	peers       chan map[string]*Peer
 	msgsRecv    chan map[byte][]PeerMessage
 	logMessages bool
 }
 
-func NewReactor(name string, chs []*ChannelDescriptor, logMessages bool) *MyReactor {
+func NewReactor(chs []*ChannelDescriptor, logMessages bool) *MyReactor {
 	peers := make(chan map[string]*Peer, 1)
 	channels := make(chan []*ChannelDescriptor, 1)
+	msgsRecv := make(chan map[byte][]PeerMessage, 1)
 	go func() {
 		peers <- map[string]*Peer{}
 		channels <- chs
+		msgsRecv <- map[byte][]PeerMessage{}
 	}()
 	reactor := &MyReactor{
-		name:        name,
 		channels:    channels,
 		peers:       peers,
+		msgsRecv:    msgsRecv,
 		logMessages: logMessages,
 	}
-	reactor.BaseReactor = *NewBaseReactor(Log, name, reactor)
+	reactor.BaseReactor = *NewBaseReactor(Log, "MyReactor", reactor)
 	return reactor
 }
 
@@ -116,26 +120,25 @@ func (reactor *MyReactor) getMsgs(chID byte) []PeerMessage {
 	}
 }
 
-func CreateChannelDescriptor(id int, priority int) *ChannelDescriptor {
-	return &ChannelDescriptor{
-		ID:       byte(id),
-		Priority: priority,
-	}
+//======================================================================================//
+
+// Create switch pair
+
+func initSwitchFunc(i int, sw *Switch) *Switch {
+	sw.AddReactor(
+		"feed",
+		NewReactor(
+			[]*ChannelDescriptor{
+				&ChannelDescriptor{
+					ID:       byte(0x00),
+					Priority: 1,
+				},
+			},
+			true))
+	return sw
 }
 
-func CreateReactor(name string, logMessages bool, chs ...*ChannelDescriptor) *MyReactor {
-	return NewReactor(name, chs, logMessages)
+func CreateSwitchPair() (*Switch, *Switch) {
+	switches := MakeConnectedSwitches(2, initSwitchFunc, net.Pipe)
+	return switches[0], switches[1]
 }
-
-func CreateSwitch(config cfg.Config, reactors ...*MyReactor) (sw *Switch) {
-	sw = NewSwitch(config)
-	for _, r := range reactors {
-		sw.AddReactor(r.name, r)
-	}
-	return
-}
-
-//====================================================//
-
-var ch0 = CreateChannelDescriptor(0, 1)
-var msgBoard = CreateReactor("msgBoard", true, ch0)

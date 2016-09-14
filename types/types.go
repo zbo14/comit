@@ -109,7 +109,7 @@ func SearchFormsHandler(wr http.ResponseWriter, req *http.Request) {
 	RenderTemplate(wr, "search_forms.html", pg)
 }
 
-func SendMessageHandler(wr http.ResponseWriter, req *http.Request) {
+func FeedHandler(wr http.ResponseWriter, req *http.Request) {
 	pg, _ := LoadPage(string(req.URL.Path[1:]))
-	RenderTemplate(wr, "send_message.html", pg)
+	RenderTemplate(wr, "feed.html", pg)
 }
