@@ -25,8 +25,8 @@
 		<p id="pubkey-label">Public Key</p>
 		<input type="text" id="pubkey" class="my-input"></input>
 		<br><br>
-		<p id="privkey-label">Private Key</p>
-		<input type="text" id="privkey" class="my-input"></input>
+		<p id="passphrase-label">Passphrase</p>
+		<input type="text" id="passphrase" class="my-input"></input>
 		<br><br>
 		<button type="button" id="submit" class="my-button">submit</button>
 		<p id="formID"></p>
@@ -64,9 +64,9 @@
 				$('#pubkey-label').html("<span style='color:red;'>Enter Public Key</span>"); 
 				valid_entry = false;
 			}
-			var privKeyString = $('#privkey').val();
-			if (privKeyString.length == 0) {
-				$('#privkey-label').html("<span style='color:red;'>Enter Private Key</span>"); 
+			var passphrase = $('#passphrase').val();
+			if (passphrase.length == 0) {
+				$('#passphrase-label').html("<span style='color:red;'>Enter Private Key</span>"); 
 				valid_entry = false;
 			}
 			if (valid_entry) {
@@ -74,8 +74,8 @@
 				$('#address-label').html("<span style='color:black;'>Address</span>"); 
 				$('#description-label').html("<span style='color:black;'>Description</span>");
 				$('#pubkey-label').html("<span style='color:black;'>Public Key</span>"); 
-				$('#privkey-label').html("<span style='color:black;'>Private Key</span>"); 
-				socket.emit('submit-form', _type, _address, _description, _specfield, pubKeyString, privKeyString)
+				$('#passphrase-label').html("<span style='color:black;'>Private Key</span>"); 
+				socket.emit('submit-form', _type, _address, _description, _specfield, pubKeyString, passphrase)
 				socket.on('formID-msg', function(msg){
 					$('#formID').html(msg)
 				})

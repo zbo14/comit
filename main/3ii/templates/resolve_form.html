@@ -10,8 +10,8 @@
 		<p id="pubkey-label">Public Key</p>
 		<input type="text" id="pubkey" class="my-input"></input>
 		<br><br>
-		<p id="privkey-label">Private Key</p>
-		<input type="text" id="privkey" class="my-input"></input>
+		<p id="passphrase-label">Passphrase</p>
+		<input type="text" id="passphrase" class="my-input"></input>
 		<br><br>
 		<button type="button" id="resolve" class="my-button">resolve</button>
 		<br><br>
@@ -32,16 +32,16 @@
 				$('#pubkey-label').html("<span style='color:red;'>Enter Public Key</span>"); 
 				valid_entry = false;
 			}
-			var privKeyString = $('#privkey').val();
-			if (privKeyString.length == 0) {
-				$('#privkey-label').html("<span style='color:red;'>Enter Private Key</span>"); 
+			var passphrase = $('#passphrase').val();
+			if (passphrase.length == 0) {
+				$('#passphrase-label').html("<span style='color:red;'>Enter Passphrase</span>"); 
 				valid_entry = false;
 			}
 			if (valid_entry) {
 				$('#formID-label').html("<span style='color:black;'>Form ID</span>"); 
 				$('#pubkey-label').html("<span style='color:black;'>Public Key</span>"); 
-				$('#privkey-label').html("<span style='color:black;'>Private Key</span>"); 
-				socket.emit('resolve-form', _formID, pubKeyString, privKeyString)
+				$('#passphrase-label').html("<span style='color:black;'>Passphrase</span>"); 
+				socket.emit('resolve-form', _formID, pubKeyString, passphrase)
 				socket.on('resolve-msg', function(msg){
 					$('#resolve-msg').html(msg)
 				})

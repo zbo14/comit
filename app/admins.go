@@ -4,22 +4,13 @@ import (
 	"errors"
 	. "github.com/tendermint/go-p2p"
 	util "github.com/zballs/3ii/util"
-	// "log"
 )
 
-// Admin
-
-type Admin struct {
-	*User
-}
-
-func (ad *Admin) ResolveForm(str string, cache *Cache) error {
-	id := util.ReadFormID(str)
-	return cache.ResolveForm(id)
-}
+// Admin Switch
+// func RegisterAdmin()
 
 // Admins, Admindb
-type Admins map[string]*Admin
+type Admins map[string]*Switch
 type Admindb struct {
 	channel  chan Admins
 	capacity int
@@ -47,9 +38,9 @@ func (db Admindb) RestoreAdmins(admins Admins, done chan struct{}) {
 	done <- struct{}{}
 }
 
-func (db Admindb) AddAdmin(admin *Admin) error {
+func (db Admindb) AddAdmin(admin *Switch) error {
 	admins := db.AccessAdmins()
-	pubKeyString := admin.PubKeyString()
+	pubKeyString := UserToPubKeyString(admin)
 	if admins[pubKeyString] != nil {
 		return errors.New("admin with public key already exists")
 	} else if len(admins) == db.capacity {
@@ -68,7 +59,7 @@ func (db Admindb) RemoveAdmin(pubKeyString string, passphrase string) (err error
 	admins := db.AccessAdmins()
 	admin := admins[pubKeyString]
 	if admin != nil {
-		if admin.Validate(passphrase) {
+		if ValidateUser(passphrase, admin) {
 			delete(admins, pubKeyString)
 		} else {
 			err = errors.New("invalid public key + passphrase")
@@ -97,8 +88,8 @@ func CreateAdminManager(db_capacity int) *AdminManager {
 	}
 }
 
-func (am *AdminManager) RegisterAdmin(passphrase string, recvr *Switch) (pubKeyString string, privKeyString string, err error) {
-	pubKeyString, privKeyString, err = am.RegisterUser(passphrase, recvr)
+func (am *AdminManager) RegisterAdmin(passphrase string) (pubKeyString string, privKeyString string, err error) {
+	pubKeyString, privKeyString, err = am.RegisterUser(passphrase)
 	if err != nil {
 		return
 	}
@@ -112,8 +103,7 @@ func (am *AdminManager) RegisterAdmin(passphrase string, recvr *Switch) (pubKeyS
 			err = errors.New("user with public key not found")
 			return
 		}
-		var admin = &Admin{user}
-		err = am.AddAdmin(admin)
+		err = am.AddAdmin(user)
 		return
 	}
 }
@@ -142,12 +132,10 @@ func (am *AdminManager) ResolveForm(str string, cache *Cache) error {
 			return errors.New("admin with private key not found")
 		}
 		passphrase := util.ReadPassphrase(str)
-		if !admin.Validate(passphrase) {
+		if !ValidateUser(passphrase, admin) {
 			return errors.New("invalid public key + passphrase")
 		}
-		return admin.ResolveForm(
-			util.RemovePassphrase(str),
-			cache,
-		)
+		formID := util.ReadFormID(util.RemovePassphrase(str))
+		return cache.ResolveForm(formID)
 	}
 }

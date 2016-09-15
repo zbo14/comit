@@ -4,11 +4,11 @@
 
 {{define "body"}}
 	<div class="container">
-		<p>Enter public key</p>
-		<input type="text" id="public-key" class="my-input"></input>
+		<p>Enter Public Key</p>
+		<input type="text" id="pubkey" class="my-input"></input>
 		<br><br>
-		<p>Enter private key</p>
-		<input type="text" id="private-key" class="my-input"></input>
+		<p>Enter Passphrase</p>
+		<input type="text" id="passphrase" class="my-input"></input>
 		<br><br>
 		<button type="button" id="remove-account" class="my-button">remove account</button>
 		<br><br>
@@ -18,9 +18,9 @@
 		$(function() {
 			var socket = io();
 			$('#remove-account').bind('click', function() {
-				var pubKeyString = $('#public-key').val();
-				var privKeyString = $('#private-key').val();
-				socket.emit('remove-account', pubKeyString, privKeyString)
+				var pubKeyString = $('#pubkey').val();
+				var passphrase = $('#passphrase').val();
+				socket.emit('remove-account', pubKeyString, passphrase)
 				socket.on('remove-msg', function(msg) {
 					$('#remove-msg').html(msg)
 				})

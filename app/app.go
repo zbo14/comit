@@ -24,6 +24,10 @@ func NewApplication() *Application {
 	}
 }
 
+func (app *Application) RecvFeedUpdates(updates chan string) {
+	app.admin_manager.RecvFeedUpdates(updates)
+}
+
 func (app *Application) Info() string {
 	return Fmt("size:%v", app.state.Size())
 }

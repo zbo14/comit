@@ -3,8 +3,6 @@ package app
 import (
 	"fmt"
 	socketio "github.com/googollee/go-socket.io"
-	. "github.com/tendermint/go-crypto"
-	. "github.com/tendermint/go-p2p"
 	lib "github.com/zballs/3ii/lib"
 	util "github.com/zballs/3ii/util"
 	"log"
@@ -12,22 +10,11 @@ import (
 
 type ActionListener struct {
 	*socketio.Server
-	Receiver *Switch
 }
 
 func CreateActionListener() (ActionListener, error) {
 	server, err := socketio.NewServer(nil)
-	receiver := StartSwitch(GenPrivKeyEd25519())
-	return ActionListener{server, receiver}, err
-}
-
-func FormatUpdate(update PeerMessage) string {
-	str := string(update.Bytes)
-	_type := lib.SERVICE.ReadField(str, "type")
-	_address := lib.SERVICE.ReadField(str, "address")
-	_description := lib.SERVICE.ReadField(str, "description")
-	_specfield := lib.SERVICE.FieldOpts(_type).Field
-	return "<strong>issue</strong> " + _type + "<br>" + "<strong>address</strong> " + _address + "<br>" + "<strong>description</strong> " + _description + "<br>" + fmt.Sprintf("<strong>%v</strong>", _specfield)
+	return ActionListener{server}, err
 }
 
 func (al ActionListener) Run(app *Application) {
@@ -44,7 +31,7 @@ func (al ActionListener) Run(app *Application) {
 
 		// Create Accounts
 		so.On("create-account", func(passphrase string) {
-			pubKeyString, privKeyString, err := app.admin_manager.RegisterUser(passphrase, al.Receiver)
+			pubKeyString, privKeyString, err := app.admin_manager.RegisterUser(passphrase)
 			if err != nil {
 				log.Println(err.Error())
 			}
@@ -54,7 +41,7 @@ func (al ActionListener) Run(app *Application) {
 
 		// Create Admins
 		so.On("create-admin", func(passphrase string) {
-			pubKeyString, privKeyString, err := app.admin_manager.RegisterAdmin(passphrase, al.Receiver)
+			pubKeyString, privKeyString, err := app.admin_manager.RegisterAdmin(passphrase)
 			if err != nil {
 				log.Println(err.Error())
 				msg := fmt.Sprintf("Unauthorized")
@@ -159,4 +146,16 @@ func (al ActionListener) Run(app *Application) {
 	al.On("error", func(so socketio.Socket, err error) {
 		log.Println(err.Error())
 	})
+}
+
+func (al ActionListener) BroadcastFeedUpdates(feedUpdates chan string) {
+	for {
+		select {
+		case updates := <-feedUpdates:
+			if len(updates) > 0 {
+				update := updates[len(updates)-1]
+				al.BroadcastTo("feed", "feed-update", update)
+			}
+		}
+	}
 }

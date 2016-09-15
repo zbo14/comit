@@ -6,56 +6,36 @@ import (
 	. "github.com/tendermint/go-crypto"
 	. "github.com/tendermint/go-p2p"
 	types "github.com/tendermint/tmsp/types"
+	lib "github.com/zballs/3ii/lib"
 	util "github.com/zballs/3ii/util"
+	"log"
 )
 
-// User
+// User Switch
 
-type User struct {
-	*Switch
-	passphrase string
+func UserToPubKeyString(user *Switch) string {
+	return fmt.Sprintf("%x", user.NodeInfo().PubKey[:])
 }
 
-func CreateUser(passphrase string) (*User, string) {
+func RegisterUser(passphrase string, recvr *Switch) (user *Switch, pubKeyString string, privKeyString string) {
 	secret := util.GenerateSecret([]byte(passphrase))
 	privkey := GenPrivKeyEd25519FromSecret(secret)
-	return &User{StartSwitch(privkey), passphrase}, fmt.Sprintf("%x", privkey[:])
+	user = StartSwitch(privkey, passphrase)
+	Connect2Switches(user, recvr)
+	pubKeyString = UserToPubKeyString(user)
+	privKeyString = util.PrivKeyToString(privkey)
+	log.Println(user.Peers().Size())
+	log.Println(recvr.Peers().Size())
+	return
 }
 
-func (u *User) PubKeyString() string {
-	return fmt.Sprintf("%x", u.NodeInfo().PubKey[:])
-}
-
-func (u *User) Register(recvr *Switch) string {
-	Connect2Switches(u.Switch, recvr)
-	return u.PubKeyString()
-}
-
-func (u *User) Validate(passphrase string) bool {
-	return u.passphrase == passphrase
-}
-
-func (u *User) SubmitForm(str string, app *Application) types.Result {
-	tx := []byte(str)
-	res := app.AppendTx(tx)
-	if res.IsOK() && u.IsRunning() {
-		u.Broadcast(byte(0x00), str)
-	}
-	return res
-}
-
-func (u *User) FindForm(str string, cache *Cache) (*Form, error) {
-	id := util.ReadFormID(str)
-	return cache.FindForm(id)
-}
-
-func (u *User) SearchForms(str string, _status string, cache *Cache) (Formlist, error) {
-	return cache.SearchForms(str, _status), nil
+func ValidateUser(passphrase string, user *Switch) bool {
+	return passphrase == user.NodeInfo().Other[0]
 }
 
 // Users, Userdb
 
-type Users map[string]*User
+type Users map[string]*Switch
 type Userdb chan Users
 
 func CreateUserdb() Userdb {
@@ -80,9 +60,9 @@ func (db Userdb) RestoreUsers(users Users, done chan struct{}) {
 	done <- struct{}{}
 }
 
-func (db Userdb) AddUser(user *User) error {
+func (db Userdb) AddUser(user *Switch) error {
 	users := db.AccessUsers()
-	pubKeyString := user.PubKeyString()
+	pubKeyString := UserToPubKeyString(user)
 	if users[pubKeyString] != nil {
 		return errors.New("user with public key already exists")
 	}
@@ -99,7 +79,7 @@ func (db Userdb) RemoveUser(pubKeyString string, passphrase string) (err error) 
 	users := db.AccessUsers()
 	user := users[pubKeyString]
 	if user != nil {
-		if user.Validate(passphrase) {
+		if ValidateUser(passphrase, user) {
 			delete(users, pubKeyString)
 		} else {
 			err = errors.New("invalid public key + passphrase")
@@ -119,17 +99,20 @@ func (db Userdb) RemoveUser(pubKeyString string, passphrase string) (err error) 
 
 type UserManager struct {
 	Userdb
+	recvr *Switch
 }
 
 func CreateUserManager() *UserManager {
-	return &UserManager{CreateUserdb()}
+	return &UserManager{
+		CreateUserdb(),
+		StartSwitch(GenPrivKeyEd25519(), ""),
+	}
 }
 
-func (um *UserManager) RegisterUser(passphrase string, recvr *Switch) (pubKeyString string, privKeyString string, err error) {
-	user, privKeyString := CreateUser(passphrase)
-	pubKeyString = user.Register(recvr)
-	err = um.AddUser(user)
-	return
+func (um *UserManager) RegisterUser(passphrase string) (string, string, error) {
+	user, pubKeyString, privKeyString := RegisterUser(passphrase, um.recvr)
+	err := um.AddUser(user)
+	return pubKeyString, privKeyString, err
 }
 
 func (um *UserManager) RemoveUser(pubKeyString string, passphrase string) error {
@@ -152,17 +135,20 @@ func (um *UserManager) SubmitForm(str string, app *Application) types.Result {
 			)
 		}
 		passphrase := util.ReadPassphrase(str)
-		if !user.Validate(passphrase) {
+		if !ValidateUser(passphrase, user) {
 			return types.NewResult(
 				types.CodeType_Unauthorized,
 				nil,
 				"invalid public key + passphrase",
 			)
 		}
-		return user.SubmitForm(
-			util.RemovePassphrase(str),
-			app,
-		)
+		txstr := util.RemovePassphrase(str)
+		tx := []byte(txstr)
+		result := app.AppendTx(tx)
+		if result.IsOK() && user.IsRunning() {
+			user.Broadcast(byte(0x00), txstr)
+		}
+		return result
 	}
 }
 
@@ -178,13 +164,11 @@ func (um *UserManager) FindForm(str string, cache *Cache) (*Form, error) {
 			return nil, errors.New("user with public key not found")
 		}
 		passphrase := util.ReadPassphrase(str)
-		if !user.Validate(passphrase) {
+		if !ValidateUser(passphrase, user) {
 			return nil, errors.New("invalid public key + passphrase")
 		}
-		return user.FindForm(
-			util.RemovePassphrase(str),
-			cache,
-		)
+		formID := util.ReadFormID(util.RemovePassphrase(str))
+		return cache.FindForm(formID)
 	}
 }
 
@@ -200,13 +184,30 @@ func (um *UserManager) SearchForms(str string, _status string, cache *Cache) (Fo
 			return nil, errors.New("user with public key not found")
 		}
 		passphrase := util.ReadPassphrase(str)
-		if !user.Validate(passphrase) {
+		if !ValidateUser(passphrase, user) {
 			return nil, errors.New("invalid public key + passphrase")
 		}
-		return user.SearchForms(
-			util.RemovePassphrase(str),
-			_status,
-			cache,
-		)
+		return cache.SearchForms(util.RemovePassphrase(str), _status), nil
+	}
+}
+
+func FormatUpdate(update PeerMessage) string {
+	str := string(update.Bytes)
+	_type := lib.SERVICE.ReadField(str, "type")
+	_address := lib.SERVICE.ReadField(str, "address")
+	_description := lib.SERVICE.ReadField(str, "description")
+	_specfield := lib.SERVICE.FieldOpts(_type).Field
+	return "<strong>issue</strong> " + _type + "<br>" + "<strong>address</strong> " + _address + "<br>" + "<strong>description</strong> " + _description + "<br>" + fmt.Sprintf("<strong>%v</strong>", _specfield)
+}
+
+func (um *UserManager) RecvFeedUpdates(feedUpdates chan string) {
+	for {
+		if um.recvr.IsRunning() {
+			updates := um.recvr.Reactor("feed").(*MyReactor).getMsgs(byte(0x00))
+			if len(updates) > 0 {
+				update := updates[len(updates)-1]
+				feedUpdates <- FormatUpdate(update)
+			}
+		}
 	}
 }
