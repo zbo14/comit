@@ -67,7 +67,7 @@ func (cache *Cache) FindUnresolved(id string) (form *Form, err error) {
 	forms := cache.AccessUnresolved()
 	form = forms[id]
 	if form == nil {
-		err = errors.New("unresolved form with ID does not exist")
+		err = errors.New("unresolved form with ID not found")
 	}
 	done := make(chan struct{}, 1)
 	go cache.RestoreUnresolved(forms, done)
@@ -81,7 +81,7 @@ func (cache *Cache) FindResolved(id string) (form *Form, err error) {
 	forms := cache.AccessResolved()
 	form = forms[id]
 	if form == nil {
-		err = errors.New("resolved form with ID does not exist")
+		err = errors.New("resolved form with ID not found")
 	}
 	done := make(chan struct{})
 	go cache.RestoreResolved(forms, done)
@@ -99,7 +99,7 @@ func (cache *Cache) FindForm(id string) (*Form, error) {
 	} else if form2 != nil && err2 == nil && form1 == nil && err1 != nil {
 		return form2, nil
 	}
-	return nil, errors.New("form with ID does not exist")
+	return nil, errors.New("valid form with ID not found")
 }
 
 func (cache *Cache) ResolveForm(id string) error {
@@ -120,7 +120,7 @@ func (cache *Cache) ResolveForm(id string) error {
 	select {
 	case <-done:
 		if form == nil {
-			return errors.New("unresolved form with ID does not exist")
+			return errors.New("unresolved form with ID not found")
 		}
 		return nil
 	}

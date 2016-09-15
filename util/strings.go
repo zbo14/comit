@@ -51,6 +51,24 @@ func RemovePrivKeyString(str string) string {
 	return str[:re.MustCompile(`privkey{([a-z0-9]{128})}`).FindStringIndex(str)[0]]
 }
 
+// Passphrase
+
+func WritePassphrase(passphrase string) string {
+	return fmt.Sprintf("passphrase{%v}", passphrase)
+}
+
+func ReadPassphrase(str string) string {
+	res := re.MustCompile(`passphrase{(.*?)}`).FindStringSubmatch(str)
+	if len(res) > 1 {
+		return res[1]
+	}
+	return ""
+}
+
+func RemovePassphrase(str string) string {
+	return str[:re.MustCompile(`passphrase{(.*?)}`).FindStringIndex(str)[0]]
+}
+
 // Form IDs
 
 func ReadFormID(str string) string {

@@ -3,16 +3,66 @@ package app
 import (
 	// "fmt"
 	cfg "github.com/tendermint/go-config"
-	// . "github.com/tendermint/go-crypto"
+	. "github.com/tendermint/go-crypto"
 	"github.com/tendermint/go-logger"
 	. "github.com/tendermint/go-p2p"
 	"net"
+	"time"
 )
 
+const (
+	// Switch config keys
+	configKeyDialTimeoutSeconds      = "dial_timeout_seconds"
+	configKeyHandshakeTimeoutSeconds = "handshake_timeout_seconds"
+	configKeyMaxNumPeers             = "max_num_peers"
+	configKeyAuthEnc                 = "authenticated_encryption"
+
+	// MConnection config keys
+	configKeySendRate = "send_rate"
+	configKeyRecvRate = "recv_rate"
+
+	// Fuzz params
+	configFuzzEnable               = "fuzz_enable" // use the fuzz wrapped conn
+	configFuzzActive               = "fuzz_active" // toggle fuzzing
+	configFuzzMode                 = "fuzz_mode"   // eg. drop, delay
+	configFuzzMaxDelayMilliseconds = "fuzz_max_delay_milliseconds"
+	configFuzzProbDropRW           = "fuzz_prob_drop_rw"
+	configFuzzProbDropConn         = "fuzz_prob_drop_conn"
+	configFuzzProbSleep            = "fuzz_prob_sleep"
+)
+
+func setConfigDefaults(config cfg.Config) {
+	// Switch default config
+	config.SetDefault(configKeyDialTimeoutSeconds, 3)
+	config.SetDefault(configKeyHandshakeTimeoutSeconds, 20)
+	config.SetDefault(configKeyMaxNumPeers, 50)
+	config.SetDefault(configKeyAuthEnc, true)
+
+	// MConnection default config
+	config.SetDefault(configKeySendRate, 512000) // 500KB/s
+	config.SetDefault(configKeyRecvRate, 512000) // 500KB/s
+
+	// Fuzz defaults
+	config.SetDefault(configFuzzEnable, false)
+	config.SetDefault(configFuzzActive, false)
+	config.SetDefault(configFuzzMode, FuzzModeDrop)
+	config.SetDefault(configFuzzMaxDelayMilliseconds, 3000)
+	config.SetDefault(configFuzzProbDropRW, 0.2)
+	config.SetDefault(configFuzzProbDropConn, 0.00)
+	config.SetDefault(configFuzzProbSleep, 0.00)
+}
+
+var config cfg.Config
 var Log = logger.New("module", "p2p")
-var config = cfg.NewMapConfig(nil)
+
+func init() {
+	config = cfg.NewMapConfig(nil)
+	setConfigDefaults(config)
+}
 
 //===================================================//
+
+// Reactor
 
 type PeerMessage struct {
 	PeerKey string
@@ -120,9 +170,40 @@ func (reactor *MyReactor) getMsgs(chID byte) []PeerMessage {
 	}
 }
 
+func (reactor *MyReactor) GetMsgs(chID byte) []PeerMessage {
+	return reactor.getMsgs(chID)
+}
+
 //======================================================================================//
 
-// Create switch pair
+// Switches
+
+func StartSwitch(privkey PrivKeyEd25519) (sw *Switch) {
+	sw = NewSwitch(config)
+	sw.SetNodeInfo(&NodeInfo{
+		PubKey:  privkey.PubKey().(PubKeyEd25519),
+		Network: "123.123.123",
+		Version: "testing",
+	})
+	sw.SetNodePrivKey(privkey)
+	sw.AddReactor(
+		"feed",
+		NewReactor([]*ChannelDescriptor{
+			&ChannelDescriptor{
+				ID:       byte(0x00),
+				Priority: 10,
+			}},
+			true))
+	sw.Start()
+	return
+}
+
+func Connect2Switches(sw1 *Switch, sw2 *Switch) {
+	c1, c2 := net.Pipe()
+	go sw1.AddPeerWithConnection(c1, false) // AddPeer is blocking, requires handshake.
+	go sw2.AddPeerWithConnection(c2, true)
+	time.Sleep(100 * time.Millisecond * time.Duration(4))
+}
 
 func initSwitchFunc(i int, sw *Switch) *Switch {
 	sw.AddReactor(
@@ -131,7 +212,7 @@ func initSwitchFunc(i int, sw *Switch) *Switch {
 			[]*ChannelDescriptor{
 				&ChannelDescriptor{
 					ID:       byte(0x00),
-					Priority: 1,
+					Priority: 10,
 				},
 			},
 			true))

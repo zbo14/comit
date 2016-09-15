@@ -2,7 +2,7 @@ package app
 
 import (
 	"errors"
-	. "github.com/tendermint/go-crypto"
+	. "github.com/tendermint/go-p2p"
 	util "github.com/zballs/3ii/util"
 	// "log"
 )
@@ -10,14 +10,10 @@ import (
 // Admin
 
 type Admin struct {
-	Account
+	*User
 }
 
 func (ad *Admin) ResolveForm(str string, cache *Cache) error {
-	pubKeyString := util.ReadPubKeyString(str)
-	if !ad.Validate(pubKeyString) {
-		return errors.New("invalid public-private key pair")
-	}
 	id := util.ReadFormID(str)
 	return cache.ResolveForm(id)
 }
@@ -42,46 +38,46 @@ func CreateAdmindb(capacity int) Admindb {
 	}
 }
 
-func (db *Admindb) AdminAccess() Admins {
-	return <-(*db).channel
+func (db Admindb) AccessAdmins() Admins {
+	return <-db.channel
 }
 
-func (db *Admindb) AdminRestore(admins Admins, done chan struct{}) {
-	(*db).channel <- admins
+func (db Admindb) RestoreAdmins(admins Admins, done chan struct{}) {
+	db.channel <- admins
 	done <- struct{}{}
 }
 
-func (db *Admindb) AdminAdd(privkey PrivKeyEd25519, admin *Admin) error {
-	admins := db.AdminAccess()
-	if admins[util.PrivKeyToString(privkey)] != nil {
-		return errors.New("admin with private key already exists")
+func (db Admindb) AddAdmin(admin *Admin) error {
+	admins := db.AccessAdmins()
+	pubKeyString := admin.PubKeyString()
+	if admins[pubKeyString] != nil {
+		return errors.New("admin with public key already exists")
 	} else if len(admins) == db.capacity {
 		return errors.New("admin db full")
 	}
-	admins[util.PrivKeyToString(privkey)] = admin
+	admins[pubKeyString] = admin
 	done := make(chan struct{}, 1)
-	go db.AdminRestore(admins, done)
+	go db.RestoreAdmins(admins, done)
 	select {
 	case <-done:
 		return nil
 	}
 }
 
-func (db *Admindb) AdminRemove(pubKeyString string, privKeyString string) error {
-	var err error = nil
-	admins := db.AdminAccess()
-	admin := admins[privKeyString]
+func (db Admindb) RemoveAdmin(pubKeyString string, passphrase string) (err error) {
+	admins := db.AccessAdmins()
+	admin := admins[pubKeyString]
 	if admin != nil {
-		if admin.Validate(pubKeyString) {
-			delete(admins, privKeyString)
+		if admin.Validate(passphrase) {
+			delete(admins, pubKeyString)
 		} else {
-			err = errors.New("invalid public-private key pair")
+			err = errors.New("invalid public key + passphrase")
 		}
 	} else {
-		err = errors.New("admin with private key does not exist")
+		err = errors.New("admin with public key does not exist")
 	}
 	done := make(chan struct{}, 1)
-	go db.AdminRestore(admins, done)
+	go db.RestoreAdmins(admins, done)
 	select {
 	case <-done:
 		return err
@@ -91,32 +87,43 @@ func (db *Admindb) AdminRemove(pubKeyString string, privKeyString string) error 
 // Admin Manager
 type AdminManager struct {
 	Admindb
-	*AccountManager
+	*UserManager
 }
 
 func CreateAdminManager(db_capacity int) *AdminManager {
-	return &AdminManager{CreateAdmindb(db_capacity), CreateAccountManager()}
+	return &AdminManager{
+		CreateAdmindb(db_capacity),
+		CreateUserManager(),
+	}
 }
 
-func (am *AdminManager) CreateAdmin(passphrase string) (pubkey PubKeyEd25519, privkey PrivKeyEd25519, err error) {
-	var account = Account{}
-	var admin = Admin{}
-	secret := util.GenerateSecret([]byte(passphrase))
-	privkey = GenPrivKeyEd25519FromSecret(secret)
-	copy(pubkey[:], privkey.PubKey().Bytes())
-	account.CopyBytes(pubkey[:])
-	admin.CopyBytes(pubkey[:])
-	err = am.Add(privkey, &account)
-	err = am.AdminAdd(privkey, &admin)
-	return pubkey, privkey, err
+func (am *AdminManager) RegisterAdmin(passphrase string, recvr *Switch) (pubKeyString string, privKeyString string, err error) {
+	pubKeyString, privKeyString, err = am.RegisterUser(passphrase, recvr)
+	if err != nil {
+		return
+	}
+	users := am.AccessUsers()
+	user := users[pubKeyString]
+	done := make(chan struct{}, 1)
+	go am.RestoreUsers(users, done)
+	select {
+	case <-done:
+		if user == nil {
+			err = errors.New("user with public key not found")
+			return
+		}
+		var admin = &Admin{user}
+		err = am.AddAdmin(admin)
+		return
+	}
 }
 
-func (am *AdminManager) RemoveAdmin(pubKeyString string, privKeyString string) error {
-	err := am.AdminRemove(pubKeyString, privKeyString)
+func (am *AdminManager) RemoveAdmin(pubKeyString string, passphrase string) error {
+	err := am.RemoveUser(pubKeyString, passphrase)
 	if err != nil {
 		return err
 	}
-	err = am.Remove(pubKeyString, privKeyString)
+	err = am.RemoveAdmin(pubKeyString, passphrase)
 	if err != nil {
 		return err
 	}
@@ -124,16 +131,23 @@ func (am *AdminManager) RemoveAdmin(pubKeyString string, privKeyString string) e
 }
 
 func (am *AdminManager) ResolveForm(str string, cache *Cache) error {
-	admins := am.AdminAccess()
-	privKeyString := util.ReadPrivKeyString(str)
-	admin := admins[privKeyString]
+	admins := am.AccessAdmins()
+	pubKeyString := util.ReadPubKeyString(str)
+	admin := admins[pubKeyString]
 	done := make(chan struct{}, 1)
-	go am.AdminRestore(admins, done)
+	go am.RestoreAdmins(admins, done)
 	select {
 	case <-done:
 		if admin == nil {
-			return errors.New("admin with private key does not exist")
+			return errors.New("admin with private key not found")
 		}
-		return admin.ResolveForm(util.RemovePrivKeyString(str), cache)
+		passphrase := util.ReadPassphrase(str)
+		if !admin.Validate(passphrase) {
+			return errors.New("invalid public key + passphrase")
+		}
+		return admin.ResolveForm(
+			util.RemovePassphrase(str),
+			cache,
+		)
 	}
 }

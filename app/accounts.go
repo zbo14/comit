@@ -27,6 +27,7 @@ func (a *Account) Validate(pubKeyString string) bool {
 func (a *Account) SubmitForm(str string, app *Application) types.Result {
 	pubKeyString := util.ReadPubKeyString(str)
 	if !a.Validate(pubKeyString) {
+		fmt.Println(str)
 		return types.NewResult(types.CodeType_InternalError, nil, "invalid public-private key pair")
 	}
 	tx := []byte(str)

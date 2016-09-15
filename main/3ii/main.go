@@ -6,6 +6,7 @@ import (
 	"github.com/tendermint/tmsp/server"
 	. "github.com/zballs/3ii/app"
 	. "github.com/zballs/3ii/types"
+	"log"
 	"net/http"
 )
 
@@ -51,8 +52,18 @@ func main() {
 		Exit(err.Error())
 	}
 
-	action_listener.Sender.OnStart()
-	action_listener.Receiver.OnStart()
+	// Recv Feed updates
+	go func() {
+		if action_listener.Receiver.IsRunning() {
+			log.Println(action_listener.Receiver.Peers().Size())
+			updates := action_listener.Receiver.Reactor("feed").(*MyReactor).GetMsgs(byte(0x00))
+			if len(updates) > 0 {
+				update := updates[len(updates)-1]
+				action_listener.BroadcastTo("feed", "feed-update", update)
+			}
+		}
+	}()
+
 	action_listener.Run(app)
 
 	js := JustFiles{http.Dir("static/")}
