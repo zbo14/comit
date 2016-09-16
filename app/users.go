@@ -6,9 +6,7 @@ import (
 	. "github.com/tendermint/go-crypto"
 	. "github.com/tendermint/go-p2p"
 	types "github.com/tendermint/tmsp/types"
-	lib "github.com/zballs/3ii/lib"
 	util "github.com/zballs/3ii/util"
-	"log"
 )
 
 // User Switch
@@ -24,8 +22,6 @@ func RegisterUser(passphrase string, recvr *Switch) (user *Switch, pubKeyString 
 	Connect2Switches(user, recvr)
 	pubKeyString = UserToPubKeyString(user)
 	privKeyString = util.PrivKeyToString(privkey)
-	log.Println(user.Peers().Size())
-	log.Println(recvr.Peers().Size())
 	return
 }
 
@@ -99,18 +95,14 @@ func (db Userdb) RemoveUser(pubKeyString string, passphrase string) (err error) 
 
 type UserManager struct {
 	Userdb
-	recvr *Switch
 }
 
 func CreateUserManager() *UserManager {
-	return &UserManager{
-		CreateUserdb(),
-		StartSwitch(GenPrivKeyEd25519(), ""),
-	}
+	return &UserManager{CreateUserdb()}
 }
 
-func (um *UserManager) RegisterUser(passphrase string) (string, string, error) {
-	user, pubKeyString, privKeyString := RegisterUser(passphrase, um.recvr)
+func (um *UserManager) RegisterUser(passphrase string, recvr *Switch) (string, string, error) {
+	user, pubKeyString, privKeyString := RegisterUser(passphrase, recvr)
 	err := um.AddUser(user)
 	return pubKeyString, privKeyString, err
 }
@@ -188,26 +180,5 @@ func (um *UserManager) SearchForms(str string, _status string, cache *Cache) (Fo
 			return nil, errors.New("invalid public key + passphrase")
 		}
 		return cache.SearchForms(util.RemovePassphrase(str), _status), nil
-	}
-}
-
-func FormatUpdate(update PeerMessage) string {
-	str := string(update.Bytes)
-	_type := lib.SERVICE.ReadField(str, "type")
-	_address := lib.SERVICE.ReadField(str, "address")
-	_description := lib.SERVICE.ReadField(str, "description")
-	_specfield := lib.SERVICE.FieldOpts(_type).Field
-	return "<strong>issue</strong> " + _type + "<br>" + "<strong>address</strong> " + _address + "<br>" + "<strong>description</strong> " + _description + "<br>" + fmt.Sprintf("<strong>%v</strong>", _specfield)
-}
-
-func (um *UserManager) RecvFeedUpdates(feedUpdates chan string) {
-	for {
-		if um.recvr.IsRunning() {
-			updates := um.recvr.Reactor("feed").(*MyReactor).getMsgs(byte(0x00))
-			if len(updates) > 0 {
-				update := updates[len(updates)-1]
-				feedUpdates <- FormatUpdate(update)
-			}
-		}
 	}
 }

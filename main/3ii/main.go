@@ -51,10 +51,7 @@ func main() {
 		Exit(err.Error())
 	}
 
-	// Feed updates
-	feedUpdates := make(chan string, 1)
-	go app.RecvFeedUpdates(feedUpdates)
-	go action_listener.BroadcastFeedUpdates(feedUpdates)
+	go action_listener.BroadcastUpdates()
 
 	action_listener.Run(app)
 

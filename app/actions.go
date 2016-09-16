@@ -3,6 +3,8 @@ package app
 import (
 	"fmt"
 	socketio "github.com/googollee/go-socket.io"
+	. "github.com/tendermint/go-crypto"
+	. "github.com/tendermint/go-p2p"
 	lib "github.com/zballs/3ii/lib"
 	util "github.com/zballs/3ii/util"
 	"log"
@@ -10,11 +12,34 @@ import (
 
 type ActionListener struct {
 	*socketio.Server
+	recvr *Switch
 }
 
 func CreateActionListener() (ActionListener, error) {
 	server, err := socketio.NewServer(nil)
-	return ActionListener{server}, err
+	recvr := StartSwitch(GenPrivKeyEd25519(), "")
+	return ActionListener{server, recvr}, err
+}
+
+func FormatUpdate(update PeerMessage) string {
+	str := string(update.Bytes)
+	_type := lib.SERVICE.ReadField(str, "type")
+	_address := lib.SERVICE.ReadField(str, "address")
+	_description := lib.SERVICE.ReadField(str, "description")
+	_specfield := lib.SERVICE.FieldOpts(_type).Field
+	return "<strong>issue</strong> " + _type + "<br>" + "<strong>address</strong> " + _address + "<br>" + "<strong>description</strong> " + _description + "<br>" + fmt.Sprintf("<strong>%v</strong>", _specfield) + "<br><br>"
+}
+
+func (al ActionListener) BroadcastUpdates() {
+	for {
+		if al.recvr.IsRunning() {
+			updates := al.recvr.Reactor("feed").(*MyReactor).getMsgs(byte(0x00))
+			if len(updates) > 0 {
+				update := updates[len(updates)-1]
+				al.BroadcastTo("feed", "update-feed", FormatUpdate(update))
+			}
+		}
+	}
 }
 
 func (al ActionListener) Run(app *Application) {
@@ -22,6 +47,14 @@ func (al ActionListener) Run(app *Application) {
 	al.On("connection", func(so socketio.Socket) {
 
 		log.Println("connected")
+
+		// Feed
+		so.Join("feed")
+
+		so.On("update-feed", func(update string) {
+			log.Println(update)
+			so.Emit("feed-udpate", update)
+		})
 
 		// Send Field Options
 		so.On("select-type", func(_type string) {
@@ -31,7 +64,7 @@ func (al ActionListener) Run(app *Application) {
 
 		// Create Accounts
 		so.On("create-account", func(passphrase string) {
-			pubKeyString, privKeyString, err := app.admin_manager.RegisterUser(passphrase)
+			pubKeyString, privKeyString, err := app.admin_manager.RegisterUser(passphrase, al.recvr)
 			if err != nil {
 				log.Println(err.Error())
 			}
@@ -41,7 +74,7 @@ func (al ActionListener) Run(app *Application) {
 
 		// Create Admins
 		so.On("create-admin", func(passphrase string) {
-			pubKeyString, privKeyString, err := app.admin_manager.RegisterAdmin(passphrase)
+			pubKeyString, privKeyString, err := app.admin_manager.RegisterAdmin(passphrase, al.recvr)
 			if err != nil {
 				log.Println(err.Error())
 				msg := fmt.Sprintf("Unauthorized")
@@ -146,16 +179,4 @@ func (al ActionListener) Run(app *Application) {
 	al.On("error", func(so socketio.Socket, err error) {
 		log.Println(err.Error())
 	})
-}
-
-func (al ActionListener) BroadcastFeedUpdates(feedUpdates chan string) {
-	for {
-		select {
-		case updates := <-feedUpdates:
-			if len(updates) > 0 {
-				update := updates[len(updates)-1]
-				al.BroadcastTo("feed", "feed-update", update)
-			}
-		}
-	}
 }

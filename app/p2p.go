@@ -177,8 +177,8 @@ func (reactor *MyReactor) getMsgs(chID byte) []PeerMessage {
 func StartSwitch(privkey PrivKeyEd25519, passphrase string) (sw *Switch) {
 	sw = NewSwitch(config)
 	sw.SetNodeInfo(&NodeInfo{PubKey: privkey.PubKey().(PubKeyEd25519),
-		Network: "123.123.123",
-		Version: "testing",
+		Network: "testing",
+		Version: "123.123.123",
 		Other:   []string{passphrase},
 	})
 	sw.SetNodePrivKey(privkey)
@@ -196,26 +196,7 @@ func StartSwitch(privkey PrivKeyEd25519, passphrase string) (sw *Switch) {
 
 func Connect2Switches(sw1 *Switch, sw2 *Switch) {
 	c1, c2 := net.Pipe()
-	go sw1.AddPeerWithConnection(c1, true) // AddPeer is blocking, requires handshake.
+	go sw1.AddPeerWithConnection(c1, false) // AddPeer is blocking, requires handshake.
 	go sw2.AddPeerWithConnection(c2, true)
 	time.Sleep(100 * time.Millisecond * time.Duration(4))
-}
-
-func initSwitchFunc(i int, sw *Switch) *Switch {
-	sw.AddReactor(
-		"feed",
-		NewReactor(
-			[]*ChannelDescriptor{
-				&ChannelDescriptor{
-					ID:       byte(0x00),
-					Priority: 10,
-				},
-			},
-			true))
-	return sw
-}
-
-func CreateSwitchPair() (*Switch, *Switch) {
-	switches := MakeConnectedSwitches(2, initSwitchFunc, net.Pipe)
-	return switches[0], switches[1]
 }

@@ -88,8 +88,8 @@ func CreateAdminManager(db_capacity int) *AdminManager {
 	}
 }
 
-func (am *AdminManager) RegisterAdmin(passphrase string) (pubKeyString string, privKeyString string, err error) {
-	pubKeyString, privKeyString, err = am.RegisterUser(passphrase)
+func (am *AdminManager) RegisterAdmin(passphrase string, recvr *Switch) (pubKeyString string, privKeyString string, err error) {
+	pubKeyString, privKeyString, err = am.RegisterUser(passphrase, recvr)
 	if err != nil {
 		return
 	}
