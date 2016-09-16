@@ -40,7 +40,7 @@ func (app *Application) AppendTx(tx []byte) types.Result {
 		return types.NewResult(types.CodeType_InternalError, nil, err.Error())
 	}
 	app.state.Set([]byte(id), tx)
-	return types.NewResultOK(nil, "The form ID is "+id)
+	return types.NewResultOK(nil, id)
 }
 
 func (app *Application) CheckTx(tx []byte) types.Result {

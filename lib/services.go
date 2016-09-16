@@ -23,6 +23,15 @@ var ServiceOptions = map[string]*FieldOptions{
 	"pothole in street":            PotholeLocation,
 	"rodent baiting/rat complaint": BackyardBaited,
 	"tree trim":                    nil,
+	"garbage cart black maintenance/replacement": nil,
+}
+
+var ServiceDepts = map[string]string{
+	"street light out":             "infrastructure",
+	"pothole in street":            "infrastructure",
+	"rodent baiting/rat complaint": "i dont know",
+	"tree trim":                    "i dont know",
+	"garbage cart black maintenance/replacement": "sanitation",
 }
 
 var RegexPatterns = map[string]string{

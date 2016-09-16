@@ -9,7 +9,7 @@ import (
 	util "github.com/zballs/3ii/util"
 )
 
-// User Switch
+// User
 
 func UserToPubKeyString(user *Switch) string {
 	return fmt.Sprintf("%x", user.NodeInfo().PubKey[:])
@@ -111,7 +111,7 @@ func (um *UserManager) RemoveUser(pubKeyString string, passphrase string) error 
 	return um.RemoveUser(pubKeyString, passphrase)
 }
 
-func (um *UserManager) SubmitForm(str string, app *Application) types.Result {
+func (um *UserManager) SubmitForm(str string, chID byte, app *Application) types.Result {
 	users := um.AccessUsers()
 	pubKeyString := util.ReadPubKeyString(str)
 	user := users[pubKeyString]
@@ -138,7 +138,10 @@ func (um *UserManager) SubmitForm(str string, app *Application) types.Result {
 		tx := []byte(txstr)
 		result := app.AppendTx(tx)
 		if result.IsOK() && user.IsRunning() {
-			user.Broadcast(byte(0x00), txstr)
+			user.Broadcast(DeptChannelIDs["general"], txstr)
+			if chID > uint8(0) {
+				user.Broadcast(chID, txstr)
+			}
 		}
 		return result
 	}

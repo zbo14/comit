@@ -6,7 +6,7 @@ import (
 	util "github.com/zballs/3ii/util"
 )
 
-// Admin Switch
+// Admin
 // func RegisterAdmin()
 
 // Admins, Admindb

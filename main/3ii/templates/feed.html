@@ -3,17 +3,36 @@
 {{end}}
 
 {{define "body"}}
-<div class="container">
-	<p>Feed</p>
-	<br>
-	<ol id="feed"></ol>
-</div>
+<p>Select Feed</p>
+<br>
+<select id="select-feed">
+	<option value="general">general</option>
+	<option value="infrastructure">infrastructure</option>
+	<option value="sanitation">sanitation</option>
+</select>
+<br><br>
+<ul id="general"></ul>
 <script type="text/javascript">
 	$(function() {
 		var socket = io();
-		socket.on("feed-update", function(update) {
-			console.log(update)
-			$('#feed').append(update)
+		$("#select-feed").on("change", function() {
+			$("ul").html("");
+			$("ul").attr("id", $("#select-feed").val());
+		})
+		socket.on("general-update", function(update) {
+			if ($("ul").attr("id") == "general") {
+				$("#general").append(update);
+			}
+		})
+		socket.on("infrastructure-update", function(update) {
+			if ($("ul").attr("id") == "infrastructure") {
+				$("#infrastructure").append(update);
+			}
+		})
+		socket.on("sanitation-update", function(update){
+			if ($("ul").attr("id") == "sanitation") {
+				$("#sanitation").append(update);
+			}
 		})
 	})
 </script>

@@ -21,21 +21,26 @@ func CreateActionListener() (ActionListener, error) {
 	return ActionListener{server, recvr}, err
 }
 
-func FormatUpdate(msg PeerMessage) string {
-	str := string(msg.Bytes)
+func FormatUpdate(peer_msg PeerMessage) string {
+	str := string(peer_msg.Bytes)
 	_type := lib.SERVICE.ReadField(str, "type")
 	_address := lib.SERVICE.ReadField(str, "address")
 	_description := lib.SERVICE.ReadField(str, "description")
 	_specfield := lib.SERVICE.FieldOpts(_type).Field
-	return "<strong>issue</strong> " + _type + "<br>" + "<strong>address</strong> " + _address + "<br>" + "<strong>description</strong> " + _description + "<br>" + fmt.Sprintf("<strong>%v</strong>", _specfield) + "<br><br>"
+	return "<li><strong>issue: </strong> " + _type + "<br>" + "<strong>address: </strong> " + _address + "<br>" + "<strong>description: </strong> " + _description + "<br>" + fmt.Sprintf("<strong>%v: </strong>", _specfield) + "</li><br><br>"
 }
 
 func (al ActionListener) BroadcastUpdates() {
+	feed := al.recvr.Reactor("feed").(*MyReactor)
 	for {
 		if al.recvr.IsRunning() {
-			msg := al.recvr.Reactor("feed").(*MyReactor).getMsg(byte(0x00))
-			update := FormatUpdate(msg)
-			al.BroadcastTo("feed", "update-feed", update)
+			for key, val := range DeptChannelIDs {
+				peer_msg := feed.getMsg(val)
+				if len(peer_msg.Bytes) > 0 {
+					update := FormatUpdate(peer_msg)
+					al.BroadcastTo("feed", fmt.Sprintf("%v-update", key), update)
+				}
+			}
 		}
 	}
 }
@@ -49,11 +54,6 @@ func (al ActionListener) Run(app *Application) {
 		// Feed
 		so.Join("feed")
 
-		so.On("update-feed", func(update string) {
-			log.Println(update)
-			so.Emit("feed-udpate", update)
-		})
-
 		// Send Field Options
 		so.On("select-type", func(_type string) {
 			field, options := lib.SERVICE.FormatFieldOpts(_type)
@@ -66,7 +66,7 @@ func (al ActionListener) Run(app *Application) {
 			if err != nil {
 				log.Println(err.Error())
 			}
-			msg := fmt.Sprintf("Your public-key is <strong><small>%v</small></strong><br>Your private-key is <strong><small>%v</small></strong><br>Do not lose it or give it to anyone! If you forget your passphrase or your account is compromised you will need your private key to regain access.", pubKeyString, privKeyString)
+			msg := fmt.Sprintf(keys_cautionary, pubKeyString, privKeyString)
 			so.Emit("keys-msg", msg)
 		})
 
@@ -75,10 +75,9 @@ func (al ActionListener) Run(app *Application) {
 			pubKeyString, privKeyString, err := app.admin_manager.RegisterAdmin(passphrase, al.recvr)
 			if err != nil {
 				log.Println(err.Error())
-				msg := fmt.Sprintf("Unauthorized")
-				so.Emit("admin-keys-msg", msg)
+				so.Emit("admin-keys-msg", "Unauthorized")
 			} else {
-				msg := fmt.Sprintf("Your public-key is <strong>%v</strong><br>Your private-key is <strong>%v</strong><br>Do not lose it or give it to anyone! If you forget your passphrase or your account is compromised you will need your private key to regain access.", pubKeyString, privKeyString)
+				msg := fmt.Sprintf(keys_cautionary, pubKeyString, privKeyString)
 				so.Emit("admin-keys-msg", msg)
 			}
 		})
@@ -88,9 +87,9 @@ func (al ActionListener) Run(app *Application) {
 			err := app.admin_manager.RemoveUser(pubKeyString, passphrase)
 			if err != nil {
 				log.Println(err.Error())
-				so.Emit("remove-msg", fmt.Sprintf("could not remove account [public-key{<strong>%v</strong>}, passphrase {<strong>%v</strong>}]", pubKeyString, passphrase))
+				so.Emit("remove-msg", fmt.Sprintf(account_remove_failure, pubKeyString, passphrase))
 			} else {
-				so.Emit("remove-msg", fmt.Sprintf("removed account [public-key{<strong>%v</strong>}, passphrase{<strong>%v</strong>}]", pubKeyString, passphrase))
+				so.Emit("remove-msg", fmt.Sprintf(account_remove_success, pubKeyString, passphrase))
 			}
 		})
 
@@ -99,21 +98,22 @@ func (al ActionListener) Run(app *Application) {
 			err := app.admin_manager.RemoveAdmin(pubKeyString, passphrase)
 			if err != nil {
 				log.Println(err.Error())
-				so.Emit("admin-remove-msg", fmt.Sprintf("failed to remove admin [public-key{<strong>%v</strong>}, passphrase{<strong>%v</strong>}]", pubKeyString, passphrase))
+				so.Emit("admin-remove-msg", fmt.Sprintf(admin_remove_failure, pubKeyString, passphrase))
 			} else {
-				so.Emit("admin-remove-msg", fmt.Sprintf("removed admin [public-key{<strong>%v</strong>}, passphrase{<strong>%v</strong>}]", pubKeyString, passphrase))
+				so.Emit("admin-remove-msg", fmt.Sprintf(admin_remove_success, pubKeyString, passphrase))
 			}
 		})
 
 		// Submit Forms
 		so.On("submit-form", func(_type string, _address string, _description string, _specfield string, pubKeyString string, passphrase string) {
 			str := lib.SERVICE.WriteField(_type, "type") + lib.SERVICE.WriteField(_address, "address") + lib.SERVICE.WriteField(_description, "description") + lib.SERVICE.WriteSpecField(_specfield, _type) + util.WritePubKeyString(pubKeyString) + util.WritePassphrase(passphrase)
-			res := app.admin_manager.SubmitForm(str, app)
+			chID := DeptChannelIDs[lib.ServiceDepts[_type]]
+			res := app.admin_manager.SubmitForm(str, chID, app)
 			if res.IsErr() {
 				log.Println(res.Error())
-				so.Emit("formID-msg", "failed to submit form")
+				so.Emit("formID-msg", "Failed to submit form")
 			} else {
-				so.Emit("formID-msg", res.Log)
+				so.Emit("formID-msg", fmt.Sprintf(formID, res.Log))
 			}
 		})
 
@@ -123,7 +123,7 @@ func (al ActionListener) Run(app *Application) {
 			form, err := app.admin_manager.FindForm(str, app.cache)
 			if err != nil {
 				log.Println(err.Error())
-				so.Emit("form-msg", fmt.Sprintf("failed to find form with ID <strong>%v</strong>", formID))
+				so.Emit("form-msg", fmt.Sprintf(find_form_failure, formID))
 			} else {
 				so.Emit("form-msg", ParseForm(form))
 			}
@@ -135,9 +135,9 @@ func (al ActionListener) Run(app *Application) {
 			err := app.admin_manager.ResolveForm(str, app.cache)
 			if err != nil {
 				log.Println(err.Error())
-				so.Emit("resolve-msg", fmt.Sprintf("failed to resolve form with ID <strong>%v</strong>", formID))
+				so.Emit("resolve-msg", fmt.Sprintf(resolve_form_failure, formID))
 			} else {
-				so.Emit("resolve-msg", fmt.Sprintf("resolved form with ID <strong>%v</strong>", formID))
+				so.Emit("resolve-msg", fmt.Sprintf(resolve_form_success, formID))
 			}
 		})
 
@@ -157,7 +157,7 @@ func (al ActionListener) Run(app *Application) {
 			formlist, err := app.admin_manager.SearchForms(str, _status, app.cache)
 			if err != nil || len(formlist) == 0 {
 				log.Println(err)
-				so.Emit("forms-msg", "failed to find forms")
+				so.Emit("forms-msg", "Failed to find forms")
 			} else {
 				var msg string = ""
 				for _, form := range formlist {

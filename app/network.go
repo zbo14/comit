@@ -29,6 +29,9 @@ const (
 	configFuzzProbDropRW           = "fuzz_prob_drop_rw"
 	configFuzzProbDropConn         = "fuzz_prob_drop_conn"
 	configFuzzProbSleep            = "fuzz_prob_sleep"
+
+	// Timeout getMsg
+	getMsgTimeout = 200
 )
 
 func setConfigDefaults(config cfg.Config) {
@@ -160,32 +163,55 @@ func (reactor *MyReactor) Receive(chID byte, peer *Peer, msgBytes []byte) {
 
 func (reactor *MyReactor) getMsg(chID byte) PeerMessage {
 	msg_chan := reactor.msgsRecv[chID]
+	move_on := make(chan struct{}, 1)
+	go func() {
+		time.Sleep(getMsgTimeout)
+		move_on <- struct{}{}
+	}()
 	select {
 	case msg := <-msg_chan:
 		return msg
+	case <-move_on:
+		return PeerMessage{}
 	}
 }
 
 //======================================================================================//
 
+// Channels
+
+var DeptChannelIDs = map[string]byte{
+	"general":        byte(0x00),
+	"infrastructure": byte(0x01),
+	"sanitation":     byte(0x02),
+}
+
 // Switches
+
+func CreateChannelDescriptors(channelIDs []byte) []*ChannelDescriptor {
+	chs := make([]*ChannelDescriptor, len(channelIDs))
+	for idx, _ := range chs {
+		chs[idx] = &ChannelDescriptor{
+			ID:       channelIDs[idx],
+			Priority: 10,
+		}
+	}
+	return chs
+}
 
 func StartSwitch(privkey PrivKeyEd25519, passphrase string) (sw *Switch) {
 	sw = NewSwitch(config)
 	sw.SetNodeInfo(&NodeInfo{PubKey: privkey.PubKey().(PubKeyEd25519),
 		Network: "testing",
-		Version: "123.123.123",
+		Version: "311.311.311",
 		Other:   []string{passphrase},
 	})
 	sw.SetNodePrivKey(privkey)
-	sw.AddReactor(
-		"feed",
-		NewReactor([]*ChannelDescriptor{
-			&ChannelDescriptor{
-				ID:       byte(0x00),
-				Priority: 10,
-			}},
-			true))
+	var channelIDs []byte
+	for _, val := range DeptChannelIDs {
+		channelIDs = append(channelIDs, val)
+	}
+	sw.AddReactor("feed", NewReactor(CreateChannelDescriptors(channelIDs), true))
 	sw.Start()
 	return
 }
