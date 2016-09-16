@@ -21,8 +21,8 @@ func CreateActionListener() (ActionListener, error) {
 	return ActionListener{server, recvr}, err
 }
 
-func FormatUpdate(update PeerMessage) string {
-	str := string(update.Bytes)
+func FormatUpdate(msg PeerMessage) string {
+	str := string(msg.Bytes)
 	_type := lib.SERVICE.ReadField(str, "type")
 	_address := lib.SERVICE.ReadField(str, "address")
 	_description := lib.SERVICE.ReadField(str, "description")
@@ -33,11 +33,9 @@ func FormatUpdate(update PeerMessage) string {
 func (al ActionListener) BroadcastUpdates() {
 	for {
 		if al.recvr.IsRunning() {
-			updates := al.recvr.Reactor("feed").(*MyReactor).getMsgs(byte(0x00))
-			if len(updates) > 0 {
-				update := updates[len(updates)-1]
-				al.BroadcastTo("feed", "update-feed", FormatUpdate(update))
-			}
+			msg := al.recvr.Reactor("feed").(*MyReactor).getMsg(byte(0x00))
+			update := FormatUpdate(msg)
+			al.BroadcastTo("feed", "update-feed", update)
 		}
 	}
 }

@@ -52,7 +52,6 @@ func main() {
 	}
 
 	go action_listener.BroadcastUpdates()
-
 	action_listener.Run(app)
 
 	js := JustFiles{http.Dir("static/")}

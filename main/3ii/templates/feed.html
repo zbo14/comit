@@ -6,14 +6,14 @@
 <div class="container">
 	<p>Feed</p>
 	<br>
-	<p id="feed"></p>
+	<ol id="feed"></ol>
 </div>
 <script type="text/javascript">
 	$(function() {
 		var socket = io();
 		socket.on("feed-update", function(update) {
 			console.log(update)
-			$('#feed').html(update)
+			$('#feed').append(update)
 		})
 	})
 </script>

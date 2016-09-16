@@ -73,18 +73,20 @@ type MyReactor struct {
 	BaseReactor
 	channels    chan []*ChannelDescriptor
 	peers       chan map[string]*Peer
-	msgsRecv    chan map[byte][]PeerMessage
+	msgsRecv    map[byte]chan PeerMessage
 	logMessages bool
 }
 
 func NewReactor(chs []*ChannelDescriptor, logMessages bool) *MyReactor {
 	peers := make(chan map[string]*Peer, 1)
 	channels := make(chan []*ChannelDescriptor, 1)
-	msgsRecv := make(chan map[byte][]PeerMessage, 1)
+	msgsRecv := make(map[byte]chan PeerMessage)
+	for _, ch := range chs {
+		msgsRecv[ch.ID] = make(chan PeerMessage)
+	}
 	go func() {
 		peers <- map[string]*Peer{}
 		channels <- chs
-		msgsRecv <- map[byte][]PeerMessage{}
 	}()
 	reactor := &MyReactor{
 		channels:    channels,
@@ -143,11 +145,10 @@ func (reactor *MyReactor) RemovePeer(peer *Peer, reason interface{}) {
 
 func (reactor *MyReactor) Receive(chID byte, peer *Peer, msgBytes []byte) {
 	if reactor.logMessages {
-		msgs := <-reactor.msgsRecv
-		msgs[chID] = append(msgs[chID], PeerMessage{peer.Key, msgBytes})
+		msg_chan := reactor.msgsRecv[chID]
 		done := make(chan struct{}, 1)
 		go func() {
-			reactor.msgsRecv <- msgs
+			msg_chan <- PeerMessage{peer.Key, msgBytes}
 			done <- struct{}{}
 		}()
 		select {
@@ -157,16 +158,11 @@ func (reactor *MyReactor) Receive(chID byte, peer *Peer, msgBytes []byte) {
 	}
 }
 
-func (reactor *MyReactor) getMsgs(chID byte) []PeerMessage {
-	msgs := <-reactor.msgsRecv
-	done := make(chan struct{}, 1)
-	go func() {
-		reactor.msgsRecv <- msgs
-		done <- struct{}{}
-	}()
+func (reactor *MyReactor) getMsg(chID byte) PeerMessage {
+	msg_chan := reactor.msgsRecv[chID]
 	select {
-	case <-done:
-		return msgs[chID]
+	case msg := <-msg_chan:
+		return msg
 	}
 }
 
