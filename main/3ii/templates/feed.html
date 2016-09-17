@@ -3,15 +3,17 @@
 {{end}}
 
 {{define "body"}}
-<p>Select Feed</p>
-<br>
-<select id="select-feed">
-	<option value="general">general</option>
-	<option value="infrastructure">infrastructure</option>
-	<option value="sanitation">sanitation</option>
-</select>
-<br><br>
-<ul id="general"></ul>
+<div class="container">
+	<h5 class="my-header">select feed</h5>
+	<br>
+	<select id="select-feed">
+		<option value="general">general</option>
+		<option value="infrastructure">infrastructure</option>
+		<option value="sanitation">sanitation</option>
+	</select>
+	<br><br>
+	<ul id="general"></ul>
+</div>
 <script type="text/javascript">
 	$(function() {
 		var socket = io();

@@ -4,13 +4,13 @@
 
 {{define "body"}}
 	<div class="container">
-		<p id="formID-label">Form ID</p>
+		<h5 class="my-header" id="formID-label">form ID</h5>
 		<input type="text" id="formID" class="my-input"></input>
 		<br><br>
-		<p id="pubkey-label">Public Key</p>
+		<h5 class="my-header" id="pubkey-label">public key</h5>
 		<input type="text" id="pubkey" class="my-input"></input>
 		<br><br>
-		<p id="passphrase-label">Passphrase</p>
+		<h5 class="my-header" id="passphrase-label">passphrase</h5>
 		<input type="text" id="passphrase" class="my-input"></input>
 		<br><br>
 		<button type="button" id="resolve" class="my-button">resolve</button>
@@ -24,23 +24,23 @@
 			var valid_entry = true
 			var _formID = $('#formID').val();
 			if (_formID.length == 0) {
-				$('#formID-label').html("<span style='color:red;'>Enter Form ID</span>"); 
+				$('#formID-label').html("<span style='color:red;'>enter form ID</span>"); 
 				valid_entry = false;
 			}
 			var pubKeyString = $('#pubkey').val();
 			if (pubKeyString.length == 0) {
-				$('#pubkey-label').html("<span style='color:red;'>Enter Public Key</span>"); 
+				$('#pubkey-label').html("<span style='color:red;'>enter public key</span>"); 
 				valid_entry = false;
 			}
 			var passphrase = $('#passphrase').val();
 			if (passphrase.length == 0) {
-				$('#passphrase-label').html("<span style='color:red;'>Enter Passphrase</span>"); 
+				$('#passphrase-label').html("<span style='color:red;'>enter passphrase</span>"); 
 				valid_entry = false;
 			}
 			if (valid_entry) {
-				$('#formID-label').html("<span style='color:black;'>Form ID</span>"); 
-				$('#pubkey-label').html("<span style='color:black;'>Public Key</span>"); 
-				$('#passphrase-label').html("<span style='color:black;'>Passphrase</span>"); 
+				$('#formID-label').html("<span style='color:black;'>form ID</span>"); 
+				$('#pubkey-label').html("<span style='color:black;'>public key</span>"); 
+				$('#passphrase-label').html("<span style='color:black;'>passphrase</span>"); 
 				socket.emit('resolve-form', _formID, pubKeyString, passphrase)
 				socket.on('resolve-msg', function(msg){
 					$('#resolve-msg').html(msg)

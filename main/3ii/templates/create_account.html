@@ -4,7 +4,7 @@
 
 {{define "body"}}
 	<div class="container">
-		<p>Enter passphrase</p>
+		<h5 class="my-header">passphrase</h5>
 		<input type="password" id="passphrase" class="my-input"></input><br><br>
 		<button type="button" id="create-account" class="my-button">create account</button><br><br>
 		<p id="keys" style="display: hidden;"></p>
@@ -13,11 +13,19 @@
 		$(function() {
 			var socket = io();
 			$('#create-account').bind('click', function() {
+				var valid_entry = true
 				var passphrase = $('#passphrase').val();
-				socket.emit('create-account', passphrase)
-				socket.on('keys-msg', function(msg) {
-					$('#keys').show(100, "linear").html(msg)
-				})
+				if (passphrase.length == 0) {
+					$('#passphrase-label').html("<span style='color:red;'>enter passphrase</span>")
+					valid_entry = false
+				}
+				if (valid_entry) {
+					$('#passphrase-label').html("<span style='color:black;'>passphrase</span>");
+					socket.emit('create-account', passphrase)
+					socket.on('keys-msg', function(msg) {
+						$('#keys').show(100, "linear").html(msg)
+					})
+				}
 			})
 		})
 	</script>

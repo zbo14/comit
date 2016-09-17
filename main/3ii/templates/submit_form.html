@@ -4,28 +4,30 @@
 
 {{define "body"}}
 	<div class="container">
-		<p id="type-label">Service Type</p>
+		<h5 class="my-header" id="type-label">service type</h5>
 		<select id="type">
 			<option value="">--</option>
 			<option value="street light out">street light out</option>
 			<option value="pothole in street">pothole in street</option>
 			<option value="rodent baiting/rat complaint">rodent baiting/rat complaint</option>
 			<option value="tree trim">tree trim</option>
+			<option value="garbage cart black maintenance/replacement">garbage cart black maintenance/replacement</option>
+		</select> 
 		</select> 
 		<br><br>
-		<p id="address-label">Address</p>
+		<h5 class="my-header" id="address-label">address</h5>
 		<input type="text" id="address" class="my-input"></input>
 		<br><br>
-		<p id="description-label">Description</p>
+		<h5 class="my-header" id="description-label">description</h5>
 		<textarea id="description" class="my-textarea"></textarea>
 		<br><br>
-		<p id="specfield-label" style="display:hidden;"></p>
+		<h5 class="my-header" id="specfield-label" style="display:hidden;"></h5>
 		<select id="specfield" style="display:hidden;"></select>
 		<br><br>
-		<p id="pubkey-label">Public Key</p>
+		<h5 class="my-header" id="pubkey-label">public key</h5>
 		<input type="text" id="pubkey" class="my-input"></input>
 		<br><br>
-		<p id="passphrase-label">Passphrase</p>
+		<h5 class="my-header" id="passphrase-label">passphrase</h5>
 		<input type="password" id="passphrase" class="my-input"></input>
 		<br><br>
 		<button type="button" id="submit" class="my-button">submit</button>
@@ -46,36 +48,42 @@
 			var valid_entry = true
 			var _type = $('#type').val();
 			if (_type.length == 0) {
-				$('#type-label').html("<span style='color:red;'>Select Service Type</span>"); 
+				$('#type-label').html("<span style='color:red;'>select service type</span>"); 
 				valid_entry = false;
 			}
 			var _address = $('#address').val();
 			if (_address.length == 0) {
-				$('#address-label').html("<span style='color:red;'>Enter Address</span>"); 
+				$('#address-label').html("<span style='color:red;'>enter address</span>"); 
 				valid_entry = false;
 			}
 			var _description = $('#description').val();
 			if (_description.length == 0) {
-				$('#description-label').html("<span style='color:red;'>Enter Description</span>"); 
+				$('#description-label').html("<span style='color:red;'>enter description</span>"); 
 				valid_entry = false;
 			}
 			var _specfield = $('#specfield').val();
+			var specfield_label = $('#specfield-label').text();
+			if ((_specfield.length == 0) && (specfield_label != "no options")) {
+				$('#specfield-label').html("<span style='color:red;'>select option</span>"); 
+				valid_entry = false;
+			}
 			var pubKeyString = $('#pubkey').val();
 			if (pubKeyString.length == 0) {
-				$('#pubkey-label').html("<span style='color:red;'>Enter Public Key</span>"); 
+				$('#pubkey-label').html("<span style='color:red;'>enter public key</span>"); 
 				valid_entry = false;
 			}
 			var passphrase = $('#passphrase').val();
 			if (passphrase.length == 0) {
-				$('#passphrase-label').html("<span style='color:red;'>Enter Private Key</span>"); 
+				$('#passphrase-label').html("<span style='color:red;'>enter passphrase</span>"); 
 				valid_entry = false;
 			}
 			if (valid_entry) {
-				$('#type-label').html("<span style='color:black;'>Service Type</span>"); 
-				$('#address-label').html("<span style='color:black;'>Address</span>"); 
-				$('#description-label').html("<span style='color:black;'>Description</span>");
-				$('#pubkey-label').html("<span style='color:black;'>Public Key</span>"); 
-				$('#passphrase-label').html("<span style='color:black;'>Private Key</span>"); 
+				$('#type-label').html("<span style='color:black;'>service type</span>"); 
+				$('#address-label').html("<span style='color:black;'>address</span>"); 
+				$('#description-label').html("<span style='color:black;'>description</span>");
+				$('#specfield-label').html("<span style='color:black;'>" + specfield_label + "</span>");
+				$('#pubkey-label').html("<span style='color:black;'>public key</span>"); 
+				$('#passphrase-label').html("<span style='color:black;'>passphrase</span>"); 
 				socket.emit('submit-form', _type, _address, _description, _specfield, pubKeyString, passphrase)
 				socket.on('formID-msg', function(msg){
 					$('#formID').html(msg)
