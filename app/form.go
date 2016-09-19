@@ -6,7 +6,6 @@ import (
 	"fmt"
 	lib "github.com/zballs/3ii/lib"
 	util "github.com/zballs/3ii/util"
-	"log"
 	"time"
 )
 
@@ -80,7 +79,6 @@ func SetSpecField(str string) Item {
 
 func SetPubkey(str string) Item {
 	return func(form *Form) error {
-		log.Println(util.ReadPubKeyString(str))
 		(*form).Pubkey = util.ReadPubKeyString(str)
 		return nil
 	}
@@ -153,6 +151,30 @@ func FormID(form *Form) string {
 }
 
 func MatchForm(str string, form *Form) bool {
+	before := lib.SERVICE.ReadField(str, "before")
+	if len(before) > 0 {
+		yr := before[:4]
+		mo := before[5:7]
+		d := before[8:10]
+		hr := before[14:16]
+		min := before[17:19]
+		beforeDate := time.Date(yr, mo, d, hr, min, 0, 0, time.UTC)
+		if !((*form).Time < beforeDate) {
+			return false
+		}
+	}
+	after := lib.SERVICE.ReadField(str, "after")
+	if len(after) > 0 {
+		yr := after[:4]
+		mo := after[5:7]
+		d := after[8:10]
+		hr := after[14:16]
+		min := after[17:19]
+		afterDate := time.Date(yr, mo, d, hr, min, 0, 0, time.UTC)
+		if !((*form).Time > afterDate) {
+			return false
+		}
+	}
 	service := lib.SERVICE.ReadField(str, "service")
 	if len(service) > 0 {
 		if !(service == (*form).Service) {

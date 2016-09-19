@@ -7,7 +7,6 @@ import (
 	. "github.com/tendermint/go-p2p"
 	types "github.com/tendermint/tmsp/types"
 	util "github.com/zballs/3ii/util"
-	"log"
 )
 
 // User
@@ -24,7 +23,6 @@ func registerUser(passphrase string, sendrecv *Switch) (user *Switch, pubKeyStri
 	Connect2Switches(user, sendrecv)
 	pubKeyString = userToPubKeyString(user)
 	privKeyString = util.PrivKeyToString(privkey)
-	log.Println(sendrecv.NumPeers())
 	return
 }
 
@@ -170,7 +168,7 @@ func (um *UserManager) FindForm(str string, cache *Cache) (*Form, error) {
 	}
 }
 
-func (um *UserManager) SearchForms(str string, _status string, cache *Cache) (Formlist, error) {
+func (um *UserManager) SearchForms(str string, status string, cache *Cache) (Formlist, error) {
 	users := um.accessUsers()
 	pubKeyString := util.ReadPubKeyString(str)
 	user := users[pubKeyString]
@@ -185,6 +183,6 @@ func (um *UserManager) SearchForms(str string, _status string, cache *Cache) (Fo
 		if !validateUser(passphrase, user) {
 			return nil, errors.New(invalid_pubkey_passphrase)
 		}
-		return cache.SearchForms(util.RemovePassphrase(str), _status), nil
+		return cache.SearchForms(util.RemovePassphrase(str), status), nil
 	}
 }

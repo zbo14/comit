@@ -154,10 +154,10 @@ func (cache *Cache) SearchResolved(str string) (formlist Formlist) {
 	}
 }
 
-func (cache *Cache) SearchForms(str string, _status string) Formlist {
-	if _status == "unresolved" {
+func (cache *Cache) SearchForms(str string, status string) Formlist {
+	if status == "unresolved" {
 		return cache.SearchUnresolved(str)
-	} else if _status == "resolved" {
+	} else if status == "resolved" {
 		return cache.SearchResolved(str)
 	}
 	return append(cache.SearchUnresolved(str), cache.SearchResolved(str)...)

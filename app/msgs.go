@@ -2,7 +2,7 @@ package app
 
 import ()
 
-var keys_cautionary = "<strong style='opacity:0.8;'>public key</strong> <small>%v</small><br><strong>private key</strong> <small>%v</small><br><br><small>Remember your passphrase and keep your private key, well.. private!</small>"
+var keys_cautionary = "<strong style='opacity:0.8;'>public key</strong> <small>%v</small><br><strong style='opacity:0.8;'>private key</strong> <small>%v</small><br><br><small>Remember your passphrase and keep your private key, well.. private!</small>"
 
 //  If you forget your passphrase or your account is compromised you will need your private key to regain access.
 

@@ -9,6 +9,7 @@ import (
 	lib "github.com/zballs/3ii/lib"
 	util "github.com/zballs/3ii/util"
 	"log"
+	"reflect"
 )
 
 type ActionListener struct {
@@ -185,8 +186,14 @@ func (al ActionListener) Run(app *Application) {
 		})
 
 		// Search forms
-		so.On("search-forms", func(service string, address string, status string, pubKeyString string, passphrase string) {
+		so.On("search-forms", func(before string, after string, service string, address string, status string, pubKeyString string, passphrase string) {
 			var str string = ""
+			if len(before) > 0 {
+				str += lib.SERVICE.WriteField(before[:19], "before")
+			}
+			if len(after) > 0 {
+				str += lib.SERVICE.WriteField(after[:19], "after")
+			}
 			if len(service) > 0 {
 				str += lib.SERVICE.WriteField(service, "service")
 			}

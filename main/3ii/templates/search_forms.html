@@ -3,34 +3,45 @@
 {{end}}
 
 {{define "body"}}
-
-	<!-- Add time queries -->
-
 	<div class="container">
 		<h5 class="my-header">posted before</h5>
-        <div class="form-group">
-            <div class='input-group date' id='before'>
-                <input type='text' class="form-control" />
-                <span class="input-group-addon">
-                    <span class="glyphicon glyphicon-calendar"></span>
-                </span>
+        <div class='col-sm-4'>
+            <div class="form-group">
+                <div class='input-group date' id='before'>
+                    <input type='text' class="form-control" />
+                    <span class="input-group-addon">
+                        <span class="glyphicon glyphicon-calendar"></span>
+                    </span>
+                </div>
             </div>
         </div>
         <script type="text/javascript">
             $(function () {
-                $('before').datetimepicker();
+                $('#before').datetimepicker();
             });
         </script>
 		<br><br>
 		<h5 class="my-header">posted after</h5>
-		<div class="form-group">
-            <div class='input-group date' id='before'>
-                <input type='text' class="form-control" />
-                <span class="input-group-addon">
-                    <span class="glyphicon glyphicon-calendar"></span>
-                </span>
+        <div class='col-sm-4'>
+            <div class="form-group">
+                <div class='input-group date' id='after'>
+                    <input type='text' class="form-control" />
+                    <span class="input-group-addon">
+                        <span class="glyphicon glyphicon-calendar"></span>
+                    </span>
+                </div>
             </div>
         </div>
+        <script type="text/javascript">
+            $(function () {
+                $('#after').datetimepicker();
+            });
+        </script>
+        <script type="text/javascript">
+            $(function () {
+                $('after').datetimepicker();
+            });
+        </script>
 		<br><br>
 		<h5 class="my-header">service</h5>
 		<select id="service">
@@ -81,10 +92,8 @@
 		*/
 		$('#search').bind('click', function() {
 			valid_entry = true;
-			var before = $('#before').val();
-			console.log(before)
-			var after = $('#after').val();
-			console.log(after)
+			var before = $('#before').data("DateTimePicker").viewDate();
+			var after = $('#after').data("DateTimePicker").viewDate();
 			var service = $('#service').val();
 			var address = $('#address').val();
 			// var specfield = $('#specfield').val();
