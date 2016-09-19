@@ -32,7 +32,7 @@
   background: #E8E8EE;
   border: solid 1px lightgray;
   border-radius: 2px;
-  opacity: 0.8;
+  opacity: 0.9;
 }
 
 .my-button:hover {
@@ -41,7 +41,7 @@
 }
 
 .my-header {
-  opacity: 0.8;
+  opacity: 0.9;
 }
 
 html {

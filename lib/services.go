@@ -40,8 +40,8 @@ var RegexPatterns = map[string]string{
 	"service":     `[\w\s]+`,
 	"address":     `[\w\s'\-\.\,]+`,
 	"description": `[\w\s'\-\.\,\?\!\\]+`,
-	"before":      `\d{4}-\d{2}-\d{2}T\w{2}\:\d{2}:\d{2}\.\w{4}`,
-	"after":       `\d{4}-\d{2}-\d{2}T\w{2}\:\d{2}:\d{2}\.\w{4}`,
+	"before":      `\d{4}-\d{2}-\d{2}T\w{2}\:\d{2}:\d{2}`,
+	"after":       `\d{4}-\d{2}-\d{2}T\w{2}\:\d{2}:\d{2}`,
 }
 
 func (Service) FieldOpts(service string) *FieldOptions {

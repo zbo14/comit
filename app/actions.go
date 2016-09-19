@@ -9,7 +9,6 @@ import (
 	lib "github.com/zballs/3ii/lib"
 	util "github.com/zballs/3ii/util"
 	"log"
-	"reflect"
 )
 
 type ActionListener struct {
@@ -67,7 +66,6 @@ func (al ActionListener) AdminUpdates(admin *Switch) {
 				peer_msg := adminReactor.getMsg(chID)
 				if len(peer_msg.Bytes) > 0 {
 					// To admins
-					// log.Println("*****")
 					update := FormatUpdate(peer_msg)
 					al.BroadcastTo("admin", fmt.Sprintf("%v-update", service), update)
 				}
@@ -204,13 +202,13 @@ func (al ActionListener) Run(app *Application) {
 			formlist, err := app.admin_manager.SearchForms(str, status, app.cache)
 			if err != nil || len(formlist) == 0 {
 				log.Println(err)
-				so.Emit("forms-msg", search_forms_failure)
+				so.Emit("forms-msg", search_forms_failure, false)
 			} else {
-				var msg string = ""
-				for _, form := range formlist {
-					msg += ParseForm(form)
+				forms := make([]string, len(formlist))
+				for idx, form := range formlist {
+					forms[idx] = ParseForm(form)
 				}
-				so.Emit("forms-msg", msg)
+				so.Emit("forms-msg", forms, true)
 			}
 		})
 

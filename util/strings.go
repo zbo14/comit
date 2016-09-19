@@ -4,7 +4,9 @@ import (
 	"fmt"
 	. "github.com/tendermint/go-crypto"
 	re "regexp"
+	"strconv"
 	"strings"
+	"time"
 )
 
 // Pubkeys
@@ -97,4 +99,16 @@ func SubstringMatch(substr string, str string) bool {
 
 func RegexQuestionMarks(str string) string {
 	return `` + strings.Replace(str, `?`, `\?`, -1)
+}
+
+// Date
+
+func ParseDateString(datestr string) time.Time {
+	yr, _ := strconv.Atoi(datestr[:4])
+	mo, _ := strconv.Atoi(datestr[5:7])
+	d, _ := strconv.Atoi(datestr[8:10])
+	hr, _ := strconv.Atoi(datestr[11:13])
+	min, _ := strconv.Atoi(datestr[14:16])
+	sec, _ := strconv.Atoi(datestr[17:19])
+	return time.Date(yr, time.Month(mo), d, hr, min, sec, 0, time.UTC)
 }

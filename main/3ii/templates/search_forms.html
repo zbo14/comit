@@ -3,16 +3,14 @@
 {{end}}
 
 {{define "body"}}
-	<div class="container">
-		<h5 class="my-header">posted before</h5>
-        <div class='col-sm-4'>
-            <div class="form-group">
-                <div class='input-group date' id='before'>
-                    <input type='text' class="form-control" />
-                    <span class="input-group-addon">
-                        <span class="glyphicon glyphicon-calendar"></span>
-                    </span>
-                </div>
+	<div class='col-sm-6'>
+		<h5 class="my-header">before</h5>
+        <div class="form-group">
+            <div class='input-group date' id='before'>
+                <input type='text' class="form-control" />
+                <span class="input-group-addon">
+                    <span class="glyphicon glyphicon-calendar"></span>
+                </span>
             </div>
         </div>
         <script type="text/javascript">
@@ -21,25 +19,18 @@
             });
         </script>
 		<br><br>
-		<h5 class="my-header">posted after</h5>
-        <div class='col-sm-4'>
+		<h5 class="my-header">after</h5>
             <div class="form-group">
-                <div class='input-group date' id='after'>
-                    <input type='text' class="form-control" />
-                    <span class="input-group-addon">
-                        <span class="glyphicon glyphicon-calendar"></span>
-                    </span>
-                </div>
+            <div class='input-group date' id='after'>
+                <input type='text' class="form-control" />
+                <span class="input-group-addon">
+                    <span class="glyphicon glyphicon-calendar"></span>
+                </span>
             </div>
         </div>
         <script type="text/javascript">
             $(function () {
                 $('#after').datetimepicker();
-            });
-        </script>
-        <script type="text/javascript">
-            $(function () {
-                $('after').datetimepicker();
             });
         </script>
 		<br><br>
@@ -76,7 +67,10 @@
 		<br><br>
 		<button type="button" id="search" class="my-button">search</button>
 		<br><br>
-		<p id="forms"></p>
+		<p id="forms-error"></p>
+	</div>
+	<div class="col-sm-6">
+		<ul id="forms"></ul>
 	</div>
 	<script type="text/javascript" charset="utf-8">
 	$(function() {
@@ -91,7 +85,7 @@
 		})
 		*/
 		$('#search').bind('click', function() {
-			valid_entry = true;
+			var valid_entry = true;
 			var before = $('#before').data("DateTimePicker").viewDate();
 			var after = $('#after').data("DateTimePicker").viewDate();
 			var service = $('#service').val();
@@ -112,8 +106,14 @@
 				$('#pubkey-label').html("<span style='color:black;'>public key</span>"); 
 				$('#passphrase-label').html("<span style='color:black;'>passphrase</span>"); 
 				socket.emit('search-forms', before, after, service, address, status, pubKeyString, passphrase)
-				socket.on('forms-msg', function(msg){
-					$('#forms').html(msg)
+				socket.on('forms-msg', function(msg, success){
+					if (!success) {
+						$('#forms-error').html(msg)
+					} else {
+						for (var f = 0; f < msg.length; f++) { // msg[f] is form
+							$('#forms').append(msg[f]);
+						}
+					}
 				})
 			}
 			// redirect

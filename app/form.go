@@ -86,7 +86,7 @@ func SetPubkey(str string) Item {
 
 func MakeForm(str string) (*Form, error) {
 	form, err := NewForm(
-		SetTime(time.Now()),
+		SetTime(time.Now().UTC()),
 		SetService(str),
 		SetAddress(str),
 		SetDescription(str),
@@ -102,32 +102,16 @@ func MakeForm(str string) (*Form, error) {
 func CheckStatus(tm time.Time) string {
 	var nilTime = time.Time{}
 	if tm == nilTime {
-		return "status {unresolved}"
+		return "unresolved"
 	}
-	return fmt.Sprintf("status {resolved %v}", tm.String()[:16])
+	return fmt.Sprintf("resolved %v", tm.String()[:16])
 }
 
 func ParseForm(form *Form) string {
 	posted := (*form).Time.String()[:16] // to the minute
-	service := lib.SERVICE.WriteField(
-		(*form).Service,
-		"service",
-	)
-	address := lib.SERVICE.WriteField(
-		(*form).Address,
-		"address",
-	)
-	description := lib.SERVICE.WriteField(
-		(*form).Description,
-		"description",
-	)
-	specfield := lib.SERVICE.WriteSpecField(
-		(*form).SpecField,
-		(*form).Service,
-	)
-	pubKeyString := util.WritePubKeyString((*form).Pubkey)
 	status := CheckStatus((*form).Resolved)
-	return posted + "<br>" + service + "<br>" + address + "<br>" + description + "<br>" + specfield + "<br>" + pubKeyString + "<br>" + status + "<br><br>"
+	field := lib.SERVICE.FieldOpts((*form).Service).Field
+	return "<li>" + fmt.Sprintf(line, "posted", posted) + fmt.Sprintf(line, "issue", (*form).Service) + fmt.Sprintf(line, "address", (*form).Address) + fmt.Sprintf(line, "description", (*form).Description) + fmt.Sprintf(line, field, (*form).SpecField) + fmt.Sprintf(line, "pubkey", (*form).Pubkey) + fmt.Sprintf(line, "status", status) + "</li>"
 }
 
 func FormID(form *Form) string {
@@ -153,25 +137,15 @@ func FormID(form *Form) string {
 func MatchForm(str string, form *Form) bool {
 	before := lib.SERVICE.ReadField(str, "before")
 	if len(before) > 0 {
-		yr := before[:4]
-		mo := before[5:7]
-		d := before[8:10]
-		hr := before[14:16]
-		min := before[17:19]
-		beforeDate := time.Date(yr, mo, d, hr, min, 0, 0, time.UTC)
-		if !((*form).Time < beforeDate) {
+		beforeDate := util.ParseDateString(before)
+		if !((*form).Time.Before(beforeDate)) {
 			return false
 		}
 	}
 	after := lib.SERVICE.ReadField(str, "after")
 	if len(after) > 0 {
-		yr := after[:4]
-		mo := after[5:7]
-		d := after[8:10]
-		hr := after[14:16]
-		min := after[17:19]
-		afterDate := time.Date(yr, mo, d, hr, min, 0, 0, time.UTC)
-		if !((*form).Time > afterDate) {
+		afterDate := util.ParseDateString(after)
+		if !((*form).Time.After(afterDate)) {
 			return false
 		}
 	}
