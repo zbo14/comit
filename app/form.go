@@ -6,12 +6,13 @@ import (
 	"fmt"
 	lib "github.com/zballs/3ii/lib"
 	util "github.com/zballs/3ii/util"
+	"log"
 	"time"
 )
 
 type Form struct {
 	Time        time.Time
-	Type        string
+	Service     string
 	Address     string
 	Description string
 	SpecField   string
@@ -38,47 +39,48 @@ func NewForm(items ...Item) (*Form, error) {
 	return form, nil
 }
 
-func Time(tm time.Time) Item {
+func SetTime(tm time.Time) Item {
 	return func(form *Form) error {
 		(*form).Time = tm
 		return nil
 	}
 }
 
-func Type(str string) Item {
+func SetService(str string) Item {
 	return func(form *Form) error {
-		(*form).Type = lib.SERVICE.ReadField(str, "type")
+		(*form).Service = lib.SERVICE.ReadField(str, "service")
 		return nil
 	}
 }
 
-func Address(str string) Item {
+func SetAddress(str string) Item {
 	return func(form *Form) error {
 		(*form).Address = lib.SERVICE.ReadField(str, "address")
 		return nil
 	}
 }
 
-func Description(str string) Item {
+func SetDescription(str string) Item {
 	return func(form *Form) error {
 		(*form).Description = lib.SERVICE.ReadField(str, "description")
 		return nil
 	}
 }
 
-func SpecField(str string) Item {
+func SetSpecField(str string) Item {
 	return func(form *Form) error {
-		_type := (*form).Type
-		if len(_type) > 0 {
-			(*form).SpecField = lib.SERVICE.ReadSpecField(str, _type)
+		service := (*form).Service
+		if len(service) > 0 {
+			(*form).SpecField = lib.SERVICE.ReadSpecField(str, service)
 			return nil
 		}
-		return errors.New("cannot set form details without type")
+		return errors.New("cannot set specfield without service")
 	}
 }
 
-func Pubkey(str string) Item {
+func SetPubkey(str string) Item {
 	return func(form *Form) error {
+		log.Println(util.ReadPubKeyString(str))
 		(*form).Pubkey = util.ReadPubKeyString(str)
 		return nil
 	}
@@ -86,12 +88,12 @@ func Pubkey(str string) Item {
 
 func MakeForm(str string) (*Form, error) {
 	form, err := NewForm(
-		Time(time.Now()),
-		Type(str),
-		Address(str),
-		Description(str),
-		SpecField(str),
-		Pubkey(str),
+		SetTime(time.Now()),
+		SetService(str),
+		SetAddress(str),
+		SetDescription(str),
+		SetSpecField(str),
+		SetPubkey(str),
 	)
 	if err != nil {
 		return nil, err
@@ -102,42 +104,41 @@ func MakeForm(str string) (*Form, error) {
 func CheckStatus(tm time.Time) string {
 	var nilTime = time.Time{}
 	if tm == nilTime {
-		return "status{unresolved}"
+		return "status {unresolved}"
 	}
-	return fmt.Sprintf("status{resolved %v}", tm.String()[:16])
+	return fmt.Sprintf("status {resolved %v}", tm.String()[:16])
 }
 
 func ParseForm(form *Form) string {
-	_posted := (*form).Time.String()[:16] // up to the minute
-	_type := lib.SERVICE.WriteField(
-		(*form).Type,
-		"type",
+	posted := (*form).Time.String()[:16] // to the minute
+	service := lib.SERVICE.WriteField(
+		(*form).Service,
+		"service",
 	)
-	_address := lib.SERVICE.WriteField(
+	address := lib.SERVICE.WriteField(
 		(*form).Address,
 		"address",
 	)
-	_description := lib.SERVICE.WriteField(
+	description := lib.SERVICE.WriteField(
 		(*form).Description,
 		"description",
 	)
-	_specfield := lib.SERVICE.WriteSpecField(
+	specfield := lib.SERVICE.WriteSpecField(
 		(*form).SpecField,
-		(*form).Type,
+		(*form).Service,
 	)
-	_pubkey := util.WritePubKeyString((*form).Pubkey)
-	_resolved := CheckStatus((*form).Resolved)
-	return _posted + "<br>" + _type + "<br>" + _address + "<br>" + _description + "<br>" + _specfield + "<br>" + _pubkey + "<br>" + _resolved + "<br><br>"
+	pubKeyString := util.WritePubKeyString((*form).Pubkey)
+	status := CheckStatus((*form).Resolved)
+	return posted + "<br>" + service + "<br>" + address + "<br>" + description + "<br>" + specfield + "<br>" + pubKeyString + "<br>" + status + "<br><br>"
 }
 
 func FormID(form *Form) string {
 	bytes := make([]byte, 32) // 64?
+	yr, wk := (*form).Time.ISOWeek()
 	items := []string{
-		(*form).Type,
+		(*form).Service,
 		(*form).Address,
-		(*form).Description,
-		(*form).SpecField,
-		(*form).Pubkey,
+		fmt.Sprintf("%d %d", yr, wk),
 	}
 	for _, item := range items {
 		for idx, _ := range bytes {
@@ -152,21 +153,21 @@ func FormID(form *Form) string {
 }
 
 func MatchForm(str string, form *Form) bool {
-	_type := lib.SERVICE.ReadField(str, "type")
-	if len(_type) > 0 {
-		if !(_type == (*form).Type) {
+	service := lib.SERVICE.ReadField(str, "service")
+	if len(service) > 0 {
+		if !(service == (*form).Service) {
 			return false
 		}
 	}
-	_address := lib.SERVICE.ReadField(str, "address")
-	if len(_address) > 0 {
-		if !util.SubstringMatch(_address, (*form).Address) {
+	address := lib.SERVICE.ReadField(str, "address")
+	if len(address) > 0 {
+		if !util.SubstringMatch(address, (*form).Address) {
 			return false
 		}
 	}
-	_specfield := lib.SERVICE.ReadSpecField(str, _type)
-	if len(_specfield) > 0 {
-		if !(_specfield == (*form).SpecField) {
+	specfield := lib.SERVICE.ReadSpecField(str, service)
+	if len(specfield) > 0 {
+		if !(specfield == (*form).SpecField) {
 			return false
 		}
 	}

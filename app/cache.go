@@ -2,7 +2,6 @@ package app
 
 import (
 	"errors"
-	"fmt"
 	"time"
 )
 
@@ -50,11 +49,10 @@ func (cache *Cache) NewForm(id string, form *Form) error {
 	var err error = nil
 	forms := cache.AccessUnresolved()
 	if forms[id] != nil {
-		err = errors.New("form with ID already exists")
+		err = errors.New(form_already_exists)
 	} else {
 		forms[id] = form
 	}
-	fmt.Println(form.SpecField)
 	done := make(chan struct{}, 1)
 	go cache.RestoreUnresolved(forms, done)
 	select {

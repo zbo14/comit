@@ -14,11 +14,11 @@ func PubKeyToString(pubkey PubKeyEd25519) string {
 }
 
 func WritePubKeyString(pubKeyString string) string {
-	return fmt.Sprintf("pubkey{%v}", pubKeyString)
+	return fmt.Sprintf("pubkey {%v}", pubKeyString)
 }
 
 func ReadPubKeyString(str string) string {
-	res := re.MustCompile(`pubkey{([a-z0-9]{64})}`).FindStringSubmatch(str)
+	res := re.MustCompile(`pubkey {([a-z0-9]{64})}`).FindStringSubmatch(str)
 	if len(res) > 1 {
 		return res[1]
 	}
@@ -26,7 +26,7 @@ func ReadPubKeyString(str string) string {
 }
 
 func RemovePubKeyString(str string) string {
-	return str[:re.MustCompile(`pubkey{([a-z0-9]{64})}`).FindStringIndex(str)[0]]
+	return str[:re.MustCompile(`pubkey {([a-z0-9]{64})}`).FindStringIndex(str)[0]]
 }
 
 // Privkeys
@@ -36,11 +36,11 @@ func PrivKeyToString(privkey PrivKeyEd25519) string {
 }
 
 func WritePrivKeyString(privKeyString string) string {
-	return fmt.Sprintf("privkey{%v}", privKeyString)
+	return fmt.Sprintf("privkey {%v}", privKeyString)
 }
 
 func ReadPrivKeyString(str string) string {
-	res := re.MustCompile(`privkey{([a-z0-9]{128})}`).FindStringSubmatch(str)
+	res := re.MustCompile(`privkey {([a-z0-9]{128})}`).FindStringSubmatch(str)
 	if len(res) > 1 {
 		return res[1]
 	}
@@ -48,17 +48,17 @@ func ReadPrivKeyString(str string) string {
 }
 
 func RemovePrivKeyString(str string) string {
-	return str[:re.MustCompile(`privkey{([a-z0-9]{128})}`).FindStringIndex(str)[0]]
+	return str[:re.MustCompile(`privkey {([a-z0-9]{128})}`).FindStringIndex(str)[0]]
 }
 
 // Passphrase
 
 func WritePassphrase(passphrase string) string {
-	return fmt.Sprintf("passphrase{%v}", passphrase)
+	return fmt.Sprintf("passphrase {%v}", passphrase)
 }
 
 func ReadPassphrase(str string) string {
-	res := re.MustCompile(`passphrase{(.*?)}`).FindStringSubmatch(str)
+	res := re.MustCompile(`passphrase {(.*?)}`).FindStringSubmatch(str)
 	if len(res) > 1 {
 		return res[1]
 	}
@@ -66,13 +66,13 @@ func ReadPassphrase(str string) string {
 }
 
 func RemovePassphrase(str string) string {
-	return str[:re.MustCompile(`passphrase{(.*?)}`).FindStringIndex(str)[0]]
+	return str[:re.MustCompile(`passphrase {(.*?)}`).FindStringIndex(str)[0]]
 }
 
 // Form IDs
 
 func ReadFormID(str string) string {
-	res := re.MustCompile(`form{([a-z0-9]{32})}`).FindStringSubmatch(str)
+	res := re.MustCompile(`form {([a-z0-9]{32})}`).FindStringSubmatch(str)
 	if len(res) > 1 {
 		return res[1]
 	}
@@ -80,7 +80,7 @@ func ReadFormID(str string) string {
 }
 
 func WriteFormID(str string) string {
-	return fmt.Sprintf("form{%v}", str)
+	return fmt.Sprintf("form {%v}", str)
 }
 
 // Substring Match
@@ -91,4 +91,10 @@ func SubstringMatch(substr string, str string) bool {
 		return true
 	}
 	return false
+}
+
+// Regex Formatting
+
+func RegexQuestionMarks(str string) string {
+	return `` + strings.Replace(str, `?`, `\?`, -1)
 }

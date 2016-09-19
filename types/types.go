@@ -113,3 +113,8 @@ func FeedHandler(wr http.ResponseWriter, req *http.Request) {
 	pg, _ := LoadPage(string(req.URL.Path[1:]))
 	RenderTemplate(wr, "feed.html", pg)
 }
+
+func AdminHandler(wr http.ResponseWriter, req *http.Request) {
+	pg, _ := LoadPage(string(req.URL.Path[1:]))
+	RenderTemplate(wr, "admin.html", pg)
+}

@@ -7,6 +7,31 @@
 	<!-- Add time queries -->
 
 	<div class="container">
+		<h5 class="my-header">posted before</h5>
+        <div class="form-group">
+            <div class='input-group date' id='before'>
+                <input type='text' class="form-control" />
+                <span class="input-group-addon">
+                    <span class="glyphicon glyphicon-calendar"></span>
+                </span>
+            </div>
+        </div>
+        <script type="text/javascript">
+            $(function () {
+                $('before').datetimepicker();
+            });
+        </script>
+		<br><br>
+		<h5 class="my-header">posted after</h5>
+		<div class="form-group">
+            <div class='input-group date' id='before'>
+                <input type='text' class="form-control" />
+                <span class="input-group-addon">
+                    <span class="glyphicon glyphicon-calendar"></span>
+                </span>
+            </div>
+        </div>
+		<br><br>
 		<h5 class="my-header">service</h5>
 		<select id="service">
 			<option value="">--</option>
@@ -56,6 +81,10 @@
 		*/
 		$('#search').bind('click', function() {
 			valid_entry = true;
+			var before = $('#before').val();
+			console.log(before)
+			var after = $('#after').val();
+			console.log(after)
 			var service = $('#service').val();
 			var address = $('#address').val();
 			// var specfield = $('#specfield').val();
@@ -73,7 +102,7 @@
 			if (valid_entry) {
 				$('#pubkey-label').html("<span style='color:black;'>public key</span>"); 
 				$('#passphrase-label').html("<span style='color:black;'>passphrase</span>"); 
-				socket.emit('search-forms', service, address, status, pubKeyString, passphrase)
+				socket.emit('search-forms', before, after, service, address, status, pubKeyString, passphrase)
 				socket.on('forms-msg', function(msg){
 					$('#forms').html(msg)
 				})

@@ -180,11 +180,22 @@ func (reactor *MyReactor) getMsg(chID byte) PeerMessage {
 
 // Channels
 
-var DeptChannelIDs = map[string]byte{
+var FeedChannelIDs = map[string]byte{
 	"general":        byte(0x00),
 	"infrastructure": byte(0x01),
 	"sanitation":     byte(0x02),
 }
+
+var AdminChannelIDs = map[string]byte{ // by service type or something else?
+	"street light out":             byte(0x10),
+	"pothole in street":            byte(0x11),
+	"rodent baiting/rat complaint": byte(0x12),
+	"tree trim":                    byte(0x13),
+	"garbage cart black maintenance/replacement": byte(0x14),
+}
+
+// General msgBoard
+// var MsgBoard = byte(0x88)
 
 // Switches
 
@@ -199,7 +210,7 @@ func CreateChannelDescriptors(channelIDs []byte) []*ChannelDescriptor {
 	return chs
 }
 
-func StartSwitch(privkey PrivKeyEd25519, passphrase string) (sw *Switch) {
+func CreateSwitch(privkey PrivKeyEd25519, passphrase string) (sw *Switch) {
 	sw = NewSwitch(config)
 	sw.SetNodeInfo(&NodeInfo{PubKey: privkey.PubKey().(PubKeyEd25519),
 		Network: "testing",
@@ -207,18 +218,21 @@ func StartSwitch(privkey PrivKeyEd25519, passphrase string) (sw *Switch) {
 		Other:   []string{passphrase},
 	})
 	sw.SetNodePrivKey(privkey)
-	var channelIDs []byte
-	for _, val := range DeptChannelIDs {
-		channelIDs = append(channelIDs, val)
-	}
-	sw.AddReactor("feed", NewReactor(CreateChannelDescriptors(channelIDs), true))
-	sw.Start()
+	sw.Start() // when to stop?
 	return
+}
+
+func AddReactor(sw *Switch, mapChannelIDs map[string]byte, name string) {
+	var channelIDs []byte
+	for _, chID := range mapChannelIDs {
+		channelIDs = append(channelIDs, chID)
+	}
+	sw.AddReactor(name, NewReactor(CreateChannelDescriptors(channelIDs), true))
 }
 
 func Connect2Switches(sw1 *Switch, sw2 *Switch) {
 	c1, c2 := net.Pipe()
-	go sw1.AddPeerWithConnection(c1, false) // AddPeer is blocking, requires handshake.
+	go sw1.AddPeerWithConnection(c1, true) // AddPeer is blocking, requires handshake.
 	go sw2.AddPeerWithConnection(c2, true)
 	time.Sleep(100 * time.Millisecond * time.Duration(4))
 }
