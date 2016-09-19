@@ -7,8 +7,8 @@
 	<!-- Add time queries -->
 
 	<div class="container">
-		<h5 class="my-header">service type</h5>
-		<select id="type">
+		<h5 class="my-header">service</h5>
+		<select id="service">
 			<option value="">--</option>
 			<option value="street light out">street light out</option>
 			<option value="pothole in street">pothole in street</option>
@@ -56,10 +56,10 @@
 		*/
 		$('#search').bind('click', function() {
 			valid_entry = true;
-			var _type = $('#type').val();
-			var _address = $('#address').val();
-			// var _specfield = $('#specfield').val();
-			var _status = $('#status').val();
+			var service = $('#service').val();
+			var address = $('#address').val();
+			// var specfield = $('#specfield').val();
+			var status = $('#status').val();
 			var pubKeyString = $('#pubkey').val();
 			if (pubKeyString.length == 0) {
 				$('#pubkey-label').html("<span style='color:red;'>enter public key</span>"); 
@@ -73,7 +73,7 @@
 			if (valid_entry) {
 				$('#pubkey-label').html("<span style='color:black;'>public key</span>"); 
 				$('#passphrase-label').html("<span style='color:black;'>passphrase</span>"); 
-				socket.emit('search-forms', _type, _address, _status, pubKeyString, passphrase)
+				socket.emit('search-forms', service, address, status, pubKeyString, passphrase)
 				socket.on('forms-msg', function(msg){
 					$('#forms').html(msg)
 				})

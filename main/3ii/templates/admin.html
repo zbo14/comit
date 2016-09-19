@@ -1,0 +1,51 @@
+{{define "head"}}
+	<title>{{ .Title}}</title>
+{{end}}
+
+{{define "body"}}
+	<div class="container">
+		<h5 class="my-header" id="pubkey-label">public key</h5>
+		<input type="text" id="pubkey" class="my-input"></input>
+		<br><br>
+		<h5 class="my-header" id="passphrase-label">passphrase</h5>
+		<input type="password" id="passphrase" class="my-input"></input>
+		<br><br>
+		<button type="button" id="enter" class="my-button">enter</button>
+		<br><br>
+		<p id="admin-error"></p>
+	</div>
+	<script type="text/javascript" charset="utf-8">
+	$(function() {
+		var socket = io();
+		$('#enter').bind('click', function() {
+			var valid_entry = true
+			var pubKeyString = $('#pubkey').val();
+			if (pubKeyString.length == 0) {
+				$('#pubkey-label').html("<span style='color:red;'>enter public key</span>"); 
+				valid_entry = false;
+			}
+			var passphrase = $('#passphrase').val();
+			if (passphrase.length == 0) {
+				$('#passphrase-label').html("<span style='color:red;'>enter passphrase</span>"); 
+				valid_entry = false;
+			}
+			if (valid_entry) {
+				socket.emit('find-admin', pubKeyString, passphrase)
+				socket.on('admin-msg', function(msg, success){
+					if (!success) {
+						$("#admin-error").html(msg)
+					} else {
+						$('div.container').html("<h5 class='my-header'>admin</h5><br><br><ul id='admin'></ul>")
+						for (var s = 0; s < msg.length; s++) {
+							socket.on(msg[s] + "-update", function(update) { // msg[s] is service
+								$("#admin").append(update)
+							})
+						}
+					}
+				})
+			}
+		})
+	})
+	</script>
+
+{{end}}

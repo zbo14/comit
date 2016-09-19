@@ -11,6 +11,8 @@
 			<option value="infrastructure">infrastructure</option>
 			<option value="sanitation">sanitation</option>
 		</select><br>
+		<h5 class="my-header" id="services-label">services</h5>
+		<select id="services" multiple></select>
 		<h5 class="my-header">passphrase</h5>
 		<input type="password" id="passphrase" class="my-input"></input><br><br>
 		<button type="button" id="create-admin" class="my-button">create admin</button><br><br>
@@ -18,11 +20,22 @@
 	<script type="text/javascript">
 		$(function() {
 			var socket = io();
+			$('#dept').on('change', function() {
+				socket.emit('select-dept', $('#dept').val())
+				socket.on('services', function(msg) {
+					document.getElementById('services').innerHTML = msg
+				})
+			})
 			$('#create-admin').bind('click', function() {
 				var valid_entry = true
 				var dept = $('#dept').val();
 				if (dept.length == 0) {
 					$('#dept-label').html("<span style='color:red;'>select department</span>"); 
+					valid_entry = false
+				}
+				var services = $('#services').val();
+				if (services.length == 0) {
+					$('#services-label').html("<span style='color:red;'>select services</span>")
 					valid_entry = false
 				}
 				var passphrase = $('#passphrase').val();
@@ -32,8 +45,9 @@
 				}
 				if (valid_entry) {
 					$('#dept-label').html("<span style='color:black;'>department</span>"); 
+					$('#services-label').html("<span style='color:black;'>services</span>")
 					$('#passphrase-label').html("<span style='color:black;'>passphrase</span>");
-					socket.emit('create-admin', dept, passphrase)
+					socket.emit('create-admin', dept, services, passphrase)
 					socket.on('admin-keys-msg', function(msg) {
 						$('#keys').show(100, "linear").html(msg)
 					})
