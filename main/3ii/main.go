@@ -4,6 +4,7 @@ import (
 	"flag"
 	. "github.com/tendermint/go-common"
 	"github.com/tendermint/tmsp/server"
+	. "github.com/zballs/3ii/actions"
 	. "github.com/zballs/3ii/app"
 	. "github.com/zballs/3ii/types"
 	"net/http"

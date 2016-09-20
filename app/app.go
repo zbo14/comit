@@ -2,8 +2,11 @@ package app
 
 import (
 	. "github.com/tendermint/go-common"
-	"github.com/tendermint/go-merkle"
+	merkle "github.com/tendermint/go-merkle"
 	types "github.com/tendermint/tmsp/types"
+	. "github.com/zballs/3ii/accounts"
+	. "github.com/zballs/3ii/cache"
+	. "github.com/zballs/3ii/types"
 )
 
 type Application struct {
@@ -22,6 +25,14 @@ func NewApplication() *Application {
 		admin_manager: CreateAdminManager(8),
 		cache:         CreateCache(),
 	}
+}
+
+func (app *Application) AdminManager() *AdminManager {
+	return app.admin_manager
+}
+
+func (app *Application) Cache() *Cache {
+	return app.cache
 }
 
 func (app *Application) Info() string {
