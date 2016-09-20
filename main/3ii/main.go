@@ -34,6 +34,7 @@ func main() {
 		"search_forms.html",
 		"feed.html",
 		"admin.html",
+		"data.html",
 	)
 
 	CreatePages(
@@ -47,6 +48,7 @@ func main() {
 		"search_forms",
 		"feed",
 		"admin",
+		"data",
 	)
 
 	action_listener, err := CreateActionListener()
@@ -60,16 +62,17 @@ func main() {
 
 	js := JustFiles{http.Dir("static/")}
 	http.Handle("/", action_listener)
-	http.HandleFunc("/create_account", CreateAccountHandler)
-	http.HandleFunc("/create_admin", CreateAdminHandler)
-	http.HandleFunc("/remove_account", RemoveAccountHandler)
-	http.HandleFunc("/remove_admin", RemoveAdminHandler)
-	http.HandleFunc("/submit_form", SubmitFormHandler)
-	http.HandleFunc("/find_form", FindFormHandler)
-	http.HandleFunc("/resolve_form", ResolveFormHandler)
-	http.HandleFunc("/search_forms", SearchFormsHandler)
-	http.HandleFunc("/feed", FeedHandler)
-	http.HandleFunc("/admin", AdminHandler)
+	http.HandleFunc("/create_account", CustomHandler("create_account.html"))
+	http.HandleFunc("/create_admin", CustomHandler("create_admin.html"))
+	http.HandleFunc("/remove_account", CustomHandler("remove_account.html"))
+	http.HandleFunc("/remove_admin", CustomHandler("remove_admin.html"))
+	http.HandleFunc("/submit_form", CustomHandler("submit_form.html"))
+	http.HandleFunc("/find_form", CustomHandler("find_form.html"))
+	http.HandleFunc("/resolve_form", CustomHandler("resolve_form.html"))
+	http.HandleFunc("/search_forms", CustomHandler("search_forms.html"))
+	http.HandleFunc("/feed", CustomHandler("feed.html"))
+	http.HandleFunc("/admin", CustomHandler("admin.html"))
+	http.HandleFunc("/data", CustomHandler("data.html"))
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(js)))
 	http.ListenAndServe(":8888", nil)
 

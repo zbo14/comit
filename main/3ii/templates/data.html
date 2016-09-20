@@ -1,0 +1,34 @@
+{{define "head"}}
+	<title>{{ .Title}}</title>
+{{end}}
+
+{{define "body"}}
+<div class="container">
+	<h5 class="my-header">metric</h5>
+	<br>
+	<select id="metric">
+		<option value="">--</option>
+		<option value="response-time">response time</option>
+	</select>
+	<br><br>
+	<h5 class="my-header">by</h5>
+	<br>
+	<select id="by">
+		<option value="">--</option>
+		<option value="dept">department</option>
+		<option value="service">service</option>
+	</select>
+	<br><br>
+	<h5 class="my-header" id="label"></h5>
+
+
+
+</div>
+<script type="text/javascript">
+	$('#by').on('change', function(){
+		$('#label').text($('#by').val())
+	})
+</script>
+
+
+{{end}}

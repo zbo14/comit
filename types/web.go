@@ -69,52 +69,11 @@ func RenderTemplate(wr http.ResponseWriter, t string, pg *Page) {
 
 // Handler
 
-func CreateAccountHandler(wr http.ResponseWriter, req *http.Request) {
-	pg, _ := LoadPage(string(req.URL.Path[1:]))
-	RenderTemplate(wr, "create_account.html", pg)
-}
+type Handler func(wr http.ResponseWriter, req *http.Request)
 
-func CreateAdminHandler(wr http.ResponseWriter, req *http.Request) {
-	pg, _ := LoadPage(string(req.URL.Path[1:]))
-	RenderTemplate(wr, "create_admin.html", pg)
-}
-
-func RemoveAccountHandler(wr http.ResponseWriter, req *http.Request) {
-	pg, _ := LoadPage(string(req.URL.Path[1:]))
-	RenderTemplate(wr, "remove_account.html", pg)
-}
-
-func RemoveAdminHandler(wr http.ResponseWriter, req *http.Request) {
-	pg, _ := LoadPage(string(req.URL.Path[1:]))
-	RenderTemplate(wr, "remove_admin.html", pg)
-}
-
-func SubmitFormHandler(wr http.ResponseWriter, req *http.Request) {
-	pg, _ := LoadPage(string(req.URL.Path[1:]))
-	RenderTemplate(wr, "submit_form.html", pg)
-}
-
-func FindFormHandler(wr http.ResponseWriter, req *http.Request) {
-	pg, _ := LoadPage(string(req.URL.Path[1:]))
-	RenderTemplate(wr, "find_form.html", pg)
-}
-
-func ResolveFormHandler(wr http.ResponseWriter, req *http.Request) {
-	pg, _ := LoadPage(string(req.URL.Path[1:]))
-	RenderTemplate(wr, "resolve_form.html", pg)
-}
-
-func SearchFormsHandler(wr http.ResponseWriter, req *http.Request) {
-	pg, _ := LoadPage(string(req.URL.Path[1:]))
-	RenderTemplate(wr, "search_forms.html", pg)
-}
-
-func FeedHandler(wr http.ResponseWriter, req *http.Request) {
-	pg, _ := LoadPage(string(req.URL.Path[1:]))
-	RenderTemplate(wr, "feed.html", pg)
-}
-
-func AdminHandler(wr http.ResponseWriter, req *http.Request) {
-	pg, _ := LoadPage(string(req.URL.Path[1:]))
-	RenderTemplate(wr, "admin.html", pg)
+func CustomHandler(filename string) Handler {
+	return func(wr http.ResponseWriter, req *http.Request) {
+		pg, _ := LoadPage(string(req.URL.Path[1:]))
+		RenderTemplate(wr, filename, pg)
+	}
 }

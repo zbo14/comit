@@ -29,7 +29,7 @@ func CreateActionListener() (ActionListener, error) {
 	return ActionListener{server, recvr, sendr}, err
 }
 
-func ParseForm(form *Form) string {
+func FormatForm(form *Form) string {
 	posted := (*form).Time.String()[:16] // to the minute
 	status := CheckStatus((*form).Resolved)
 	field := lib.SERVICE.FieldOpts((*form).Service).Field
@@ -83,6 +83,8 @@ func (al ActionListener) AdminUpdates(admin *Switch) {
 		}
 	}
 }
+
+func (al ActionListener) CrossCheck()
 
 func (al ActionListener) Run(app *Application) {
 
@@ -179,12 +181,17 @@ func (al ActionListener) Run(app *Application) {
 			if err != nil {
 				so.Emit("form-msg", unauthorized)
 			} else {
+				result := app.Query([]byte(formID))
 				form, err := app.Cache().FindForm(formID)
-				if err != nil {
-					log.Println(err.Error())
+				if result.IsError() {
 					so.Emit("form-msg", fmt.Sprintf(find_form_failure, formID))
+					if err == nil {
+						app.Cache().RemoveForm(formID)
+					}
+				} else if result.IsOK() && err == nil {
+					so.Emit("form-msg", FormatForm(form))
 				} else {
-					so.Emit("form-msg", ParseForm(form))
+
 				}
 			}
 		})
@@ -231,7 +238,7 @@ func (al ActionListener) Run(app *Application) {
 				} else {
 					forms := make([]string, len(formlist))
 					for idx, form := range formlist {
-						forms[idx] = ParseForm(form)
+						forms[idx] = FormatForm(form)
 					}
 					so.Emit("forms-msg", forms, true)
 				}

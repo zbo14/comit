@@ -35,6 +35,8 @@ func (app *Application) Cache() *Cache {
 	return app.cache
 }
 
+// TMSP requests
+
 func (app *Application) Info() string {
 	return Fmt("size:%v", app.state.Size())
 }
@@ -68,7 +70,9 @@ func (app *Application) Commit() types.Result {
 }
 
 func (app *Application) Query(query []byte) types.Result {
-	index, value, exists := app.state.Get(query)
-	resStr := Fmt("Index=%v value=%v exists=%v", index, string(value), exists)
-	return types.NewResultOK([]byte(resStr), "")
+	_, _, exists := app.state.Get(query)
+	if exists {
+		return types.NewResultOK(nil, "")
+	}
+	return types.NewResult(types.CodeType_InternalError, nil, "")
 }

@@ -129,6 +129,8 @@ func (um *UserManager) AuthorizeUser(pubKeyString string, passphrase string) err
 	}
 }
 
+// After Authorization
+
 func (um *UserManager) UserIsRunning(pubKeyString string) bool {
 	users := um.accessUsers()
 	user := users[pubKeyString]

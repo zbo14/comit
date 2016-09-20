@@ -2,6 +2,7 @@ package cache
 
 import (
 	"errors"
+	lib "github.com/zballs/3ii/lib"
 	. "github.com/zballs/3ii/types"
 	"time"
 )
@@ -9,8 +10,8 @@ import (
 type Forms map[string]*Form
 
 type Cache struct {
-	Unresolved chan Forms
-	Resolved   chan Forms
+	unresolved chan Forms
+	resolved   chan Forms
 }
 
 func CreateCache() *Cache {
@@ -29,20 +30,20 @@ func CreateCache() *Cache {
 }
 
 func (cache *Cache) accessUnresolved() Forms {
-	return <-cache.Unresolved
+	return <-cache.unresolved
 }
 
 func (cache *Cache) restoreUnresolved(forms Forms, done chan struct{}) {
-	cache.Unresolved <- forms
+	cache.unresolved <- forms
 	done <- struct{}{}
 }
 
 func (cache *Cache) accessResolved() Forms {
-	return <-cache.Resolved
+	return <-cache.resolved
 }
 
 func (cache *Cache) restoreResolved(forms Forms, done chan struct{}) {
-	cache.Resolved <- forms
+	cache.resolved <- forms
 	done <- struct{}{}
 }
 
@@ -64,7 +65,7 @@ func (cache *Cache) NewForm(id string, form *Form) error {
 	}
 }
 
-func (cache *Cache) FindUnresolved(id string) (*Form, error) {
+func (cache *Cache) findUnresolved(id string) (*Form, error) {
 	forms := cache.accessUnresolved()
 	form := forms[id]
 	done := make(chan struct{}, 1)
@@ -78,7 +79,7 @@ func (cache *Cache) FindUnresolved(id string) (*Form, error) {
 	}
 }
 
-func (cache *Cache) FindResolved(id string) (*Form, error) {
+func (cache *Cache) findResolved(id string) (*Form, error) {
 	forms := cache.accessResolved()
 	form := forms[id]
 	done := make(chan struct{})
@@ -93,14 +94,55 @@ func (cache *Cache) FindResolved(id string) (*Form, error) {
 }
 
 func (cache *Cache) FindForm(id string) (*Form, error) {
-	form1, err1 := cache.FindUnresolved(id)
-	form2, err2 := cache.FindResolved(id)
+	form1, err1 := cache.findUnresolved(id)
+	form2, err2 := cache.findResolved(id)
 	if form1 != nil && err1 == nil && form2 == nil && err2 != nil {
 		return form1, nil
 	} else if form2 != nil && err2 == nil && form1 == nil && err1 != nil {
 		return form2, nil
 	}
 	return nil, errors.New(form_not_found)
+}
+
+func (cache *Cache) removeResolved(id string) {
+	forms := cache.accessResolved()
+	form := forms[id]
+	if form != nil {
+		delete(forms, id)
+	}
+	done := make(chan struct{}, 1)
+	go cache.restoreResolved(forms, done)
+	select {
+	case <-done:
+		return
+	}
+}
+
+func (cache *Cache) removeUnresolved(id string) {
+	forms := cache.accessUnresolved()
+	form := forms[id]
+	if form != nil {
+		delete(forms, id)
+	}
+	done := make(chan struct{}, 1)
+	go cache.restoreResolved(forms, done)
+	select {
+	case <-done:
+		return
+	}
+}
+
+func (cache *Cache) RemoveForm(id string) {
+	done := make(chan struct{}, 1)
+	go func() {
+		cache.removeResolved(id)
+		cache.removeUnresolved(id)
+		done <- struct{}{}
+	}()
+	select {
+	case <-done:
+		return
+	}
 }
 
 func (cache *Cache) ResolveForm(id string) error {
@@ -127,7 +169,7 @@ func (cache *Cache) ResolveForm(id string) error {
 	}
 }
 
-func (cache *Cache) SearchUnresolved(str string) (formlist Formlist) {
+func (cache *Cache) searchUnresolved(str string) (formlist Formlist) {
 	forms := cache.accessUnresolved()
 	for _, form := range forms {
 		if MatchForm(str, form) {
@@ -142,7 +184,7 @@ func (cache *Cache) SearchUnresolved(str string) (formlist Formlist) {
 	}
 }
 
-func (cache *Cache) SearchResolved(str string) (formlist Formlist) {
+func (cache *Cache) searchResolved(str string) (formlist Formlist) {
 	forms := cache.accessResolved()
 	for _, form := range forms {
 		if MatchForm(str, form) {
@@ -159,22 +201,44 @@ func (cache *Cache) SearchResolved(str string) (formlist Formlist) {
 
 func (cache *Cache) SearchForms(str string, status string) Formlist {
 	if status == "unresolved" {
-		return cache.SearchUnresolved(str)
+		return cache.searchUnresolved(str)
 	} else if status == "resolved" {
-		return cache.SearchResolved(str)
+		return cache.searchResolved(str)
 	}
-	return append(cache.SearchUnresolved(str), cache.SearchResolved(str)...)
+	return append(cache.searchUnresolved(str), cache.searchResolved(str)...)
 }
 
 // Stats
 
-func (cache *Cache) AvgResponseTime() float64 {
+func (cache *Cache) AvgResponseTime(by string, values ...string) float64 {
 	forms := <-cache.Resolved
 	sum := float64(0)
 	count := float64(0)
-	for _, form := range forms {
-		sum += (*form).ResponseTime
-		count += 1
+	if len(values) == 0 {
+		for _, form := range forms {
+			sum += (*form).ResponseTime
+			count += 1
+		}
+	} else if by == "dept" {
+		for _, form := range forms {
+			for _, val := range values {
+				if lib.SERVICE.ServiceDept((*form).Service) == val {
+					sum += (*form).ResponseTime
+					count += 1
+					break
+				}
+			}
+		}
+	} else if by == "service" {
+		for _, form := range forms {
+			for _, val := range values {
+				if (*form).Service == val {
+					sum += (*form).ResponseTime
+					count += 1
+					break
+				}
+			}
+		}
 	}
 	done := make(chan struct{})
 	go cache.restoreResolved(forms, done)
