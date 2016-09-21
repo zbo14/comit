@@ -30,7 +30,7 @@ func CreateActionListener() (ActionListener, error) {
 }
 
 func FormatForm(form *Form) string {
-	posted := (*form).Time.String()[:16] // to the minute
+	posted := util.ToTheMinute((*form).Time.String())
 	status := CheckStatus((*form).Resolved)
 	field := lib.SERVICE.FieldOpts((*form).Service).Field
 	return "<li>" + fmt.Sprintf(line, "posted", posted) + fmt.Sprintf(line, "issue", (*form).Service) + fmt.Sprintf(line, "address", (*form).Address) + fmt.Sprintf(line, "description", (*form).Description) + fmt.Sprintf(line, field, (*form).SpecField) + fmt.Sprintf(line, "pubkey", (*form).Pubkey) + fmt.Sprintf(line, "status", status) + "</li>"
@@ -56,10 +56,11 @@ func (al ActionListener) FeedUpdates() {
 					// To feed
 					update := FormatUpdate(peer_msg)
 					al.BroadcastTo("feed", fmt.Sprintf("%v-update", dept), update)
-					if al.sendr.IsRunning() {
+					if al.sendr.IsRunning() && dept != "general" {
 						// To admin channels
 						str := string(peer_msg.Bytes)
 						service := lib.SERVICE.ReadField(str, "service")
+						log.Println(str)
 						al.sendr.Broadcast(AdminChannelIDs[service], str)
 					}
 				}
@@ -71,8 +72,8 @@ func (al ActionListener) FeedUpdates() {
 func (al ActionListener) AdminUpdates(admin *Switch) {
 	adminReactor := admin.Reactor("admin").(*MyReactor)
 	for {
-		if admin.IsRunning() {
-			for service, chID := range AdminChannelIDs {
+		for service, chID := range AdminChannelIDs {
+			if admin.IsRunning() {
 				peer_msg := adminReactor.GetMsg(chID)
 				if len(peer_msg.Bytes) > 0 {
 					// To admins
@@ -84,7 +85,7 @@ func (al ActionListener) AdminUpdates(admin *Switch) {
 	}
 }
 
-func (al ActionListener) CrossCheck()
+// func (al ActionListener) CrossCheck()
 
 func (al ActionListener) Run(app *Application) {
 
@@ -95,13 +96,28 @@ func (al ActionListener) Run(app *Application) {
 		// Feed
 		so.Join("feed")
 
-		// Send field options
+		// Send values
+		so.On("get-values", func(category string) {
+			var msg bytes.Buffer
+			if category == "services" {
+				for _, service := range lib.SERVICE.GetServices() {
+					msg.WriteString(fmt.Sprintf(select_option, service, service))
+				}
+			} else if category == "depts" {
+				for dept, _ := range lib.SERVICE.GetDepts() {
+					msg.WriteString(fmt.Sprintf(select_option, dept, dept))
+				}
+			}
+			so.Emit("values", msg.String())
+		})
+
+		// Send service field options
 		so.On("select-service", func(service string) {
 			field, options := lib.SERVICE.FormatFieldOpts(service)
 			so.Emit("field-options", field, options)
 		})
 
-		// Send services
+		// Send dept services
 		so.On("select-dept", func(dept string) {
 			var msg bytes.Buffer
 			for _, service := range lib.SERVICE.DeptServices(dept) {
@@ -163,6 +179,7 @@ func (al ActionListener) Run(app *Application) {
 			} else {
 				str := lib.SERVICE.WriteField(service, "service") + lib.SERVICE.WriteField(address, "address") + lib.SERVICE.WriteField(description, "description") + lib.SERVICE.WriteSpecField(specfield, service) + util.WritePubKeyString(pubKeyString)
 				result := app.AppendTx([]byte(str))
+				log.Println(result.Log)
 				if result.IsOK() && app.AdminManager().UserIsRunning(pubKeyString) {
 					so.Emit("formID-msg", fmt.Sprintf(submit_form_success, result.Log))
 					chID := FeedChannelIDs[lib.SERVICE.ServiceDept(service)]
@@ -183,7 +200,7 @@ func (al ActionListener) Run(app *Application) {
 			} else {
 				result := app.Query([]byte(formID))
 				form, err := app.Cache().FindForm(formID)
-				if result.IsError() {
+				if !result.IsOK() {
 					so.Emit("form-msg", fmt.Sprintf(find_form_failure, formID))
 					if err == nil {
 						app.Cache().RemoveForm(formID)
@@ -200,7 +217,7 @@ func (al ActionListener) Run(app *Application) {
 		so.On("resolve-form", func(formID string, pubKeyString string, passphrase string) {
 			err := app.AdminManager().AuthorizeAdmin(pubKeyString, passphrase)
 			if err != nil {
-				so.Emit("form-msg", unauthorized)
+				so.Emit("resolve-msg", unauthorized)
 			} else {
 				err = app.Cache().ResolveForm(formID)
 				if err != nil {
@@ -219,11 +236,9 @@ func (al ActionListener) Run(app *Application) {
 				so.Emit("forms-msg", unauthorized)
 			} else {
 				var str string = ""
-				if len(before) > 0 {
-					str += lib.SERVICE.WriteField(before[:19], "before")
-				}
-				if len(after) > 0 {
-					str += lib.SERVICE.WriteField(after[:19], "after")
+				if util.ToTheHour(before) != util.ToTheHour(after) {
+					str += lib.SERVICE.WriteField(util.ToTheSecond(before[:19]), "before")
+					str += lib.SERVICE.WriteField(util.ToTheSecond(after[:19]), "after")
 				}
 				if len(service) > 0 {
 					str += lib.SERVICE.WriteField(service, "service")
@@ -231,9 +246,9 @@ func (al ActionListener) Run(app *Application) {
 				if len(address) > 0 {
 					str += lib.SERVICE.WriteField(address, "address")
 				}
+				log.Println(str)
 				formlist := app.Cache().SearchForms(str, status)
-				if len(formlist) == 0 {
-					log.Println(err.Error())
+				if formlist == nil {
 					so.Emit("forms-msg", search_forms_failure, false)
 				} else {
 					forms := make([]string, len(formlist))
@@ -254,6 +269,23 @@ func (al ActionListener) Run(app *Application) {
 				so.Join("admin")
 				so.Emit("admin-msg", services, true)
 				go al.AdminUpdates(admin)
+			}
+		})
+
+		// Stats
+		so.On("response-time", func(category string, values []string, pubKeyString string, passphrase string) {
+			err := app.AdminManager().AuthorizeUser(pubKeyString, passphrase)
+			if err != nil {
+				log.Println(err.Error())
+				so.Emit("response-time-msg", unauthorized)
+			} else {
+				avgResponseTime, err := app.Cache().AvgResponseTime(category, values...)
+				if err != nil {
+					so.Emit("response-time-msg", response_time_failure)
+				} else {
+					log.Println(avgResponseTime)
+					so.Emit("response-time-msg", fmt.Sprintf(response_time_success, avgResponseTime))
+				}
 			}
 		})
 

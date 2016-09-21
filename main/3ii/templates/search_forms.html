@@ -3,74 +3,76 @@
 {{end}}
 
 {{define "body"}}
-	<div class='col-sm-6'>
-		<h5 class="my-header">before</h5>
-        <div class="form-group">
-            <div class='input-group date' id='before'>
-                <input type='text' class="form-control" />
-                <span class="input-group-addon">
-                    <span class="glyphicon glyphicon-calendar"></span>
-                </span>
-            </div>
-        </div>
-        <script type="text/javascript">
-            $(function () {
-                $('#before').datetimepicker();
-            });
-        </script>
-		<br><br>
-		<h5 class="my-header">after</h5>
-            <div class="form-group">
-            <div class='input-group date' id='after'>
-                <input type='text' class="form-control" />
-                <span class="input-group-addon">
-                    <span class="glyphicon glyphicon-calendar"></span>
-                </span>
-            </div>
-        </div>
-        <script type="text/javascript">
-            $(function () {
-                $('#after').datetimepicker();
-            });
-        </script>
-		<br><br>
-		<h5 class="my-header">service</h5>
-		<select id="service">
-			<option value="">--</option>
-			<option value="street light out">street light out</option>
-			<option value="pothole in street">pothole in street</option>
-			<option value="rodent baiting/rat complaint">rodent baiting/rat complaint</option>
-			<option value="tree trim">tree trim</option>
-			<option value="garbage cart black maintenance/replacement">garbage cart black maintenance/replacement</option>
-		</select> 
-		<br><br>
-		<h5 class="my-header">address</h5>
-		<input id="address" class="my-input"></input>
-		<br><br>
-		<!--
-		<h5 class="my-header" id="specfield-label" style="display:hidden;"></h5>
-		<select id="specfield" style="display:hidden;"></select>
-		<br><br>
-		-->
-		<h5 class="my-header">status</h5>
-		<select id="status">
-			<option value="">--</option>
-			<option value="unresolved">unresolved</option>
-			<option value="resolved">resolved</option>
-		</select>
-		<br><br>
-		<h5 class="my-header">public key</h5>
-		<input type="text" id="pubkey" class="my-input"></input>
-		<br><br>
-		<h5 class="my-header">passphrase</h5>
-		<input type="password" id="passphrase" class="my-input"></input>
-		<br><br>
-		<button type="button" id="search" class="my-button">search</button>
-		<br><br>
-		<p id="forms-error"></p>
-	</div>
-	<div class="col-sm-6">
-		<ul id="forms"></ul>
+	<div class="container">
+		<div class='col-sm-6'>
+			<h5 class="my-header">before</h5>
+	        <div class="form-group">
+	            <div class='input-group date' id='before'>
+	                <input type='text' class="form-control" />
+	                <span class="input-group-addon">
+	                    <span class="glyphicon glyphicon-calendar"></span>
+	                </span>
+	            </div>
+	        </div>
+	        <script type="text/javascript">
+	            $(function () {
+	                $('#before').datetimepicker();
+	            });
+	        </script>
+			<br><br>
+			<h5 class="my-header">after</h5>
+	            <div class="form-group">
+	            <div class='input-group date' id='after'>
+	                <input type='text' class="form-control" />
+	                <span class="input-group-addon">
+	                    <span class="glyphicon glyphicon-calendar"></span>
+	                </span>
+	            </div>
+	        </div>
+	        <script type="text/javascript">
+	            $(function () {
+	                $('#after').datetimepicker();
+	            });
+	        </script>
+			<br><br>
+			<h5 class="my-header">service</h5>
+			<select id="service">
+				<option value="">--</option>
+				<option value="street light out">street light out</option>
+				<option value="pothole in street">pothole in street</option>
+				<option value="rodent baiting/rat complaint">rodent baiting/rat complaint</option>
+				<option value="tree trim">tree trim</option>
+				<option value="garbage cart black maintenance/replacement">garbage cart black maintenance/replacement</option>
+			</select> 
+			<br><br>
+			<h5 class="my-header">address</h5>
+			<input id="address" class="my-input"></input>
+			<br><br>
+			<!--
+			<h5 class="my-header" id="specfield-label" style="display:hidden;"></h5>
+			<select id="specfield" style="display:hidden;"></select>
+			<br><br>
+			-->
+			<h5 class="my-header">status</h5>
+			<select id="status">
+				<option value="">--</option>
+				<option value="unresolved">unresolved</option>
+				<option value="resolved">resolved</option>
+			</select>
+			<br><br>
+			<h5 class="my-header">public key</h5>
+			<input type="text" id="pubkey" class="my-input"></input>
+			<br><br>
+			<h5 class="my-header">passphrase</h5>
+			<input type="password" id="passphrase" class="my-input"></input>
+			<br><br>
+			<button type="button" id="search" class="my-button">search</button>
+			<br><br>
+			<p id="forms-error"></p>
+		</div>
+		<div class="col-sm-6">
+			<ul id="forms"></ul>
+		</div>
 	</div>
 	<script type="text/javascript" charset="utf-8">
 	$(function() {

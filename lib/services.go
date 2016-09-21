@@ -9,6 +9,8 @@ import (
 type Service struct{}
 
 type ServiceInterface interface {
+	GetServices() []string
+	GetDepts() map[string]*struct{}
 	Regex(field string) string
 	FieldOpts(service string) *FieldOptions
 	ServiceDept(service string) string
@@ -20,15 +22,15 @@ type ServiceInterface interface {
 	FormatFieldOpts(service string) (string, string)
 }
 
-var ServiceOptions = map[string]*FieldOptions{
-	"street light out":             CompletelyOut,
-	"pothole in street":            PotholeLocation,
-	"rodent baiting/rat complaint": BackyardBaited,
+var serviceOptions = map[string]*FieldOptions{
+	"street light out":             completelyOut,
+	"pothole in street":            potholeLocation,
+	"rodent baiting/rat complaint": backyardBaited,
 	"tree trim":                    nil,
 	"garbage cart black maintenance/replacement": nil,
 }
 
-var ServiceDepts = map[string]string{
+var serviceDepts = map[string]string{
 	"street light out":             "infrastructure",
 	"pothole in street":            "infrastructure",
 	"rodent baiting/rat complaint": "i dont know",
@@ -36,7 +38,7 @@ var ServiceDepts = map[string]string{
 	"garbage cart black maintenance/replacement": "sanitation",
 }
 
-var RegexPatterns = map[string]string{
+var regexPatterns = map[string]string{
 	"service":     `[\w\s]+`,
 	"address":     `[\w\s'\-\.\,]+`,
 	"description": `[\w\s'\-\.\,\?\!\\]+`,
@@ -44,25 +46,43 @@ var RegexPatterns = map[string]string{
 	"after":       `\d{4}-\d{2}-\d{2}T\w{2}\:\d{2}:\d{2}`,
 }
 
+func (Service) GetServices() []string {
+	services := make([]string, len(serviceDepts))
+	idx := 0
+	for service, _ := range serviceDepts {
+		services[idx] = service
+		idx++
+	}
+	return services
+}
+
+func (Service) GetDepts() map[string]*struct{} {
+	depts := make(map[string]*struct{})
+	for _, dept := range serviceDepts {
+		depts[dept] = nil
+	}
+	return depts
+}
+
 func (Service) FieldOpts(service string) *FieldOptions {
-	return ServiceOptions[service]
+	return serviceOptions[service]
 }
 
 func (Service) ServiceDept(service string) string {
-	return ServiceDepts[service]
+	return serviceDepts[service]
 }
 
 func (Service) DeptServices(dept string) (services []string) {
-	for service, _dept := range ServiceDepts {
-		if dept == _dept {
-			services = append(services, service)
+	for s, d := range serviceDepts {
+		if dept == d {
+			services = append(services, s)
 		}
 	}
 	return
 }
 
 func (Service) Regex(field string) string {
-	return RegexPatterns[field]
+	return regexPatterns[field]
 }
 
 func (serv Service) ReadField(str string, field string) string {

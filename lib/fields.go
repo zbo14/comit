@@ -38,17 +38,17 @@ var FIELD FieldInterface = Field{}
 
 // Field Options
 
-var CompletelyOut = &FieldOptions{
+var completelyOut = &FieldOptions{
 	Field:   "completely out?",
 	Options: []string{"yes", "no"},
 }
 
-var PotholeLocation = &FieldOptions{
+var potholeLocation = &FieldOptions{
 	Field:   "pothole location",
 	Options: []string{"bike lane", "crosswalk", "curb lane", "intersection", "traffic lane"},
 }
 
-var BackyardBaited = &FieldOptions{
+var backyardBaited = &FieldOptions{
 	Field:   "backyard baited?",
 	Options: []string{"yes", "no"},
 }

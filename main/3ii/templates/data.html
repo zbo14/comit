@@ -4,29 +4,86 @@
 
 {{define "body"}}
 <div class="container">
-	<h5 class="my-header">metric</h5>
-	<br>
+	<h5 class="my-header" id="metric-label">metric</h5>
 	<select id="metric">
 		<option value="">--</option>
 		<option value="response-time">response time</option>
 	</select>
 	<br><br>
-	<h5 class="my-header">by</h5>
-	<br>
-	<select id="by">
+	<h5 class="my-header" id="category-label">category</h5>
+	<select id="category">
 		<option value="">--</option>
-		<option value="dept">department</option>
-		<option value="service">service</option>
+		<option value="depts">depts</option>
+		<option value="services">services</option>
 	</select>
 	<br><br>
-	<h5 class="my-header" id="label"></h5>
-
-
-
+	<h5 class="my-header" id="values-label"></h5>
+	<select id="values" multiple></select>
+	<br><br>
+	<h5 class="my-header" id="pubkey-label">public key</h5>
+	<input service="text" id="pubkey" class="my-input"></input>
+	<br><br>
+	<h5 class="my-header" id="passphrase-label">passphrase</h5>
+	<input type="password" id="passphrase" class="my-input"></input>
+	<br><br>
+	<button id="enter">enter</button>
+	<br><br>
+	<p id="metric-msg"></p>
 </div>
-<script type="text/javascript">
-	$('#by').on('change', function(){
-		$('#label').text($('#by').val())
+<script type="text/javascript" charset="utf-8">
+	$(function() {
+		var socket = io();
+		$('#category').on('change', function() {
+			var category = $('#category').val()
+			$('#values-label').text(category);
+			if (category.length > 0) {
+				socket.emit('get-values', category)
+				socket.on('values', function(values) {
+					$('#values').html(values)
+				})
+			} else {
+				$('#values').html("");
+			}
+		})
+		$('#enter').on('click', function() {
+			var valid_entry = true;
+			var metric = $('#metric').val();
+			if (metric.length == 0) {
+				$('#metric-label').html("<span style='color:red;'>select metric</span>");
+				valid_entry = false;
+			}
+			var category = $('#category').val();
+			if (category.length == 0) {
+				$('#category-label').html("<span style='color:red;'>select category</span>");
+				valid_entry = false;
+			}
+			var values = $('#values').val()
+			if (values.length == 0) {
+				$('#values-label').html("<span style='color:red;'>select " + category + "</span>");
+				valid_entry = false;
+			}
+			var pubKeyString = $('#pubkey').val();
+			if (pubKeyString.length == 0) {
+				$('#pubkey-label').html("<span style='color:red;'>enter public key</span>");
+				valid_entry = false;
+			}
+			var passphrase = $('#passphrase').val();
+			if (passphrase.length == 0) {
+				$('#passphrase-label').html("<span style='color:red;'>enter passphrase</span>"); 
+				valid_entry = false;
+			}
+			if (valid_entry) {
+				$('#metric-label').html("<span style='color:black;'>metric</span>");
+				$('#category-label').html("<span style='color:black;'>category</span>");
+				$('#values-label').html("<span style='color:black;'>" + category + "</span>");
+				$('#pubkey-label').html("<span style='color:black;'>public key</span>"); 
+				$('#passphrase-label').html("<span style='color:black;'>passphrase</span>");
+				socket.emit(metric, category, values, pubKeyString, passphrase)
+				socket.on(metric + "-msg", function(msg) {
+					$('#metric-msg').html(msg);
+				})
+			}
+		})
 	})
 </script>
 

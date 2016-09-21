@@ -232,7 +232,7 @@ func AddReactor(sw *Switch, mapChannelIDs map[string]byte, name string) {
 
 func Connect2Switches(sw1 *Switch, sw2 *Switch) {
 	c1, c2 := net.Pipe()
-	go sw1.AddPeerWithConnection(c1, true) // AddPeer is blocking, requires handshake.
+	go sw1.AddPeerWithConnection(c1, false) // AddPeer is blocking, requires handshake.
 	go sw2.AddPeerWithConnection(c2, true)
 	time.Sleep(100 * time.Millisecond * time.Duration(4))
 }

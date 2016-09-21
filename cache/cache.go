@@ -4,6 +4,7 @@ import (
 	"errors"
 	lib "github.com/zballs/3ii/lib"
 	. "github.com/zballs/3ii/types"
+	"log"
 	"time"
 )
 
@@ -150,7 +151,8 @@ func (cache *Cache) ResolveForm(id string) error {
 	form := forms1[id]
 	done := make(chan struct{}, 1)
 	if form != nil {
-		go Resolve(time.Now())(form)
+		log.Println(*form)
+		go Resolve(time.Now().UTC())(form)
 		forms2 := cache.accessResolved()
 		forms2[id] = form
 		go cache.restoreResolved(forms2, done)
@@ -210,8 +212,8 @@ func (cache *Cache) SearchForms(str string, status string) Formlist {
 
 // Stats
 
-func (cache *Cache) AvgResponseTime(by string, values ...string) float64 {
-	forms := <-cache.Resolved
+func (cache *Cache) AvgResponseTime(category string, values ...string) (float64, error) {
+	forms := <-cache.resolved
 	sum := float64(0)
 	count := float64(0)
 	if len(values) == 0 {
@@ -219,7 +221,7 @@ func (cache *Cache) AvgResponseTime(by string, values ...string) float64 {
 			sum += (*form).ResponseTime
 			count += 1
 		}
-	} else if by == "dept" {
+	} else if category == "depts" {
 		for _, form := range forms {
 			for _, val := range values {
 				if lib.SERVICE.ServiceDept((*form).Service) == val {
@@ -229,7 +231,7 @@ func (cache *Cache) AvgResponseTime(by string, values ...string) float64 {
 				}
 			}
 		}
-	} else if by == "service" {
+	} else if category == "services" {
 		for _, form := range forms {
 			for _, val := range values {
 				if (*form).Service == val {
@@ -244,6 +246,9 @@ func (cache *Cache) AvgResponseTime(by string, values ...string) float64 {
 	go cache.restoreResolved(forms, done)
 	select {
 	case <-done:
-		return sum / count
+		if count > float64(0) {
+			return sum / count, nil
+		}
+		return float64(0), errors.New(zero_forms_found)
 	}
 }

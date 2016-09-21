@@ -119,6 +119,18 @@ func ParseDateString(datestr string) time.Time {
 	return time.Date(yr, time.Month(mo), d, hr, min, sec, 0, time.UTC)
 }
 
+func ToTheHour(datestr string) string {
+	return datestr[:13]
+}
+
+func ToTheMinute(datestr string) string {
+	return datestr[:16]
+}
+
+func ToTheSecond(datestr string) string {
+	return datestr[:19]
+}
+
 // HTML
 
 func ExtractText(str string) string {

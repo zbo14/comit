@@ -21,7 +21,7 @@
 				var pubKeyString = $('#pubkey').val();
 				var passphrase = $('#passphrase').val();
 				socket.emit('remove-admin', pubKeyString, passphrase)
-				socket.on('admin-remove-msg', function(msg) {
+				socket.on('remove-admin-msg', function(msg) {
 					$('#remove-msg').html(msg)
 				})
 			})

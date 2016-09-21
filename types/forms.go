@@ -38,35 +38,35 @@ func NewForm(items ...Item) (*Form, error) {
 	return form, nil
 }
 
-func SetTime(tm time.Time) Item {
+func setTime(tm time.Time) Item {
 	return func(form *Form) error {
 		(*form).Time = tm
 		return nil
 	}
 }
 
-func SetService(str string) Item {
+func setService(str string) Item {
 	return func(form *Form) error {
 		(*form).Service = lib.SERVICE.ReadField(str, "service")
 		return nil
 	}
 }
 
-func SetAddress(str string) Item {
+func setAddress(str string) Item {
 	return func(form *Form) error {
 		(*form).Address = lib.SERVICE.ReadField(str, "address")
 		return nil
 	}
 }
 
-func SetDescription(str string) Item {
+func setDescription(str string) Item {
 	return func(form *Form) error {
 		(*form).Description = lib.SERVICE.ReadField(str, "description")
 		return nil
 	}
 }
 
-func SetSpecField(str string) Item {
+func setSpecField(str string) Item {
 	return func(form *Form) error {
 		service := (*form).Service
 		if len(service) > 0 {
@@ -77,7 +77,7 @@ func SetSpecField(str string) Item {
 	}
 }
 
-func SetPubkey(str string) Item {
+func setPubkey(str string) Item {
 	return func(form *Form) error {
 		(*form).Pubkey = util.ReadPubKeyString(str)
 		return nil
@@ -86,12 +86,12 @@ func SetPubkey(str string) Item {
 
 func MakeForm(str string) (*Form, error) {
 	form, err := NewForm(
-		SetTime(time.Now().UTC()),
-		SetService(str),
-		SetAddress(str),
-		SetDescription(str),
-		SetSpecField(str),
-		SetPubkey(str),
+		setTime(time.Now().UTC()),
+		setService(str),
+		setAddress(str),
+		setDescription(str),
+		setSpecField(str),
+		setPubkey(str),
 	)
 	if err != nil {
 		return nil, err

@@ -4,18 +4,22 @@
 
 {{define "body"}}
 	<div class="container">
-		<h5 class="my-header" id="formID-label">form ID</h5>
-		<input type="text" id="formID" class="my-input"></input>
-		<br><br>
-		<h5 class="my-header" id="pubkey-label">public key</h5>
-		<input type="text" id="pubkey" class="my-input"></input>
-		<br><br>
-		<h5 class="my-header" id="passphrase-label">passphrase</h5>
-		<input type="password" id="passphrase" class="my-input"></input>
-		<br><br>
-		<button type="button" id="find" class="my-button">find</button>
-		<br><br>
-		<p id="form"></p>
+		<div class="col-sm-6">
+			<h5 class="my-header" id="formID-label">form ID</h5>
+			<input type="text" id="formID" class="my-input"></input>
+			<br><br>
+			<h5 class="my-header" id="pubkey-label">public key</h5>
+			<input type="text" id="pubkey" class="my-input"></input>
+			<br><br>
+			<h5 class="my-header" id="passphrase-label">passphrase</h5>
+			<input type="password" id="passphrase" class="my-input"></input>
+			<br><br>
+			<button type="button" id="find" class="my-button">find</button>
+			<br><br>
+		</div>
+		<div class="col-sm-6">
+			<p id="form"></p>
+		</div>
 	</div>
 	<script type="text/javascript" charset="utf-8">
 	$(function() {
