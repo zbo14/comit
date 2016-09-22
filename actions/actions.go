@@ -20,7 +20,7 @@ type ActionListener struct {
 	sendr *Switch
 }
 
-func CreateActionListener() (ActionListener, error) {
+func StartActionListener() (ActionListener, error) {
 	server, err := socketio.NewServer(nil)
 	recvr := CreateSwitch(GenPrivKeyEd25519(), "recvr")
 	AddListener(recvr, RecvrListenerAddr())
@@ -35,7 +35,7 @@ func CreateActionListener() (ActionListener, error) {
 func FormatForm(form *Form) string {
 	posted := util.ToTheMinute((*form).Time.String())
 	status := CheckStatus((*form).Resolved)
-	field := lib.SERVICE.FieldOpts((*form).Service).Field
+	field := lib.SERVICE.FieldOpts((*form).Service).GetField()
 	return "<li>" + fmt.Sprintf(line, "posted", posted) + fmt.Sprintf(line, "issue", (*form).Service) + fmt.Sprintf(line, "address", (*form).Address) + fmt.Sprintf(line, "description", (*form).Description) + fmt.Sprintf(line, field, (*form).SpecField) + fmt.Sprintf(line, "pubkey", (*form).Pubkey) + fmt.Sprintf(line, "status", status) + "</li><br>"
 }
 
@@ -44,7 +44,7 @@ func FormatUpdate(peer_msg PeerMessage) string {
 	service := lib.SERVICE.ReadField(str, "service")
 	address := lib.SERVICE.ReadField(str, "address")
 	description := lib.SERVICE.ReadField(str, "description")
-	field := lib.SERVICE.FieldOpts(service).Field
+	field := lib.SERVICE.FieldOpts(service).GetField()
 	option := lib.SERVICE.ReadSpecField(str, service)
 	return "<li>" + fmt.Sprintf(line, "issue", service) + fmt.Sprintf(line, "address", address) + fmt.Sprintf(line, "description", description) + fmt.Sprintf(line, field, option) + "</li><br>"
 }
@@ -181,6 +181,7 @@ func (al ActionListener) Run(app *Application) {
 				so.Emit("formID-msg", unauthorized)
 			} else {
 				str := lib.SERVICE.WriteField(service, "service") + lib.SERVICE.WriteField(address, "address") + lib.SERVICE.WriteField(description, "description") + lib.SERVICE.WriteSpecField(specfield, service) + util.WritePubKeyString(pubKeyString)
+				log.Println(str)
 				result := app.AppendTx([]byte(str))
 				log.Println(result.Log)
 				log.Println(util.ExtractText(form_already_exists))

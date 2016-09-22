@@ -10,8 +10,8 @@ import (
 type Field struct{}
 
 type FieldOptions struct {
-	Field   string
-	Options []string
+	field   string
+	options []string
 }
 
 type FieldInterface interface {
@@ -20,8 +20,8 @@ type FieldInterface interface {
 }
 
 func (Field) ReadField(str string, fieldOpts *FieldOptions) string {
-	field := util.RegexQuestionMarks(fieldOpts.Field)
-	options := strings.Join(fieldOpts.Options, `|`)
+	field := util.RegexQuestionMarks(fieldOpts.GetField())
+	options := strings.Join(fieldOpts.GetOptions(), `|`)
 	res := re.MustCompile(fmt.Sprintf(`%v {(%v)}`, field, options)).FindStringSubmatch(str)
 	if len(res) > 1 {
 		return res[1]
@@ -30,25 +30,34 @@ func (Field) ReadField(str string, fieldOpts *FieldOptions) string {
 }
 
 func (Field) WriteField(str string, fieldOpts *FieldOptions) string {
-	field := fieldOpts.Field
+	fmt.Println(str)
+	field := fieldOpts.GetField()
 	return fmt.Sprintf("%v {%v}", field, str)
 }
 
 var FIELD FieldInterface = Field{}
 
+func (fieldOpt FieldOptions) GetField() string {
+	return fieldOpt.field
+}
+
+func (fieldOpt FieldOptions) GetOptions() []string {
+	return fieldOpt.options
+}
+
 // Field Options
 
 var completelyOut = &FieldOptions{
-	Field:   "completely out?",
-	Options: []string{"yes", "no"},
+	field:   "completely out?",
+	options: []string{"yes", "no"},
 }
 
 var potholeLocation = &FieldOptions{
-	Field:   "pothole location",
-	Options: []string{"bike lane", "crosswalk", "curb lane", "intersection", "traffic lane"},
+	field:   "pothole location",
+	options: []string{"bike lane", "crosswalk", "curb lane", "intersection", "traffic lane"},
 }
 
 var backyardBaited = &FieldOptions{
-	Field:   "backyard baited?",
-	Options: []string{"yes", "no"},
+	field:   "backyard baited?",
+	options: []string{"yes", "no"},
 }

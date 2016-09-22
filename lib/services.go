@@ -121,10 +121,10 @@ func (serv Service) FormatFieldOpts(service string) (string, string) {
 	}
 	var Bytes bytes.Buffer
 	Bytes.WriteString(`<option value="">--</option>`)
-	for _, opt := range fieldOpts.Options {
+	for _, opt := range fieldOpts.GetOptions() {
 		Bytes.WriteString(fmt.Sprintf(`<option value="%v">%v</option>`, opt, opt))
 	}
-	return fieldOpts.Field, Bytes.String()
+	return fieldOpts.GetField(), Bytes.String()
 }
 
 var SERVICE ServiceInterface = Service{}

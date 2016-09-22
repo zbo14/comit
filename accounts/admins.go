@@ -122,10 +122,10 @@ func CreateAdminManager(db_capacity int) *AdminManager {
 	}
 }
 
-func (am *AdminManager) RegisterAdmin(dept string, services []string, passphrase string, recvr *Switch, sendr *Switch) (pubKeyString string, privKeyString string, err error) {
-	pubKeyString, privKeyString, err = am.RegisterUser(passphrase, recvr)
+func (am *AdminManager) RegisterAdmin(dept string, services []string, passphrase string, recvr *Switch, sendr *Switch) (string, string, error) {
+	pubKeyString, privKeyString, err := am.RegisterUser(passphrase, recvr)
 	if err != nil {
-		return
+		return "", "", err
 	}
 	users := am.accessUsers()
 	user := users[pubKeyString]
@@ -134,15 +134,14 @@ func (am *AdminManager) RegisterAdmin(dept string, services []string, passphrase
 	select {
 	case <-done:
 		if user == nil {
-			err = errors.New(user_not_found)
-			return
+			return "", "", errors.New(user_not_found)
 		}
 		err = registerUserAsAdmin(user, dept, services, sendr)
 		if err != nil {
-			return
+			return "", "", errors.New(admin_network_fail)
 		}
 		err = am.addAdmin(user)
-		return
+		return pubKeyString, privKeyString, nil
 	}
 }
 

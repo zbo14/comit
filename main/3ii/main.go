@@ -51,7 +51,7 @@ func main() {
 		"metrics",
 	)
 
-	action_listener, err := CreateActionListener()
+	action_listener, err := StartActionListener()
 	if err != nil {
 		Exit(err.Error())
 	}
