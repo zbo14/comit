@@ -33,6 +33,6 @@ const (
 
 	select_option = "<option value='%v'>%v</option>"
 
-	response_time_success = "<strong style='opacity: 0.9;'>avg response time</strong> <small>%v hours</small>"
-	response_time_failure = "<span style='color:red;'>Could not calculate metric -- zero forms foundß</span>"
+	calc_metric_success = "<strong style='opacity: 0.9;'>%v</strong><br> <small>%v</small>"
+	calc_metric_failure = "<span style='color:red;'>Could not calculate metric -- zero forms found</span>"
 )

@@ -273,18 +273,17 @@ func (al ActionListener) Run(app *Application) {
 		})
 
 		// Stats
-		so.On("response-time", func(category string, values []string, pubKeyString string, passphrase string) {
+		so.On("calculate", func(metric string, category string, values []string, pubKeyString string, passphrase string) {
 			err := app.AdminManager().AuthorizeUser(pubKeyString, passphrase)
 			if err != nil {
 				log.Println(err.Error())
-				so.Emit("response-time-msg", unauthorized)
+				so.Emit("metric-msg", unauthorized)
 			} else {
-				avgResponseTime, err := app.Cache().AvgResponseTime(category, values...)
+				output, err := app.Cache().Calculate(metric, category, values...)
 				if err != nil {
-					so.Emit("response-time-msg", response_time_failure)
+					so.Emit("metric-msg", calc_metric_failure)
 				} else {
-					log.Println(avgResponseTime)
-					so.Emit("response-time-msg", fmt.Sprintf(response_time_success, avgResponseTime))
+					so.Emit("metric-msg", fmt.Sprintf(calc_metric_success, metric, output))
 				}
 			}
 		})

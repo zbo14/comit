@@ -34,7 +34,7 @@ func main() {
 		"search_forms.html",
 		"feed.html",
 		"admin.html",
-		"data.html",
+		"metrics.html",
 	)
 
 	CreatePages(
@@ -48,7 +48,7 @@ func main() {
 		"search_forms",
 		"feed",
 		"admin",
-		"data",
+		"metrics",
 	)
 
 	action_listener, err := CreateActionListener()
@@ -72,7 +72,7 @@ func main() {
 	http.HandleFunc("/search_forms", CustomHandler("search_forms.html"))
 	http.HandleFunc("/feed", CustomHandler("feed.html"))
 	http.HandleFunc("/admin", CustomHandler("admin.html"))
-	http.HandleFunc("/data", CustomHandler("data.html"))
+	http.HandleFunc("/metrics", CustomHandler("metrics.html"))
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(js)))
 	http.ListenAndServe(":8888", nil)
 

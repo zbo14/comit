@@ -25,6 +25,8 @@ type Form struct {
 
 type Formlist []*Form
 
+type Forms map[string]*Form
+
 type Item func(*Form) error
 
 func NewForm(items ...Item) (*Form, error) {

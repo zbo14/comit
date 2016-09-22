@@ -7,7 +7,7 @@
 	<h5 class="my-header" id="metric-label">metric</h5>
 	<select id="metric">
 		<option value="">--</option>
-		<option value="response-time">response time</option>
+		<option value="average response time">average response time</option>
 	</select>
 	<br><br>
 	<h5 class="my-header" id="category-label">category</h5>
@@ -78,8 +78,8 @@
 				$('#values-label').html("<span style='color:black;'>" + category + "</span>");
 				$('#pubkey-label').html("<span style='color:black;'>public key</span>"); 
 				$('#passphrase-label').html("<span style='color:black;'>passphrase</span>");
-				socket.emit(metric, category, values, pubKeyString, passphrase)
-				socket.on(metric + "-msg", function(msg) {
+				socket.emit("calculate", metric, category, values, pubKeyString, passphrase)
+				socket.on("metric-msg", function(msg) {
 					$('#metric-msg').html(msg);
 				})
 			}
