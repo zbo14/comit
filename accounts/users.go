@@ -15,12 +15,16 @@ func userToPubKeyString(user *Switch) string {
 	return fmt.Sprintf("%x", user.NodeInfo().PubKey[:])
 }
 
-func registerUser(passphrase string, recvr *Switch) (user *Switch, pubKeyString string, privKeyString string) {
+func registerUser(passphrase string, recvr *Switch) (user *Switch, pubKeyString string, privKeyString string, err error) {
 	secret := util.GenerateSecret([]byte(passphrase))
 	privkey := GenPrivKeyEd25519FromSecret(secret)
 	user = CreateSwitch(privkey, passphrase)
 	AddReactor(user, FeedChannelIDs, "feed")
-	Connect2Switches(user, recvr)
+	user.Start()
+	_, err = DialPeerWithAddr(user, RecvrListenerAddr())
+	if err != nil {
+		return
+	}
 	pubKeyString = userToPubKeyString(user)
 	privKeyString = util.PrivKeyToString(privkey)
 	return
@@ -103,8 +107,11 @@ func CreateUserManager() *UserManager {
 }
 
 func (um *UserManager) RegisterUser(passphrase string, recvr *Switch) (string, string, error) {
-	user, pubKeyString, privKeyString := registerUser(passphrase, recvr)
-	err := um.addUser(user)
+	user, pubKeyString, privKeyString, err := registerUser(passphrase, recvr)
+	if err != nil {
+		return "", "", errors.New(user_register_fail)
+	}
+	err = um.addUser(user)
 	return pubKeyString, privKeyString, err
 }
 

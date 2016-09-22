@@ -16,16 +16,19 @@ import (
 
 type ActionListener struct {
 	*socketio.Server
-	recvr *Switch // recv form submissions, broadcast to feed, forward to admin channels
-	sendr *Switch // broadcast form submissions to admins
+	recvr *Switch
+	sendr *Switch
 }
 
 func CreateActionListener() (ActionListener, error) {
 	server, err := socketio.NewServer(nil)
 	recvr := CreateSwitch(GenPrivKeyEd25519(), "recvr")
+	AddListener(recvr, RecvrListenerAddr())
 	AddReactor(recvr, FeedChannelIDs, "feed")
 	sendr := CreateSwitch(GenPrivKeyEd25519(), "sendr")
 	AddReactor(sendr, AdminChannelIDs, "admin")
+	recvr.Start()
+	sendr.Start()
 	return ActionListener{server, recvr, sendr}, err
 }
 
@@ -33,7 +36,7 @@ func FormatForm(form *Form) string {
 	posted := util.ToTheMinute((*form).Time.String())
 	status := CheckStatus((*form).Resolved)
 	field := lib.SERVICE.FieldOpts((*form).Service).Field
-	return "<li>" + fmt.Sprintf(line, "posted", posted) + fmt.Sprintf(line, "issue", (*form).Service) + fmt.Sprintf(line, "address", (*form).Address) + fmt.Sprintf(line, "description", (*form).Description) + fmt.Sprintf(line, field, (*form).SpecField) + fmt.Sprintf(line, "pubkey", (*form).Pubkey) + fmt.Sprintf(line, "status", status) + "</li>"
+	return "<li>" + fmt.Sprintf(line, "posted", posted) + fmt.Sprintf(line, "issue", (*form).Service) + fmt.Sprintf(line, "address", (*form).Address) + fmt.Sprintf(line, "description", (*form).Description) + fmt.Sprintf(line, field, (*form).SpecField) + fmt.Sprintf(line, "pubkey", (*form).Pubkey) + fmt.Sprintf(line, "status", status) + "</li><br>"
 }
 
 func FormatUpdate(peer_msg PeerMessage) string {
@@ -43,7 +46,7 @@ func FormatUpdate(peer_msg PeerMessage) string {
 	description := lib.SERVICE.ReadField(str, "description")
 	field := lib.SERVICE.FieldOpts(service).Field
 	option := lib.SERVICE.ReadSpecField(str, service)
-	return "<li>" + fmt.Sprintf(line, "issue", service) + fmt.Sprintf(line, "address", address) + fmt.Sprintf(line, "description", description) + fmt.Sprintf(line, field, option) + "</li>"
+	return "<li>" + fmt.Sprintf(line, "issue", service) + fmt.Sprintf(line, "address", address) + fmt.Sprintf(line, "description", description) + fmt.Sprintf(line, field, option) + "</li><br>"
 }
 
 func (al ActionListener) FeedUpdates() {
@@ -179,7 +182,7 @@ func (al ActionListener) Run(app *Application) {
 			} else {
 				str := lib.SERVICE.WriteField(service, "service") + lib.SERVICE.WriteField(address, "address") + lib.SERVICE.WriteField(description, "description") + lib.SERVICE.WriteSpecField(specfield, service) + util.WritePubKeyString(pubKeyString)
 				result := app.AppendTx([]byte(str))
-				log.Println(result.Log)
+				log.Println(app.AdminManager().UserIsRunning(pubKeyString))
 				if result.IsOK() && app.AdminManager().UserIsRunning(pubKeyString) {
 					so.Emit("formID-msg", fmt.Sprintf(submit_form_success, result.Log))
 					chID := FeedChannelIDs[lib.SERVICE.ServiceDept(service)]

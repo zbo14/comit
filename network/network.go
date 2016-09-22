@@ -1,7 +1,6 @@
 package network
 
 import (
-	// "fmt"
 	cfg "github.com/tendermint/go-config"
 	. "github.com/tendermint/go-crypto"
 	"github.com/tendermint/go-logger"
@@ -194,8 +193,11 @@ var AdminChannelIDs = map[string]byte{ // by service type or something else?
 	"garbage cart black maintenance/replacement": byte(0x14),
 }
 
-// General msgBoard
-// var MsgBoard = byte(0x88)
+var recvrListenerAddr = "127.0.0.1:22222"
+
+func RecvrListenerAddr() string {
+	return recvrListenerAddr
+}
 
 // Switches
 
@@ -218,8 +220,12 @@ func CreateSwitch(privkey PrivKeyEd25519, passphrase string) (sw *Switch) {
 		Other:   []string{passphrase},
 	})
 	sw.SetNodePrivKey(privkey)
-	sw.Start() // when to stop?
 	return
+}
+
+func AddListener(sw *Switch, lAddr string) {
+	l := NewDefaultListener("tcp", lAddr, false)
+	sw.AddListener(l)
 }
 
 func AddReactor(sw *Switch, mapChannelIDs map[string]byte, name string) {
@@ -235,4 +241,8 @@ func Connect2Switches(sw1 *Switch, sw2 *Switch) {
 	go sw1.AddPeerWithConnection(c1, false) // AddPeer is blocking, requires handshake.
 	go sw2.AddPeerWithConnection(c2, true)
 	time.Sleep(100 * time.Millisecond * time.Duration(4))
+}
+
+func DialPeerWithAddr(sw *Switch, lAddr string) (*Peer, error) {
+	return sw.DialPeerWithAddress(NewNetAddressString(lAddr))
 }

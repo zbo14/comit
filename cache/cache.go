@@ -8,20 +8,14 @@ import (
 	"time"
 )
 
-type Metric func(*Cache, string, ...string) (string, error)
-
 type Cache struct {
 	unresolved chan Forms
 	resolved   chan Forms
-	metrics    map[string]Metric
 }
 
 func CreateCache() *Cache {
 	unresolved := make(chan Forms, 1)
 	resolved := make(chan Forms, 1)
-	metrics := map[string]Metric{
-		"avg response time": (*Cache).avgResponseTime,
-	}
 	done := make(chan struct{}, 1)
 	go func() {
 		unresolved <- Forms{}
@@ -30,7 +24,7 @@ func CreateCache() *Cache {
 	}()
 	select {
 	case <-done:
-		return &Cache{unresolved, resolved, metrics}
+		return &Cache{unresolved, resolved}
 	}
 }
 
@@ -215,6 +209,12 @@ func (cache *Cache) SearchForms(str string, status string) Formlist {
 
 // Metrics
 
+type Metric func(*Cache, string, ...string) (string, error)
+
+var metrics = map[string]Metric{
+	"avg response time": (*Cache).avgResponseTime,
+}
+
 func (cache *Cache) avgResponseTime(category string, values ...string) (string, error) {
 	forms := <-cache.resolved
 	sum := float64(0)
@@ -257,7 +257,7 @@ func (cache *Cache) avgResponseTime(category string, values ...string) (string, 
 }
 
 func (cache *Cache) getMetric(metric string) Metric {
-	return cache.metrics[metric]
+	return metrics[metric]
 }
 
 func (cache *Cache) Calculate(metric string, category string, values ...string) (string, error) {
