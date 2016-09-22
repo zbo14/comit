@@ -1,6 +1,7 @@
 package network
 
 import (
+	"fmt"
 	cfg "github.com/tendermint/go-config"
 	. "github.com/tendermint/go-crypto"
 	"github.com/tendermint/go-logger"
@@ -29,8 +30,9 @@ const (
 	configFuzzProbDropConn         = "fuzz_prob_drop_conn"
 	configFuzzProbSleep            = "fuzz_prob_sleep"
 
-	// Timeout getMsg
-	getMsgTimeout = 200
+	// Timeouts
+	getMsgTimeout  = 200
+	getPortTimeout = 400
 )
 
 func setConfigDefaults(config cfg.Config) {
@@ -193,10 +195,27 @@ var AdminChannelIDs = map[string]byte{ // by service type or something else?
 	"garbage cart black maintenance/replacement": byte(0x14),
 }
 
+// Addrs
+
 var recvrListenerAddr = "127.0.0.1:22222"
 
 func RecvrListenerAddr() string {
 	return recvrListenerAddr
+}
+
+func AdminListenerAddr(adminPorts chan uint16) string {
+	select {
+	case port := <-adminPorts:
+		done := make(chan struct{}, 1)
+		go func() {
+			adminPorts <- port + 1
+			done <- struct{}{}
+		}()
+		select {
+		case <-done:
+			return fmt.Sprintf("127.0.0.1:%v", port)
+		}
+	}
 }
 
 // Switches

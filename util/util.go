@@ -134,5 +134,5 @@ func ToTheSecond(datestr string) string {
 // HTML
 
 func ExtractText(str string) string {
-	return re.MustCompile(`>(.*?)<`).FindString(str)
+	return re.MustCompile(`>(.*?)<`).FindStringSubmatch(str)[1]
 }

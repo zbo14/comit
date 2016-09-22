@@ -6,6 +6,10 @@ import (
 	. "github.com/zballs/3ii/network"
 )
 
+// Ports
+var adminPort = uint16(33333)
+var adminPorts = make(chan uint16, 1)
+
 // Admins, Admindb
 type Admins map[string]*Switch
 type Admindb struct {
@@ -21,11 +25,17 @@ func getServices(admin *Switch) (services []string) {
 	return admin.NodeInfo().Other[2:]
 }
 
-func registerUserAsAdmin(user *Switch, dept string, services []string, sendr *Switch) {
+func registerUserAsAdmin(user *Switch, dept string, services []string, sendr *Switch) error {
 	user.NodeInfo().Other = append(user.NodeInfo().Other, dept)
 	user.NodeInfo().Other = append(user.NodeInfo().Other, services...)
 	AddReactor(user, AdminChannelIDs, "admin")
-	Connect2Switches(sendr, user)
+	adminListenerAddr := AdminListenerAddr(adminPorts)
+	AddListener(user, adminListenerAddr)
+	_, err := DialPeerWithAddr(sendr, adminListenerAddr)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func createAdmindb(capacity int) Admindb {
@@ -93,7 +103,19 @@ type AdminManager struct {
 	*UserManager
 }
 
+func initAdminPorts() {
+	done := make(chan struct{}, 1)
+	go func() {
+		adminPorts <- adminPort
+		done <- struct{}{}
+	}()
+	select {
+	case <-done:
+	}
+}
+
 func CreateAdminManager(db_capacity int) *AdminManager {
+	initAdminPorts()
 	return &AdminManager{
 		createAdmindb(db_capacity),
 		CreateUserManager(),
@@ -115,7 +137,10 @@ func (am *AdminManager) RegisterAdmin(dept string, services []string, passphrase
 			err = errors.New(user_not_found)
 			return
 		}
-		registerUserAsAdmin(user, dept, services, sendr)
+		err = registerUserAsAdmin(user, dept, services, sendr)
+		if err != nil {
+			return
+		}
 		err = am.addAdmin(user)
 		return
 	}

@@ -182,7 +182,8 @@ func (al ActionListener) Run(app *Application) {
 			} else {
 				str := lib.SERVICE.WriteField(service, "service") + lib.SERVICE.WriteField(address, "address") + lib.SERVICE.WriteField(description, "description") + lib.SERVICE.WriteSpecField(specfield, service) + util.WritePubKeyString(pubKeyString)
 				result := app.AppendTx([]byte(str))
-				log.Println(app.AdminManager().UserIsRunning(pubKeyString))
+				log.Println(result.Log)
+				log.Println(util.ExtractText(form_already_exists))
 				if result.IsOK() && app.AdminManager().UserIsRunning(pubKeyString) {
 					so.Emit("formID-msg", fmt.Sprintf(submit_form_success, result.Log))
 					chID := FeedChannelIDs[lib.SERVICE.ServiceDept(service)]
