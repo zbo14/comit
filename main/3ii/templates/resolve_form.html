@@ -21,19 +21,19 @@
 	$(function() {
 		var socket = io();
 		$('#resolve').bind('click', function() {
-			var valid_entry = true
-			var _formID = $('#formID').val();
-			if (_formID.length == 0) {
+			var valid_entry = true;
+			var formID = $('#formID').val();
+			if (formID == null) {
 				$('#formID-label').html("<span style='color:red;'>enter form ID</span>"); 
 				valid_entry = false;
 			}
 			var pubKeyString = $('#pubkey').val();
-			if (pubKeyString.length == 0) {
+			if (pubKeyString == null) {
 				$('#pubkey-label').html("<span style='color:red;'>enter public key</span>"); 
 				valid_entry = false;
 			}
 			var passphrase = $('#passphrase').val();
-			if (passphrase.length == 0) {
+			if (passphrase == null) {
 				$('#passphrase-label').html("<span style='color:red;'>enter passphrase</span>"); 
 				valid_entry = false;
 			}
@@ -41,7 +41,7 @@
 				$('#formID-label').html("<span style='color:black;'>form ID</span>"); 
 				$('#pubkey-label').html("<span style='color:black;'>public key</span>"); 
 				$('#passphrase-label').html("<span style='color:black;'>passphrase</span>"); 
-				socket.emit('resolve-form', _formID, pubKeyString, passphrase)
+				socket.emit('resolve-form',formID, pubKeyString, passphrase)
 				socket.on('resolve-msg', function(msg){
 					$('#resolve-msg').html(msg)
 				})

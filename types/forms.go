@@ -10,22 +10,54 @@ import (
 )
 
 type Form struct {
-	Time        time.Time
-	Service     string
-	Address     string
-	Description string
-	Detail      string
-	Pubkey      string
+	time        time.Time
+	service     string
+	address     string
+	description string
+	detail      string
+	pubkey      string
 
 	//==============//
 
-	Resolved     time.Time
-	ResponseTime float64
+	resolved     time.Time
+	responseTime float64
 }
 
 type Formlist []*Form
 
 type Forms map[string]*Form
+
+func (form *Form) Time() time.Time {
+	return form.time
+}
+
+func (form *Form) Service() string {
+	return form.service
+}
+
+func (form *Form) Address() string {
+	return form.address
+}
+
+func (form *Form) Description() string {
+	return form.description
+}
+
+func (form *Form) Detail() string {
+	return form.detail
+}
+
+func (form *Form) Pubkey() string {
+	return form.pubkey
+}
+
+func (form *Form) Resolved() time.Time {
+	return form.resolved
+}
+
+func (form *Form) ResponseTime() float64 {
+	return form.responseTime
+}
 
 type Item func(*Form) error
 
@@ -42,37 +74,37 @@ func NewForm(items ...Item) (*Form, error) {
 
 func setTime(tm time.Time) Item {
 	return func(form *Form) error {
-		(*form).Time = tm
+		(*form).time = tm
 		return nil
 	}
 }
 
 func setService(str string) Item {
 	return func(form *Form) error {
-		(*form).Service = lib.SERVICE.ReadField(str, "service")
+		(*form).service = lib.SERVICE.ReadField(str, "service")
 		return nil
 	}
 }
 
 func setAddress(str string) Item {
 	return func(form *Form) error {
-		(*form).Address = lib.SERVICE.ReadField(str, "address")
+		(*form).address = lib.SERVICE.ReadField(str, "address")
 		return nil
 	}
 }
 
 func setDescription(str string) Item {
 	return func(form *Form) error {
-		(*form).Description = lib.SERVICE.ReadField(str, "description")
+		(*form).description = lib.SERVICE.ReadField(str, "description")
 		return nil
 	}
 }
 
 func setDetail(str string) Item {
 	return func(form *Form) error {
-		service := (*form).Service
+		service := (*form).Service()
 		if len(service) > 0 {
-			(*form).Detail = lib.SERVICE.ReadDetail(str, service)
+			(*form).detail = lib.SERVICE.ReadDetail(str, service)
 			return nil
 		}
 		return errors.New("cannot set detail without service")
@@ -81,7 +113,7 @@ func setDetail(str string) Item {
 
 func setPubkey(str string) Item {
 	return func(form *Form) error {
-		(*form).Pubkey = util.ReadPubKeyString(str)
+		(*form).pubkey = util.ReadPubKeyString(str)
 		return nil
 	}
 }
@@ -111,10 +143,10 @@ func CheckStatus(tm time.Time) string {
 
 func FormID(form *Form) string {
 	bytes := make([]byte, 32) // 64?
-	yr, wk := (*form).Time.ISOWeek()
+	yr, wk := (*form).Time().ISOWeek()
 	items := []string{
-		(*form).Service,
-		(*form).Address,
+		(*form).Service(),
+		(*form).Address(),
 		fmt.Sprintf("%d %d", yr, wk),
 	}
 	for _, item := range items {
@@ -133,32 +165,32 @@ func MatchForm(str string, form *Form) bool {
 	before := lib.SERVICE.ReadField(str, "before")
 	if len(before) > 0 {
 		beforeDate := util.ParseDateString(before)
-		if !((*form).Time.Before(beforeDate)) {
+		if !((*form).Time().Before(beforeDate)) {
 			return false
 		}
 	}
 	after := lib.SERVICE.ReadField(str, "after")
 	if len(after) > 0 {
 		afterDate := util.ParseDateString(after)
-		if !((*form).Time.After(afterDate)) {
+		if !((*form).Time().After(afterDate)) {
 			return false
 		}
 	}
 	service := lib.SERVICE.ReadField(str, "service")
 	if len(service) > 0 {
-		if !(service == (*form).Service) {
+		if !(service == (*form).Service()) {
 			return false
 		}
 	}
 	address := lib.SERVICE.ReadField(str, "address")
 	if len(address) > 0 {
-		if !util.SubstringMatch(address, (*form).Address) {
+		if !util.SubstringMatch(address, (*form).Address()) {
 			return false
 		}
 	}
 	detail := lib.SERVICE.ReadDetail(str, service)
 	if len(detail) > 0 {
-		if !(detail == (*form).Detail) {
+		if !(detail == (*form).Detail()) {
 			return false
 		}
 	}
@@ -169,8 +201,8 @@ func MatchForm(str string, form *Form) bool {
 
 func Resolve(tm time.Time) Item {
 	return func(form *Form) error {
-		(*form).Resolved = tm
-		(*form).ResponseTime = tm.Sub((*form).Time).Hours()
+		(*form).resolved = tm
+		(*form).responseTime = tm.Sub((*form).Time()).Hours()
 		return nil
 	}
 }

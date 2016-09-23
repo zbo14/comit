@@ -144,7 +144,7 @@ func (cache *Cache) RemoveForm(id string) {
 	}
 }
 
-func (cache *Cache) ResolveForm(id string) error {
+func (cache *Cache) ResolveForm(id string) (*Form, error) {
 	forms1 := cache.accessUnresolved()
 	form := forms1[id]
 	done := make(chan struct{}, 1)
@@ -162,9 +162,9 @@ func (cache *Cache) ResolveForm(id string) error {
 	select {
 	case <-done:
 		if form == nil {
-			return errors.New(form_not_found)
+			return nil, errors.New(form_not_found)
 		}
-		return nil
+		return form, nil
 	}
 }
 
@@ -221,14 +221,14 @@ func (cache *Cache) avgResponseTime(category string, values ...string) (string, 
 	count := float64(0)
 	if len(values) == 0 {
 		for _, form := range forms {
-			sum += (*form).ResponseTime
+			sum += form.ResponseTime()
 			count += 1
 		}
 	} else if category == "depts" {
 		for _, form := range forms {
 			for _, val := range values {
-				if lib.SERVICE.ServiceDept((*form).Service) == val {
-					sum += (*form).ResponseTime
+				if lib.SERVICE.ServiceDept(form.Service()) == val {
+					sum += form.ResponseTime()
 					count += 1
 					break
 				}
@@ -237,8 +237,8 @@ func (cache *Cache) avgResponseTime(category string, values ...string) (string, 
 	} else if category == "services" {
 		for _, form := range forms {
 			for _, val := range values {
-				if (*form).Service == val {
-					sum += (*form).ResponseTime
+				if form.Service() == val {
+					sum += form.ResponseTime()
 					count += 1
 					break
 				}

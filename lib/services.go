@@ -39,6 +39,8 @@ var serviceDepts = map[string]string{
 }
 
 var regexPatterns = map[string]string{
+	"action":      `submit|resolve`,
+	"ID":          `[a-z0-9]{32}`,
 	"service":     `[\w\s\/]+`,
 	"address":     `[\w\s'\-\.\,]+`,
 	"description": `[\w\s'\-\.\,\?\!\/]+`,
@@ -85,8 +87,8 @@ func (Service) Regex(field string) string {
 	return regexPatterns[field]
 }
 
-func (serv Service) ReadField(str string, field string) string {
-	pattern := serv.Regex(field)
+func (s Service) ReadField(str string, field string) string {
+	pattern := s.Regex(field)
 	res := re.MustCompile(fmt.Sprintf(`%v {(%v)}`, field, pattern)).FindStringSubmatch(str)
 	if len(res) > 1 {
 		return res[1]
@@ -98,24 +100,24 @@ func (Service) WriteField(str string, field string) string {
 	return fmt.Sprintf("%v {%v}", field, str)
 }
 
-func (serv Service) ReadDetail(str string, service string) string {
-	sd := serv.ServiceDetail(service)
+func (s Service) ReadDetail(str string, service string) string {
+	sd := s.ServiceDetail(service)
 	if sd == nil {
 		return ""
 	}
 	return DETAIL.Read(str, sd)
 }
 
-func (serv Service) WriteDetail(str string, service string) string {
-	sd := serv.ServiceDetail(service)
+func (s Service) WriteDetail(str string, service string) string {
+	sd := s.ServiceDetail(service)
 	if sd == nil {
 		return ""
 	}
 	return DETAIL.Write(str, sd)
 }
 
-func (serv Service) FormatDetail(service string) (string, string) {
-	sd := serv.ServiceDetail(service)
+func (s Service) FormatDetail(service string) (string, string) {
+	sd := s.ServiceDetail(service)
 	if sd == nil {
 		return "no options", ""
 	}

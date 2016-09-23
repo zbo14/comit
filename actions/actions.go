@@ -33,29 +33,32 @@ func StartActionListener() (ActionListener, error) {
 }
 
 func FormatForm(form *Form) string {
-	posted := util.ToTheMinute((*form).Time.String())
-	status := CheckStatus((*form).Resolved)
-	sd := lib.SERVICE.ServiceDetail((*form).Service)
+	posted := util.ToTheMinute(form.Time().String())
+	status := CheckStatus(form.Resolved())
+	sd := lib.SERVICE.ServiceDetail(form.Service())
 	detail := "no options"
 	if sd != nil {
 		detail = sd.Detail()
 	}
-	return "<li>" + fmt.Sprintf(line, "posted", posted) + fmt.Sprintf(line, "issue", (*form).Service) + fmt.Sprintf(line, "address", (*form).Address) + fmt.Sprintf(line, "description", (*form).Description) + fmt.Sprintf(line, detail, (*form).Detail) + fmt.Sprintf(line, "pubkey", (*form).Pubkey) + fmt.Sprintf(line, "status", status) + "</li><br>"
+	return "<li>" + fmt.Sprintf(line, "posted", posted) +
+		fmt.Sprintf(line, "service", form.Service()) +
+		fmt.Sprintf(line, "address", form.Address()) +
+		fmt.Sprintf(line, "description", form.Description()) +
+		fmt.Sprintf(line, detail, form.Detail()) +
+		fmt.Sprintf(line, "account", form.Pubkey()) +
+		fmt.Sprintf(line, "status", status) + "<br></li>"
 }
 
-func FormatUpdate(peer_msg PeerMessage) string {
-	str := string(peer_msg.Bytes)
-	service := lib.SERVICE.ReadField(str, "service")
-	address := lib.SERVICE.ReadField(str, "address")
-	description := lib.SERVICE.ReadField(str, "description")
-	fieldOpts := lib.SERVICE.ServiceDetail(service)
-	field := "no options"
-	option := ""
-	if fieldOpts != nil {
-		field = fieldOpts.Detail()
-		option = lib.SERVICE.ReadDetail(str, service)
-	}
-	return "<li>" + fmt.Sprintf(line, "issue", service) + fmt.Sprintf(line, "address", address) + fmt.Sprintf(line, "description", description) + fmt.Sprintf(line, field, option) + "</li><br>"
+func FormatUpdate(update string) string {
+	action := lib.SERVICE.ReadField(update, "action")
+	ID := lib.SERVICE.ReadField(update, "ID")
+	service := lib.SERVICE.ReadField(update, "service")
+	address := lib.SERVICE.ReadField(update, "address")
+	pubkey := util.ReadPubKeyString(update)
+	return "<li>" + fmt.Sprintf(line, action, ID) +
+		fmt.Sprintf(line, "service", service) +
+		fmt.Sprintf(line, "address", address) +
+		fmt.Sprintf(line, "account", pubkey) + "<br></li>"
 }
 
 func (al ActionListener) FeedUpdates() {
@@ -63,17 +66,14 @@ func (al ActionListener) FeedUpdates() {
 	for {
 		for dept, chID := range FeedChannelIDs {
 			if al.recvr.IsRunning() {
-				peer_msg := feedReactor.GetMsg(chID)
-				if len(peer_msg.Bytes) > 0 {
+				update := string(feedReactor.GetMsg(chID).Bytes)
+				if len(update) > 0 {
 					// To feed
-					update := FormatUpdate(peer_msg)
-					al.BroadcastTo("feed", fmt.Sprintf("%v-update", dept), update)
+					al.BroadcastTo("feed", fmt.Sprintf("%v-update", dept), FormatUpdate(update))
 					if al.sendr.IsRunning() && dept != "general" {
 						// To admin channels
-						str := string(peer_msg.Bytes)
-						service := lib.SERVICE.ReadField(str, "service")
-						log.Println(str)
-						al.sendr.Broadcast(AdminChannelIDs[service], str)
+						service := lib.SERVICE.ReadField(update, "service")
+						al.sendr.Broadcast(AdminChannelIDs[service], update)
 					}
 				}
 			}
@@ -86,11 +86,10 @@ func (al ActionListener) AdminUpdates(admin *Switch) {
 	for {
 		for service, chID := range AdminChannelIDs {
 			if admin.IsRunning() {
-				peer_msg := adminReactor.GetMsg(chID)
-				if len(peer_msg.Bytes) > 0 {
+				update := string(adminReactor.GetMsg(chID).Bytes)
+				if len(update) > 0 {
 					// To admins
-					update := FormatUpdate(peer_msg)
-					al.BroadcastTo("admin", fmt.Sprintf("%v-update", service), update)
+					al.BroadcastTo("admin", fmt.Sprintf("%v-update", service), FormatUpdate(update))
 				}
 			}
 		}
@@ -189,11 +188,16 @@ func (al ActionListener) Run(app *Application) {
 			if err != nil {
 				so.Emit("formID-msg", unauthorized)
 			} else {
-				str := lib.SERVICE.WriteField(service, "service") + lib.SERVICE.WriteField(address, "address") + lib.SERVICE.WriteField(description, "description") + lib.SERVICE.WriteDetail(detail, service) + util.WritePubKeyString(pubKeyString)
+				str := lib.SERVICE.WriteField(service, "service") +
+					lib.SERVICE.WriteField(address, "address") +
+					lib.SERVICE.WriteField(description, "description") +
+					lib.SERVICE.WriteDetail(detail, service) +
+					util.WritePubKeyString(pubKeyString)
 				result := app.AppendTx([]byte(str))
 				if result.IsOK() && app.AdminManager().UserIsRunning(pubKeyString) {
 					so.Emit("formID-msg", fmt.Sprintf(submit_form_success, result.Log))
 					chID := FeedChannelIDs[lib.SERVICE.ServiceDept(service)]
+					str = lib.SERVICE.WriteField("submit", "action") + lib.SERVICE.WriteField(result.Log, "ID") + str
 					go app.AdminManager().UserBroadcast(pubKeyString, str, chID)
 				} else if result.Log == util.ExtractText(form_already_exists) {
 					so.Emit("formID-msg", form_already_exists)
@@ -230,12 +234,19 @@ func (al ActionListener) Run(app *Application) {
 			if err != nil {
 				so.Emit("resolve-msg", unauthorized)
 			} else {
-				err = app.Cache().ResolveForm(formID)
+				form, err := app.Cache().ResolveForm(formID)
 				if err != nil {
 					log.Println(err.Error())
 					so.Emit("resolve-msg", fmt.Sprintf(resolve_form_failure, formID))
 				} else {
 					so.Emit("resolve-msg", fmt.Sprintf(resolve_form_success, formID))
+					chID := FeedChannelIDs[lib.SERVICE.ServiceDept(form.Service())]
+					str := lib.SERVICE.WriteField("resolve", "action") +
+						lib.SERVICE.WriteField(formID, "ID") +
+						lib.SERVICE.WriteField(form.Service(), "service") +
+						lib.SERVICE.WriteField(form.Address(), "address") +
+						util.WritePubKeyString(pubKeyString)
+					app.AdminManager().UserBroadcast(pubKeyString, str, chID)
 				}
 			}
 		})

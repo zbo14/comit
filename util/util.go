@@ -77,20 +77,6 @@ func GenerateSecret(passphrase []byte) []byte {
 	return secret
 }
 
-// Form IDs
-
-func ReadFormID(str string) string {
-	res := re.MustCompile(`form {([a-z0-9]{32})}`).FindStringSubmatch(str)
-	if len(res) > 1 {
-		return res[1]
-	}
-	return ""
-}
-
-func WriteFormID(str string) string {
-	return fmt.Sprintf("form {%v}", str)
-}
-
 // Substring Match
 
 func SubstringMatch(substr string, str string) bool {

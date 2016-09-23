@@ -149,16 +149,16 @@ func (um *UserManager) UserIsRunning(pubKeyString string) bool {
 	}
 }
 
-func (um *UserManager) UserBroadcast(pubKeyString string, str string, chID uint8) {
+func (um *UserManager) UserBroadcast(pubKeyString string, update string, chID uint8) {
 	users := um.accessUsers()
 	user := users[pubKeyString]
 	done := make(chan struct{}, 1)
 	go um.restoreUsers(users, done)
 	select {
 	case <-done:
-		user.Broadcast(FeedChannelIDs["general"], str)
+		user.Broadcast(FeedChannelIDs["general"], update)
 		if chID > uint8(0) {
-			user.Broadcast(chID, str)
+			user.Broadcast(chID, update)
 		}
 	}
 }

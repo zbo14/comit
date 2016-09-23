@@ -57,7 +57,7 @@ func TestStream(t *testing.T) {
 		log.Println("admin privkey " + util.PrivKeyToString(adminPrivKey))
 
 		admin := CreateSwitch(adminPrivKey, "helloworld")
-		servs := []string{RandomSlicePick(services)}
+		servs := []string{RandomString(services)}
 		dept := lib.SERVICE.ServiceDept(servs[0])
 		_, _, err = app.AdminManager().RegisterAdmin(
 			dept,
@@ -147,58 +147,60 @@ func TestStream(t *testing.T) {
 const (
 	numbers = "0123456789"
 	letters = "abcdefghijklmnopqrstuvwxyz"
-	symbols = "-.,?!/"
+	symbols = ".,?!-/"
 )
 
-var services = lib.SERVICE.GetServices()
+var services = lib.SERVICE.Services()
 
-func RandomStringPick(str string) string {
+func RandomChar(str string) string {
 	return string(str[rand.Intn(len(str))])
 }
 
-func RandomStringPicks(str string, n int) string {
+func RandomChars(str string, n int) string {
 	var buf bytes.Buffer
 	for i := 0; i < n; i++ {
-		buf.WriteString(RandomStringPick(str))
+		buf.WriteString(RandomChar(str))
 	}
 	return buf.String()
 }
 
-func RandomSlicePick(slice []string) string {
+func RandomString(slice []string) string {
 	return slice[rand.Intn(len(slice))]
 }
 
 func RandOption(serviceName string) string {
-	fieldOpts := lib.SERVICE.FieldOpts(serviceName)
-	if fieldOpts == nil {
+	sd := lib.SERVICE.ServiceDetail(serviceName)
+	if sd == nil {
 		return ""
 	}
-	return RandomSlicePick(fieldOpts.GetOptions())
+	return RandomString(sd.Options())
 }
 
 func GenerateAddress() string {
-	return RandomStringPicks(numbers, 2) + " " + RandomStringPicks(letters, 6) + " st."
+	return RandomChars(numbers, 2) + " " + RandomChars(letters, 6) + " st."
 }
 
+/*
 func GenerateDescription(length int) string {
 	var buf bytes.Buffer
 	for i := 0; i < length; i++ {
-		buf.WriteString(RandomStringPick(letters))
+		buf.WriteString(RandomChar(letters))
 		if i%17 == 0 {
-			buf.WriteString(RandomStringPick(symbols))
+			buf.WriteString(RandomChar(symbols))
 		} else if i%23 == 0 {
-			buf.WriteString(RandomStringPick(numbers))
+			buf.WriteString(RandomChar(numbers))
 		}
 	}
 	return buf.String()
 }
+*/
 
 func GenerateTxstr(pubKey PubKeyEd25519) string {
-	serviceName := RandomSlicePick(services)
+	serviceName := RandomString(services)
 	service := lib.SERVICE.WriteField(serviceName, "service")
 	address := lib.SERVICE.WriteField(GenerateAddress(), "address")
-	description := lib.SERVICE.WriteField(GenerateDescription(60), "description")
-	specfield := lib.SERVICE.WriteSpecField(RandOption(serviceName), serviceName)
+	description := lib.SERVICE.WriteField("this is a description", "description")
+	specfield := lib.SERVICE.WriteDetail(RandOption(serviceName), serviceName)
 	pubkey := util.WritePubKeyString(util.PubKeyToString(pubKey))
 	return service + address + description + specfield + pubkey
 }
