@@ -14,7 +14,7 @@ type Form struct {
 	Service     string
 	Address     string
 	Description string
-	SpecField   string
+	Detail      string
 	Pubkey      string
 
 	//==============//
@@ -68,14 +68,14 @@ func setDescription(str string) Item {
 	}
 }
 
-func setSpecField(str string) Item {
+func setDetail(str string) Item {
 	return func(form *Form) error {
 		service := (*form).Service
 		if len(service) > 0 {
-			(*form).SpecField = lib.SERVICE.ReadSpecField(str, service)
+			(*form).Detail = lib.SERVICE.ReadDetail(str, service)
 			return nil
 		}
-		return errors.New("cannot set specfield without service")
+		return errors.New("cannot set detail without service")
 	}
 }
 
@@ -92,7 +92,7 @@ func MakeForm(str string) (*Form, error) {
 		setService(str),
 		setAddress(str),
 		setDescription(str),
-		setSpecField(str),
+		setDetail(str),
 		setPubkey(str),
 	)
 	if err != nil {
@@ -156,9 +156,9 @@ func MatchForm(str string, form *Form) bool {
 			return false
 		}
 	}
-	specfield := lib.SERVICE.ReadSpecField(str, service)
-	if len(specfield) > 0 {
-		if !(specfield == (*form).SpecField) {
+	detail := lib.SERVICE.ReadDetail(str, service)
+	if len(detail) > 0 {
+		if !(detail == (*form).Detail) {
 			return false
 		}
 	}

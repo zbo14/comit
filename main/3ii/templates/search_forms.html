@@ -49,8 +49,8 @@
 			<input id="address" class="my-input"></input>
 			<br><br>
 			<!--
-			<h5 class="my-header" id="specfield-label" style="display:hidden;"></h5>
-			<select id="specfield" style="display:hidden;"></select>
+			<h5 class="my-header" id="detail-label" style="display:hidden;"></h5>
+			<select id="detail" style="display:hidden;"></select>
 			<br><br>
 			-->
 			<h5 class="my-header">status</h5>
@@ -81,8 +81,8 @@
 		$('#type').on('change', function() {
 			socket.emit('select-type', $('#type').val())
 			socket.on('field-options', function(field, options) {
-				$('#specfield-label').show(100, 'linear').html(field);
-				$('#specfield').show(100, 'linear').html(options);
+				$('#detail-label').show(100, 'linear').html(field);
+				$('#detail').show(100, 'linear').html(options);
 			})
 		})
 		*/
@@ -92,7 +92,7 @@
 			var after = $('#after').data("DateTimePicker").viewDate();
 			var service = $('#service').val();
 			var address = $('#address').val();
-			// var specfield = $('#specfield').val();
+			// var detail = $('#detail').val();
 			var status = $('#status').val();
 			var pubKeyString = $('#pubkey').val();
 			if (pubKeyString.length == 0) {

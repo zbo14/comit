@@ -21,8 +21,8 @@
 		<h5 class="my-header" id="description-label">description</h5>
 		<textarea id="description" class="my-textarea"></textarea>
 		<br><br>
-		<h5 class="my-header" id="specfield-label" style="display:hidden;"></h5>
-		<select id="specfield" style="display:hidden;"></select>
+		<h5 class="my-header" id="detail-label" style="display:hidden;"></h5>
+		<select id="detail" style="display:hidden;"></select>
 		<br><br>
 		<h5 class="my-header" id="pubkey-label">public key</h5>
 		<input service="text" id="pubkey" class="my-input"></input>
@@ -40,8 +40,8 @@
 		$('#service').on('change', function() {
 			socket.emit('select-service', $('#service').val())
 			socket.on('field-options', function(field, options) {
-				$('#specfield-label').show(100, 'linear').html(field);
-				$('#specfield').show(100, 'linear').html(options);
+				$('#detail-label').show(100, 'linear').html(field);
+				$('#detail').show(100, 'linear').html(options);
 			})
 		})
 		$('#submit').bind('click', function() {
@@ -61,10 +61,11 @@
 				$('#description-label').html("<span style='color:red;'>enter description</span>"); 
 				valid_entry = false;
 			}
-			var specfield = $('#specfield').val();
-			var specfield_label = $('#specfield-label').text();
-			if ((specfield.length == 0) && (specfield_label != "no options")) {
-				$('#specfield-label').html("<span style='color:red;'>select option</span>"); 
+			var detail = $('#detail').val();
+			var detail_label = $('#detail-label').text();
+			console.log("" == null)
+			if ((detail == null) && (detail_label != "no options")) {
+				$('#detail-label').html("<span style='color:red;'>select option</span>"); 
 				valid_entry = false;
 			}
 			var pubKeyString = $('#pubkey').val();
@@ -82,10 +83,10 @@
 				$('#service-label').html("<span style='color:black;'>service</span>"); 
 				$('#address-label').html("<span style='color:black;'>address</span>"); 
 				$('#description-label').html("<span style='color:black;'>description</span>");
-				$('#specfield-label').html("<span style='color:black;'>" + specfield_label + "</span>");
+				$('#detail-label').html("<span style='color:black;'>" + detail_label + "</span>");
 				$('#pubkey-label').html("<span style='color:black;'>public key</span>"); 
 				$('#passphrase-label').html("<span style='color:black;'>passphrase</span>"); 
-				socket.emit('submit-form', service, address, description, specfield, pubKeyString, passphrase)
+				socket.emit('submit-form', service, address, description, detail, pubKeyString, passphrase)
 				socket.on('formID-msg', function(msg){
 					$('#formID').html(msg)
 				})

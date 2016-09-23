@@ -9,20 +9,20 @@ import (
 type Service struct{}
 
 type ServiceInterface interface {
-	GetServices() []string
-	GetDepts() map[string]*struct{}
+	Services() []string
+	Depts() map[string]*struct{}
 	Regex(field string) string
-	FieldOpts(service string) *FieldOptions
+	ServiceDetail(service string) *ServiceDetail
 	ServiceDept(service string) string
 	DeptServices(dept string) []string
 	ReadField(str string, field string) string
 	WriteField(str string, field string) string
-	ReadSpecField(str string, service string) string
-	WriteSpecField(str string, service string) string
-	FormatFieldOpts(service string) (string, string)
+	ReadDetail(str string, service string) string
+	WriteDetail(str string, service string) string
+	FormatDetail(service string) (string, string)
 }
 
-var serviceOptions = map[string]*FieldOptions{
+var serviceDetails = map[string]*ServiceDetail{
 	"street light out":             completelyOut,
 	"pothole in street":            potholeLocation,
 	"rodent baiting/rat complaint": backyardBaited,
@@ -39,14 +39,14 @@ var serviceDepts = map[string]string{
 }
 
 var regexPatterns = map[string]string{
-	"service":     `[\w\s]+`,
+	"service":     `[\w\s\/]+`,
 	"address":     `[\w\s'\-\.\,]+`,
-	"description": `[\w\s'\-\.\,\?\!\\]+`,
+	"description": `[\w\s'\-\.\,\?\!\/]+`,
 	"before":      `\d{4}-\d{2}-\d{2}T\w{2}\:\d{2}:\d{2}`,
 	"after":       `\d{4}-\d{2}-\d{2}T\w{2}\:\d{2}:\d{2}`,
 }
 
-func (Service) GetServices() []string {
+func (Service) Services() []string {
 	services := make([]string, len(serviceDepts))
 	idx := 0
 	for service, _ := range serviceDepts {
@@ -56,7 +56,7 @@ func (Service) GetServices() []string {
 	return services
 }
 
-func (Service) GetDepts() map[string]*struct{} {
+func (Service) Depts() map[string]*struct{} {
 	depts := make(map[string]*struct{})
 	for _, dept := range serviceDepts {
 		depts[dept] = nil
@@ -64,8 +64,8 @@ func (Service) GetDepts() map[string]*struct{} {
 	return depts
 }
 
-func (Service) FieldOpts(service string) *FieldOptions {
-	return serviceOptions[service]
+func (Service) ServiceDetail(service string) *ServiceDetail {
+	return serviceDetails[service]
 }
 
 func (Service) ServiceDept(service string) string {
@@ -98,33 +98,33 @@ func (Service) WriteField(str string, field string) string {
 	return fmt.Sprintf("%v {%v}", field, str)
 }
 
-func (serv Service) ReadSpecField(str string, service string) string {
-	fieldOpts := serv.FieldOpts(service)
-	if fieldOpts == nil {
+func (serv Service) ReadDetail(str string, service string) string {
+	sd := serv.ServiceDetail(service)
+	if sd == nil {
 		return ""
 	}
-	return FIELD.ReadField(str, fieldOpts)
+	return DETAIL.Read(str, sd)
 }
 
-func (serv Service) WriteSpecField(str string, service string) string {
-	fieldOpts := serv.FieldOpts(service)
-	if fieldOpts == nil {
+func (serv Service) WriteDetail(str string, service string) string {
+	sd := serv.ServiceDetail(service)
+	if sd == nil {
 		return ""
 	}
-	return FIELD.WriteField(str, fieldOpts)
+	return DETAIL.Write(str, sd)
 }
 
-func (serv Service) FormatFieldOpts(service string) (string, string) {
-	fieldOpts := serv.FieldOpts(service)
-	if fieldOpts == nil {
+func (serv Service) FormatDetail(service string) (string, string) {
+	sd := serv.ServiceDetail(service)
+	if sd == nil {
 		return "no options", ""
 	}
 	var Bytes bytes.Buffer
 	Bytes.WriteString(`<option value="">--</option>`)
-	for _, opt := range fieldOpts.GetOptions() {
+	for _, opt := range sd.Options() {
 		Bytes.WriteString(fmt.Sprintf(`<option value="%v">%v</option>`, opt, opt))
 	}
-	return fieldOpts.GetField(), Bytes.String()
+	return sd.Detail(), Bytes.String()
 }
 
 var SERVICE ServiceInterface = Service{}

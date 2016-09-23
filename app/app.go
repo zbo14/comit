@@ -7,6 +7,7 @@ import (
 	. "github.com/zballs/3ii/accounts"
 	. "github.com/zballs/3ii/cache"
 	. "github.com/zballs/3ii/types"
+	"log"
 )
 
 type Application struct {
@@ -46,9 +47,13 @@ func (app *Application) SetOption(key string, value string) (log string) {
 }
 
 func (app *Application) AppendTx(tx []byte) types.Result {
-	form, _ := MakeForm(string(tx))
+	form, err := MakeForm(string(tx))
+	if err != nil {
+		log.Println(err.Error())
+	}
+	log.Println(*form)
 	id := FormID(form)
-	err := app.cache.NewForm(id, form)
+	err = app.cache.NewForm(id, form)
 	if err != nil {
 		return types.NewResult(types.CodeType_InternalError, nil, err.Error())
 	}

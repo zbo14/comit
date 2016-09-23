@@ -169,11 +169,11 @@ func RandomSlicePick(slice []string) string {
 }
 
 func RandOption(serviceName string) string {
-	options := lib.SERVICE.FieldOpts(serviceName).GetOptions()
-	if options == nil {
+	fieldOpts := lib.SERVICE.FieldOpts(serviceName)
+	if fieldOpts == nil {
 		return ""
 	}
-	return RandomSlicePick(options)
+	return RandomSlicePick(fieldOpts.GetOptions())
 }
 
 func GenerateAddress() string {

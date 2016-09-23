@@ -35,8 +35,12 @@ func StartActionListener() (ActionListener, error) {
 func FormatForm(form *Form) string {
 	posted := util.ToTheMinute((*form).Time.String())
 	status := CheckStatus((*form).Resolved)
-	field := lib.SERVICE.FieldOpts((*form).Service).GetField()
-	return "<li>" + fmt.Sprintf(line, "posted", posted) + fmt.Sprintf(line, "issue", (*form).Service) + fmt.Sprintf(line, "address", (*form).Address) + fmt.Sprintf(line, "description", (*form).Description) + fmt.Sprintf(line, field, (*form).SpecField) + fmt.Sprintf(line, "pubkey", (*form).Pubkey) + fmt.Sprintf(line, "status", status) + "</li><br>"
+	sd := lib.SERVICE.ServiceDetail((*form).Service)
+	detail := "no options"
+	if sd != nil {
+		detail = sd.Detail()
+	}
+	return "<li>" + fmt.Sprintf(line, "posted", posted) + fmt.Sprintf(line, "issue", (*form).Service) + fmt.Sprintf(line, "address", (*form).Address) + fmt.Sprintf(line, "description", (*form).Description) + fmt.Sprintf(line, detail, (*form).Detail) + fmt.Sprintf(line, "pubkey", (*form).Pubkey) + fmt.Sprintf(line, "status", status) + "</li><br>"
 }
 
 func FormatUpdate(peer_msg PeerMessage) string {
@@ -44,8 +48,13 @@ func FormatUpdate(peer_msg PeerMessage) string {
 	service := lib.SERVICE.ReadField(str, "service")
 	address := lib.SERVICE.ReadField(str, "address")
 	description := lib.SERVICE.ReadField(str, "description")
-	field := lib.SERVICE.FieldOpts(service).GetField()
-	option := lib.SERVICE.ReadSpecField(str, service)
+	fieldOpts := lib.SERVICE.ServiceDetail(service)
+	field := "no options"
+	option := ""
+	if fieldOpts != nil {
+		field = fieldOpts.Detail()
+		option = lib.SERVICE.ReadDetail(str, service)
+	}
 	return "<li>" + fmt.Sprintf(line, "issue", service) + fmt.Sprintf(line, "address", address) + fmt.Sprintf(line, "description", description) + fmt.Sprintf(line, field, option) + "</li><br>"
 }
 
@@ -103,11 +112,11 @@ func (al ActionListener) Run(app *Application) {
 		so.On("get-values", func(category string) {
 			var msg bytes.Buffer
 			if category == "services" {
-				for _, service := range lib.SERVICE.GetServices() {
+				for _, service := range lib.SERVICE.Services() {
 					msg.WriteString(fmt.Sprintf(select_option, service, service))
 				}
 			} else if category == "depts" {
-				for dept, _ := range lib.SERVICE.GetDepts() {
+				for dept, _ := range lib.SERVICE.Depts() {
 					msg.WriteString(fmt.Sprintf(select_option, dept, dept))
 				}
 			}
@@ -116,7 +125,7 @@ func (al ActionListener) Run(app *Application) {
 
 		// Send service field options
 		so.On("select-service", func(service string) {
-			field, options := lib.SERVICE.FormatFieldOpts(service)
+			field, options := lib.SERVICE.FormatDetail(service)
 			so.Emit("field-options", field, options)
 		})
 
@@ -175,16 +184,13 @@ func (al ActionListener) Run(app *Application) {
 		})
 
 		// Submit Forms
-		so.On("submit-form", func(service string, address string, description string, specfield string, pubKeyString string, passphrase string) {
+		so.On("submit-form", func(service string, address string, description string, detail string, pubKeyString string, passphrase string) {
 			err := app.AdminManager().AuthorizeUser(pubKeyString, passphrase)
 			if err != nil {
 				so.Emit("formID-msg", unauthorized)
 			} else {
-				str := lib.SERVICE.WriteField(service, "service") + lib.SERVICE.WriteField(address, "address") + lib.SERVICE.WriteField(description, "description") + lib.SERVICE.WriteSpecField(specfield, service) + util.WritePubKeyString(pubKeyString)
-				log.Println(str)
+				str := lib.SERVICE.WriteField(service, "service") + lib.SERVICE.WriteField(address, "address") + lib.SERVICE.WriteField(description, "description") + lib.SERVICE.WriteDetail(detail, service) + util.WritePubKeyString(pubKeyString)
 				result := app.AppendTx([]byte(str))
-				log.Println(result.Log)
-				log.Println(util.ExtractText(form_already_exists))
 				if result.IsOK() && app.AdminManager().UserIsRunning(pubKeyString) {
 					so.Emit("formID-msg", fmt.Sprintf(submit_form_success, result.Log))
 					chID := FeedChannelIDs[lib.SERVICE.ServiceDept(service)]
@@ -277,7 +283,7 @@ func (al ActionListener) Run(app *Application) {
 			}
 		})
 
-		// Stats
+		// Metrics
 		so.On("calculate", func(metric string, category string, values []string, pubKeyString string, passphrase string) {
 			err := app.AdminManager().AuthorizeUser(pubKeyString, passphrase)
 			if err != nil {
