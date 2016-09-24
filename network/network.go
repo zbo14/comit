@@ -1,7 +1,6 @@
 package network
 
 import (
-	"fmt"
 	cfg "github.com/tendermint/go-config"
 	. "github.com/tendermint/go-crypto"
 	"github.com/tendermint/go-logger"
@@ -181,18 +180,34 @@ func (reactor *MyReactor) GetMsg(chID byte) PeerMessage {
 
 // Channels
 
-var FeedChannelIDs = map[string]byte{
-	"general":        byte(0x00),
-	"infrastructure": byte(0x01),
-	"sanitation":     byte(0x02),
-}
-
-var AdminChannelIDs = map[string]byte{ // by service type or something else?
+var serviceChannelIDs = map[string]byte{
 	"street light out":             byte(0x10),
 	"pothole in street":            byte(0x11),
 	"rodent baiting/rat complaint": byte(0x12),
 	"tree trim":                    byte(0x13),
 	"garbage cart black maintenance/replacement": byte(0x14),
+}
+
+var deptChannelIDs = map[string]byte{
+	// "general":        byte(0x00),
+	"infrastructure": byte(0x01),
+	"sanitation":     byte(0x02),
+}
+
+func ServiceChannelID(service string) uint8 {
+	return serviceChannelIDs[service]
+}
+
+func ServiceChannelIDs() map[string]byte {
+	return serviceChannelIDs
+}
+
+func DeptChannelID(dept string) uint8 {
+	return deptChannelIDs[dept]
+}
+
+func DeptChannelIDs() map[string]uint8 {
+	return deptChannelIDs
 }
 
 // Addrs
@@ -201,21 +216,6 @@ var recvrListenerAddr = "127.0.0.1:22222"
 
 func RecvrListenerAddr() string {
 	return recvrListenerAddr
-}
-
-func AdminListenerAddr(adminPorts chan uint16) string {
-	select {
-	case port := <-adminPorts:
-		done := make(chan struct{}, 1)
-		go func() {
-			adminPorts <- port + 1
-			done <- struct{}{}
-		}()
-		select {
-		case <-done:
-			return fmt.Sprintf("127.0.0.1:%v", port)
-		}
-	}
 }
 
 // Switches

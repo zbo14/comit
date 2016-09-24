@@ -12,6 +12,7 @@ import (
 
 type Application struct {
 	state         merkle.Tree
+	user_manager  *UserManager
 	admin_manager *AdminManager
 	cache         *Cache
 }
@@ -23,9 +24,14 @@ func NewApplication() *Application {
 	)
 	return &Application{
 		state:         state,
+		user_manager:  CreateUserManager(),
 		admin_manager: CreateAdminManager(8),
 		cache:         CreateCache(),
 	}
+}
+
+func (app *Application) UserManager() *UserManager {
+	return app.user_manager
 }
 
 func (app *Application) AdminManager() *AdminManager {

@@ -2,21 +2,13 @@ package accounts
 
 import (
 	"errors"
+	. "github.com/tendermint/go-crypto"
 	. "github.com/tendermint/go-p2p"
 	. "github.com/zballs/3ii/network"
+	util "github.com/zballs/3ii/util"
 )
 
-// Ports
-var adminPort = uint16(33333)
-var adminPorts = make(chan uint16, 1)
-
 // Admins, Admindb
-type Admins map[string]*Switch
-type Admindb struct {
-	channel  chan Admins
-	capacity int
-}
-
 func getDept(admin *Switch) (dept string) {
 	return admin.NodeInfo().Other[1]
 }
@@ -25,167 +17,52 @@ func getServices(admin *Switch) (services []string) {
 	return admin.NodeInfo().Other[2:]
 }
 
-func registerUserAsAdmin(user *Switch, dept string, services []string, sendr *Switch) error {
-	user.NodeInfo().Other = append(user.NodeInfo().Other, dept)
-	user.NodeInfo().Other = append(user.NodeInfo().Other, services...)
-	AddReactor(user, AdminChannelIDs, "admin")
-	adminListenerAddr := AdminListenerAddr(adminPorts)
-	AddListener(user, adminListenerAddr)
-	_, err := DialPeerWithAddr(sendr, adminListenerAddr)
+func registerAdmin(dept string, services []string, passphrase string) (admin *Switch, pubKeystring string, privKeyString string, err error) {
+	secret := util.GenerateSecret([]byte(passphrase))
+	privkey := GenPrivKeyEd25519FromSecret(secret)
+	admin = CreateSwitch(privkey, passphrase)
+	admin.NodeInfo().Other = append(admin.NodeInfo().Other, dept)
+	admin.NodeInfo().Other = append(admin.NodeInfo().Other, services...)
+	AddReactor(admin, DeptChannelIDs(), "dept-feed")
+	AddReactor(admin, ServiceChannelIDs(), "service-feed")
+	admin.Start()
+	_, err = DialPeerWithAddr(admin, RecvrListenerAddr())
 	if err != nil {
-		return err
+		return
 	}
-	return nil
-}
-
-func createAdmindb(capacity int) Admindb {
-	admindb := Admindb{make(chan Admins, 1), capacity}
-	done := make(chan struct{}, 1)
-	go func() {
-		admindb.channel <- Admins{}
-		done <- struct{}{}
-	}()
-	select {
-	case <-done:
-		return admindb
-	}
-}
-
-func (db Admindb) accessAdmins() Admins {
-	return <-db.channel
-}
-
-func (db Admindb) restoreAdmins(admins Admins, done chan struct{}) {
-	db.channel <- admins
-	done <- struct{}{}
-}
-
-func (db Admindb) addAdmin(admin *Switch) error {
-	admins := db.accessAdmins()
-	pubKeyString := userToPubKeyString(admin)
-	if admins[pubKeyString] != nil {
-		return errors.New(admin_already_exists)
-	} else if len(admins) == db.capacity {
-		return errors.New(admin_db_full)
-	}
-	admins[pubKeyString] = admin
-	done := make(chan struct{}, 1)
-	go db.restoreAdmins(admins, done)
-	select {
-	case <-done:
-		return nil
-	}
-}
-
-func (db Admindb) removeAdmin(pubKeyString string, passphrase string) (err error) {
-	admins := db.accessAdmins()
-	admin := admins[pubKeyString]
-	if admin != nil {
-		if validateUser(passphrase, admin) {
-			delete(admins, pubKeyString)
-		} else {
-			err = errors.New(invalid_pubkey_passphrase)
-		}
-	} else {
-		err = errors.New(admin_not_found)
-	}
-	done := make(chan struct{}, 1)
-	go db.restoreAdmins(admins, done)
-	select {
-	case <-done:
-		return err
-	}
+	pubKeystring = accountToPubKeyString(admin)
+	privKeyString = util.PrivKeyToString(privkey)
+	return
 }
 
 // Admin Manager
 type AdminManager struct {
-	Admindb
-	*UserManager
-}
-
-func initAdminPorts() {
-	done := make(chan struct{}, 1)
-	go func() {
-		adminPorts <- adminPort
-		done <- struct{}{}
-	}()
-	select {
-	case <-done:
-	}
+	*AccountManager
+	db_capacity int
 }
 
 func CreateAdminManager(db_capacity int) *AdminManager {
-	initAdminPorts()
 	return &AdminManager{
-		createAdmindb(db_capacity),
-		CreateUserManager(),
+		createAccountManager(),
+		db_capacity,
 	}
 }
 
-func (am *AdminManager) RegisterAdmin(dept string, services []string, passphrase string, recvr *Switch, sendr *Switch) (string, string, error) {
-	pubKeyString, privKeyString, err := am.RegisterUser(passphrase, recvr)
-	if err != nil {
-		return "", "", err
-	}
-	users := am.accessUsers()
-	user := users[pubKeyString]
+func (adm *AdminManager) Register(dept string, services []string, passphrase string) (string, string, error) {
+	admins := adm.access()
+	admin_count := len(admins)
 	done := make(chan struct{}, 1)
-	go am.restoreUsers(users, done)
+	go adm.restore(admins, done)
 	select {
 	case <-done:
-		if user == nil {
-			return "", "", errors.New(user_not_found)
+		if !(admin_count < adm.db_capacity) {
+			return "", "", errors.New(admin_db_full)
 		}
-		err = registerUserAsAdmin(user, dept, services, sendr)
+		admin, pubKeyString, privKeyString, err := registerAdmin(dept, services, passphrase)
 		if err != nil {
 			return "", "", errors.New(admin_network_fail)
 		}
-		err = am.addAdmin(user)
-		return pubKeyString, privKeyString, nil
-	}
-}
-
-func (am *AdminManager) RemoveAdmin(pubKeyString string, passphrase string) error {
-	err := am.RemoveUser(pubKeyString, passphrase)
-	if err != nil {
-		return err
-	}
-	err = am.removeAdmin(pubKeyString, passphrase)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (am *AdminManager) AuthorizeAdmin(pubKeyString string, passphrase string) error {
-	admins := am.accessAdmins()
-	admin := admins[pubKeyString]
-	done := make(chan struct{}, 1)
-	go am.restoreAdmins(admins, done)
-	select {
-	case <-done:
-		if admin == nil {
-			return errors.New(admin_not_found)
-		}
-		if !validateUser(passphrase, admin) {
-			return errors.New(invalid_pubkey_passphrase)
-		}
-		return nil
-	}
-}
-
-func (am *AdminManager) FindAdmin(pubKeyString string, passphrase string) (*Switch, []string, error) {
-	admins := am.accessAdmins()
-	admin := admins[pubKeyString]
-	done := make(chan struct{}, 1)
-	go am.restoreAdmins(admins, done)
-	select {
-	case <-done:
-		if admin == nil {
-			return nil, nil, errors.New(admin_not_found)
-		} else if !validateUser(passphrase, admin) {
-			return nil, nil, errors.New(invalid_pubkey_passphrase)
-		}
-		return admin, getServices(admin), nil
+		err = adm.add(admin)
+		return pubKeyString, privKeyString, err
 	}
 }

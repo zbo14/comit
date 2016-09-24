@@ -24,9 +24,9 @@ func main() {
 	}
 
 	RegisterTemplates(
-		"create_account.html",
+		"create_user.html",
 		"create_admin.html",
-		"remove_account.html",
+		"remove_user.html",
 		"remove_admin.html",
 		"submit_form.html",
 		"find_form.html",
@@ -38,9 +38,9 @@ func main() {
 	)
 
 	CreatePages(
-		"create_account",
+		"create_user",
 		"create_admin",
-		"remove_account",
+		"remove_user",
 		"remove_admin",
 		"submit_form",
 		"find_form",
@@ -62,9 +62,9 @@ func main() {
 
 	js := JustFiles{http.Dir("static/")}
 	http.Handle("/", action_listener)
-	http.HandleFunc("/create_account", CustomHandler("create_account.html"))
+	http.HandleFunc("/create_user", CustomHandler("create_user.html"))
 	http.HandleFunc("/create_admin", CustomHandler("create_admin.html"))
-	http.HandleFunc("/remove_account", CustomHandler("remove_account.html"))
+	http.HandleFunc("/remove_user", CustomHandler("remove_user.html"))
 	http.HandleFunc("/remove_admin", CustomHandler("remove_admin.html"))
 	http.HandleFunc("/submit_form", CustomHandler("submit_form.html"))
 	http.HandleFunc("/find_form", CustomHandler("find_form.html"))

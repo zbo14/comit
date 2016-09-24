@@ -1,15 +1,13 @@
 package actions
 
 const (
-	keys_cautionary        = "<strong style='opacity:0.8;'>public key</strong> <small>%v</small><br><strong style='opacity:0.8;'>private key</strong> <small>%v</small><br><br><small>Remember your passphrase and keep your private key, well.. private!</small>"
-	create_account_failure = "<span style='color:red;'>Could not create account</span>"
-
-	//  If you forget your passphrase or your account is compromised you will need your private key to regain access.
+	keys_cautionary     = "<strong style='opacity:0.8;'>public key</strong> <small>%v</small><br><strong style='opacity:0.8;'>private key</strong> <small>%v</small><br><br><small>Remember your passphrase and keep your private key, well.. private!</small>"
+	create_user_failure = "<span style='color:red;'>Could not create user</span>"
 
 	unauthorized = "<span style='color:red;'>Unauthorized</span>"
 
-	remove_account_failure = "<span style='color:red;'>Could not remove account<br><strong>Public Key</strong> <small>%v</small><br><strong>Passphrase</strong> <small>%v</small></span>"
-	remove_account_success = "Removed account<br><strong>Public Key</strong> <small>%v</small><br><strong>Passphrase</strong> <small>%v</small>"
+	remove_user_failure = "<span style='color:red;'>Could not remove user<br><strong>Public Key</strong> <small>%v</small><br><strong>Passphrase</strong> <small>%v</small></span>"
+	remove_user_success = "Removed user<br><strong>Public Key</strong> <small>%v</small><br><strong>Passphrase</strong> <small>%v</small>"
 
 	remove_admin_failure = "<span style='color:red;'>Could not remove admin<br><strong>Public Key</strong> <small>%v</small><br><strong>Passphrase</strong> <small>%v</small></span>"
 	remove_admin_success = "Removed admin<br><strong>Public Key</strong> <small>%v</small><br><strong>Passphrase</strong> <small>%v</small>"

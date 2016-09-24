@@ -17,19 +17,16 @@ import (
 type ActionListener struct {
 	*socketio.Server
 	recvr *Switch
-	sendr *Switch
 }
 
 func StartActionListener() (ActionListener, error) {
 	server, err := socketio.NewServer(nil)
 	recvr := CreateSwitch(GenPrivKeyEd25519(), "recvr")
 	AddListener(recvr, RecvrListenerAddr())
-	AddReactor(recvr, FeedChannelIDs, "feed")
-	sendr := CreateSwitch(GenPrivKeyEd25519(), "sendr")
-	AddReactor(sendr, AdminChannelIDs, "admin")
+	AddReactor(recvr, DeptChannelIDs(), "dept-feed")
+	AddReactor(recvr, ServiceChannelIDs(), "service-feed")
 	recvr.Start()
-	sendr.Start()
-	return ActionListener{server, recvr, sendr}, err
+	return ActionListener{server, recvr}, err
 }
 
 func FormatForm(form *Form) string {
@@ -45,7 +42,7 @@ func FormatForm(form *Form) string {
 		fmt.Sprintf(line, "address", form.Address()) +
 		fmt.Sprintf(line, "description", form.Description()) +
 		fmt.Sprintf(line, detail, form.Detail()) +
-		fmt.Sprintf(line, "account", form.Pubkey()) +
+		fmt.Sprintf(line, "user", form.Pubkey()) +
 		fmt.Sprintf(line, "status", status) + "<br></li>"
 }
 
@@ -58,38 +55,26 @@ func FormatUpdate(update string) string {
 	return "<li>" + fmt.Sprintf(line, action, ID) +
 		fmt.Sprintf(line, "service", service) +
 		fmt.Sprintf(line, "address", address) +
-		fmt.Sprintf(line, "account", pubkey) + "<br></li>"
+		fmt.Sprintf(line, "user", pubkey) + "<br></li>"
 }
 
 func (al ActionListener) FeedUpdates() {
-	feedReactor := al.recvr.Reactor("feed").(*MyReactor)
 	for {
-		for dept, chID := range FeedChannelIDs {
-			if al.recvr.IsRunning() {
-				update := string(feedReactor.GetMsg(chID).Bytes)
+		if al.recvr.IsRunning() {
+			deptFeed := al.recvr.Reactor("dept-feed").(*MyReactor)
+			for dept, chID := range DeptChannelIDs() {
+				update := string(deptFeed.GetMsg(chID).Bytes)
 				if len(update) > 0 {
-					// To feed
 					al.BroadcastTo("feed", fmt.Sprintf("%v-update", dept), FormatUpdate(update))
-					if al.sendr.IsRunning() && dept != "general" {
-						// To admin channels
-						service := lib.SERVICE.ReadField(update, "service")
-						al.sendr.Broadcast(AdminChannelIDs[service], update)
-					}
 				}
 			}
-		}
-	}
-}
-
-func (al ActionListener) AdminUpdates(admin *Switch) {
-	adminReactor := admin.Reactor("admin").(*MyReactor)
-	for {
-		for service, chID := range AdminChannelIDs {
-			if admin.IsRunning() {
-				update := string(adminReactor.GetMsg(chID).Bytes)
+			serviceFeed := al.recvr.Reactor("service-feed").(*MyReactor)
+			for service, chID := range ServiceChannelIDs() {
+				update := string(serviceFeed.GetMsg(chID).Bytes)
 				if len(update) > 0 {
-					// To admins
-					al.BroadcastTo("admin", fmt.Sprintf("%v-update", service), FormatUpdate(update))
+					log.Println(update)
+					log.Println(fmt.Sprintf("%v-update", service))
+					al.BroadcastTo("feed", fmt.Sprintf("%v-update", service), FormatUpdate(update))
 				}
 			}
 		}
@@ -138,19 +123,19 @@ func (al ActionListener) Run(app *Application) {
 		})
 
 		// Create Accounts
-		so.On("create-account", func(passphrase string) {
-			pubKeyString, privKeyString, err := app.AdminManager().RegisterUser(passphrase, al.recvr)
+		so.On("create-user", func(passphrase string) {
+			pubKeyString, privKeyString, err := app.UserManager().Register(passphrase)
 			if err != nil {
 				log.Println(err.Error())
-				so.Emit("keys-msg", create_account_failure)
+				so.Emit("user-keys-msg", create_user_failure)
 			}
 			msg := fmt.Sprintf(keys_cautionary, pubKeyString, privKeyString)
-			so.Emit("keys-msg", msg)
+			so.Emit("user-keys-msg", msg)
 		})
 
 		// Create Admins
 		so.On("create-admin", func(dept string, services []string, passphrase string) {
-			pubKeyString, privKeyString, err := app.AdminManager().RegisterAdmin(dept, services, passphrase, al.recvr, al.sendr)
+			pubKeyString, privKeyString, err := app.AdminManager().Register(dept, services, passphrase)
 			if err != nil {
 				log.Println(err.Error())
 				so.Emit("admin-keys-msg", unauthorized)
@@ -161,19 +146,19 @@ func (al ActionListener) Run(app *Application) {
 		})
 
 		// Remove Accounts
-		so.On("remove-account", func(pubKeyString string, passphrase string) {
-			err := app.AdminManager().RemoveUser(pubKeyString, passphrase)
+		so.On("remove-user", func(pubKeyString string, passphrase string) {
+			err := app.UserManager().Remove(pubKeyString, passphrase)
 			if err != nil {
 				log.Println(err.Error())
-				so.Emit("remove-msg", fmt.Sprintf(remove_account_failure, pubKeyString, passphrase))
+				so.Emit("remove-msg", fmt.Sprintf(remove_user_failure, pubKeyString, passphrase))
 			} else {
-				so.Emit("remove-msg", fmt.Sprintf(remove_account_success, pubKeyString, passphrase))
+				so.Emit("remove-msg", fmt.Sprintf(remove_user_success, pubKeyString, passphrase))
 			}
 		})
 
 		// Remove Admins
 		so.On("remove-admin", func(pubKeyString string, passphrase string) {
-			err := app.AdminManager().RemoveAdmin(pubKeyString, passphrase)
+			err := app.AdminManager().Remove(pubKeyString, passphrase)
 			if err != nil {
 				log.Println(err.Error())
 				so.Emit("admin-remove-msg", fmt.Sprintf(remove_admin_failure, pubKeyString, passphrase))
@@ -184,7 +169,7 @@ func (al ActionListener) Run(app *Application) {
 
 		// Submit Forms
 		so.On("submit-form", func(service string, address string, description string, detail string, pubKeyString string, passphrase string) {
-			err := app.AdminManager().AuthorizeUser(pubKeyString, passphrase)
+			err := app.UserManager().Authorize(pubKeyString, passphrase)
 			if err != nil {
 				so.Emit("formID-msg", unauthorized)
 			} else {
@@ -194,11 +179,12 @@ func (al ActionListener) Run(app *Application) {
 					lib.SERVICE.WriteDetail(detail, service) +
 					util.WritePubKeyString(pubKeyString)
 				result := app.AppendTx([]byte(str))
-				if result.IsOK() && app.AdminManager().UserIsRunning(pubKeyString) {
+				if result.IsOK() {
 					so.Emit("formID-msg", fmt.Sprintf(submit_form_success, result.Log))
-					chID := FeedChannelIDs[lib.SERVICE.ServiceDept(service)]
+					serviceChID := ServiceChannelID(service)
+					deptChID := DeptChannelID(lib.SERVICE.ServiceDept(service))
 					str = lib.SERVICE.WriteField("submit", "action") + lib.SERVICE.WriteField(result.Log, "ID") + str
-					go app.AdminManager().UserBroadcast(pubKeyString, str, chID)
+					go app.UserManager().Broadcast(pubKeyString, str, serviceChID, deptChID)
 				} else if result.Log == util.ExtractText(form_already_exists) {
 					so.Emit("formID-msg", form_already_exists)
 				} else {
@@ -209,7 +195,7 @@ func (al ActionListener) Run(app *Application) {
 
 		// Find Forms
 		so.On("find-form", func(formID string, pubKeyString string, passphrase string) {
-			err := app.AdminManager().AuthorizeUser(pubKeyString, passphrase)
+			err := app.AdminManager().Authorize(pubKeyString, passphrase)
 			if err != nil {
 				so.Emit("form-msg", unauthorized)
 			} else {
@@ -230,7 +216,7 @@ func (al ActionListener) Run(app *Application) {
 
 		// Resolve Forms
 		so.On("resolve-form", func(formID string, pubKeyString string, passphrase string) {
-			err := app.AdminManager().AuthorizeAdmin(pubKeyString, passphrase)
+			err := app.AdminManager().Authorize(pubKeyString, passphrase)
 			if err != nil {
 				so.Emit("resolve-msg", unauthorized)
 			} else {
@@ -240,20 +226,23 @@ func (al ActionListener) Run(app *Application) {
 					so.Emit("resolve-msg", fmt.Sprintf(resolve_form_failure, formID))
 				} else {
 					so.Emit("resolve-msg", fmt.Sprintf(resolve_form_success, formID))
-					chID := FeedChannelIDs[lib.SERVICE.ServiceDept(form.Service())]
+					service := form.Service()
+					serviceChID := ServiceChannelID(service)
+					dept := lib.SERVICE.ServiceDept(service)
+					deptChID := DeptChannelID(dept)
 					str := lib.SERVICE.WriteField("resolve", "action") +
 						lib.SERVICE.WriteField(formID, "ID") +
 						lib.SERVICE.WriteField(form.Service(), "service") +
 						lib.SERVICE.WriteField(form.Address(), "address") +
 						util.WritePubKeyString(pubKeyString)
-					app.AdminManager().UserBroadcast(pubKeyString, str, chID)
+					app.AdminManager().Broadcast(pubKeyString, str, serviceChID, deptChID)
 				}
 			}
 		})
 
 		// Search forms
 		so.On("search-forms", func(before string, after string, service string, address string, status string, pubKeyString string, passphrase string) {
-			err := app.AdminManager().AuthorizeUser(pubKeyString, passphrase)
+			err := app.AdminManager().Authorize(pubKeyString, passphrase)
 			if err != nil {
 				so.Emit("forms-msg", unauthorized)
 			} else {
@@ -281,22 +270,23 @@ func (al ActionListener) Run(app *Application) {
 				}
 			}
 		})
-
-		so.On("find-admin", func(pubKeyString string, passphrase string) {
-			admin, services, err := app.AdminManager().FindAdmin(pubKeyString, passphrase)
-			if err != nil {
-				log.Println(err.Error())
-				so.Emit("admin-msg", unauthorized, false)
-			} else {
-				so.Join("admin")
-				so.Emit("admin-msg", services, true)
-				go al.AdminUpdates(admin)
-			}
-		})
+		/*
+			so.On("find-admin", func(pubKeyString string, passphrase string) {
+				admin, services, err := app.AdminManager().Find(pubKeyString, passphrase)
+				if err != nil {
+					log.Println(err.Error())
+					so.Emit("admin-msg", unauthorized, false)
+				} else {
+					so.Join("admin")
+					so.Emit("admin-msg", services, true)
+					go al.AdminUpdates(admin)
+				}
+			})
+		*/
 
 		// Metrics
 		so.On("calculate", func(metric string, category string, values []string, pubKeyString string, passphrase string) {
-			err := app.AdminManager().AuthorizeUser(pubKeyString, passphrase)
+			err := app.AdminManager().Authorize(pubKeyString, passphrase)
 			if err != nil {
 				log.Println(err.Error())
 				so.Emit("metric-msg", unauthorized)

@@ -4,10 +4,19 @@
 
 {{define "body"}}
 <div class="container">
-	<h5 class="my-header">feed</h5>
-	<br>
-	<select id="select-feed">
-		<option value="general">general</option>
+	<h5 class="my-header">service feeds</h5>
+	<select id="service-feed">
+		<option value="">--</option>
+		<option value="street light out">street light out</option>
+		<option value="pothole in street">pothole in street</option>
+		<option value="rodent baiting/rat complaint">rodent baiting/rat complaint</option>
+		<option value="tree trim">tree trim</option>
+		<option value="garbage cart black maintenance/replacement">garbage cart black maintenance/replacement</option>
+	</select>  
+	<br><br>
+	<h5 class="my-header">department feeds</h5>
+	<select id="dept-feed">
+		<option value="">--</option>
 		<option value="infrastructure">infrastructure</option>
 		<option value="sanitation">sanitation</option>
 	</select>
@@ -17,25 +26,40 @@
 <script type="text/javascript">
 	$(function() {
 		var socket = io();
-		$("#select-feed").on("change", function() {
+		var services = $.map($('#service-feed option'), function(opt) {
+			if (opt.value.length > 0) {
+				return opt.value;
+			}
+		})
+		var depts = $.map($('#dept-feed option'), function(opt) {
+			if (opt.value.length > 0) {
+				return opt.value;
+			}
+		})
+		$("#service-feed").on("change", function() {
 			$("ul").html("");
-			$("ul").attr("id", $("#select-feed").val());
+			$("ul").attr("id", $("#service-feed").val());
+
 		})
-		socket.on("general-update", function(update) {
-			if ($("ul").attr("id") == "general") {
-				$("#general").append(update);
-			}
+		$("#dept-feed").on("change", function() {
+			$("ul").html("");
+			$("ul").attr("id", $("#dept-feed").val());
 		})
-		socket.on("infrastructure-update", function(update) {
-			if ($("ul").attr("id") == "infrastructure") {
-				$("#infrastructure").append(update);
-			}
-		})
-		socket.on("sanitation-update", function(update){
-			if ($("ul").attr("id") == "sanitation") {
-				$("#sanitation").append(update);
-			}
-		})
+
+		for (var i = 0; i < services.length; i++) {
+			socket.on(services[i] + "-update", function(update) {
+				if ($("ul").attr("id") == services[i]) {
+					$("ul").append(update);
+				}
+			})
+		}
+		for (var j = 0; j < depts.length; j++) {
+			socket.on(depts[j] + "-update", function(update) {
+				if ($("ul").attr("id") == depts[j]) {
+					$("ul").append(update);
+				}
+			})
+		}
 	})
 </script>
 {{end}}
