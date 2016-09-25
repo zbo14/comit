@@ -3,25 +3,56 @@ package accounts
 import (
 	"errors"
 	"fmt"
+	. "github.com/tendermint/go-crypto"
 	. "github.com/tendermint/go-p2p"
+	. "github.com/zballs/3ii/network"
+	util "github.com/zballs/3ii/util"
 )
 
+type Account struct {
+	*Switch
+	passphrase string
+}
+
+func registerAccount(passphrase string) (*Account, string, string, error) {
+	secret := util.GenerateSecret([]byte(passphrase))
+	privkey := GenPrivKeyEd25519FromSecret(secret)
+	account := &Account{Switch: CreateSwitch(privkey)}
+	account.setPassphrase(passphrase, privkey)
+	AddReactor(account.Switch, DeptChannelIDs(), "dept-feed")
+	AddReactor(account.Switch, ServiceChannelIDs(), "service-feed")
+	account.Start()
+	_, err := DialPeerWithAddr(account.Switch, RecvrListenerAddr())
+	if err != nil {
+		return nil, "", "", err
+	}
+	pubKeyString := account.toPubKeyString()
+	privKeyString := util.PrivKeyToString(privkey)
+	return account, pubKeyString, privKeyString, nil
+}
+
 // Account
-func accountToPubKeyString(account *Switch) string {
+func (account *Account) toPubKeyString() string {
 	return fmt.Sprintf("%x", account.NodeInfo().PubKey[:])
 }
 
-func accountPassphrase(account *Switch) string {
-	return account.NodeInfo().Other[0]
+func (account *Account) getPassphrase() string {
+	return account.passphrase
 }
 
-func validateAccount(passphrase string, account *Switch) bool {
-	return passphrase == accountPassphrase(account)
+func (account *Account) setPassphrase(passphrase string, privkey PrivKeyEd25519) {
+	if account.toPubKeyString() == util.PubKeyToString(privkey.PubKey().(PubKeyEd25519)) {
+		account.passphrase = passphrase
+	}
+}
+
+func (account *Account) validateAccount(passphrase string) bool {
+	return passphrase == account.getPassphrase()
 }
 
 // Accounts, Accountdb
 
-type Accounts map[string]*Switch
+type Accounts map[string]*Account
 type Accountdb chan Accounts
 
 func createAccountdb() Accountdb {
@@ -46,9 +77,9 @@ func (db Accountdb) restore(accounts Accounts, done chan struct{}) {
 	done <- struct{}{}
 }
 
-func (db Accountdb) add(account *Switch) error {
+func (db Accountdb) add(account *Account) error {
 	accounts := db.access()
-	pubKeyString := accountToPubKeyString(account)
+	pubKeyString := account.toPubKeyString()
 	if accounts[pubKeyString] != nil {
 		return errors.New(account_already_exists)
 	}
@@ -65,7 +96,7 @@ func (db Accountdb) remove(pubKeyString string, passphrase string) (err error) {
 	accounts := db.access()
 	account := accounts[pubKeyString]
 	if account != nil {
-		if validateAccount(passphrase, account) {
+		if account.validateAccount(passphrase) {
 			delete(accounts, pubKeyString)
 		} else {
 			err = errors.New(invalid_pubkey_passphrase)
@@ -101,7 +132,7 @@ func (acm *AccountManager) Authorize(pubKeyString string, passphrase string) err
 		if account == nil {
 			return errors.New(account_not_found)
 		}
-		if !validateAccount(passphrase, account) {
+		if !account.validateAccount(passphrase) {
 			return errors.New(invalid_pubkey_passphrase)
 		}
 		return nil

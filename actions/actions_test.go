@@ -3,14 +3,14 @@ package actions
 import (
 	"bytes"
 	. "github.com/tendermint/go-common"
-	. "github.com/tendermint/go-crypto"
+	// . "github.com/tendermint/go-crypto"
 	"github.com/tendermint/tmsp/server"
 	"github.com/tendermint/tmsp/types"
 	. "github.com/zballs/3ii/app"
 	lib "github.com/zballs/3ii/lib"
-	. "github.com/zballs/3ii/network"
+	. "github.com/zballs/3ii/types"
+	// . "github.com/zballs/3ii/network"
 	util "github.com/zballs/3ii/util"
-	// "log"
 	"math/rand"
 	"reflect"
 	"testing"
@@ -19,7 +19,7 @@ import (
 
 func TestStream(t *testing.T) {
 
-	numAppendTxs := 2
+	numAppendTxs := 8
 	app := NewApplication()
 	server, err := server.NewSocketServer("unix://test.sock", app)
 	if err != nil {
@@ -37,39 +37,21 @@ func TestStream(t *testing.T) {
 		Exit(err.Error())
 	}
 
-	recvrPrivKey := GenPrivKeyEd25519()
-	// sendrPrivKey := GenPrivKeyEd25519()
+	// recvr := CreateSwitch(GenPrivKeyEd25519())
 
-	recvr := CreateSwitch(recvrPrivKey, "recr")
-	// sendr := CreateSwitch(sendrPrivKey, "sendr")
-
-	userPrivKey := GenPrivKeyEd25519()
-	// log.Println("user privkey " + util.PrivKeyToString(userPrivKey))
-
-	user := CreateSwitch(userPrivKey, "abc")
-	_, _, err = app.AdminManager().RegisterUser(user.NodeInfo().Other[0], recvr)
+	userPubKeyString, _, err := app.UserManager().Register("user-passphrase")
 	if err != nil {
 		Exit(err.Error())
 	}
 
-	/*
-		adminPrivKey := GenPrivKeyEd25519()
-		log.Println("admin privkey " + util.PrivKeyToString(adminPrivKey))
-
-		admin := CreateSwitch(adminPrivKey, "helloworld")
-		servs := []string{RandomString(services)}
-		dept := lib.SERVICE.ServiceDept(servs[0])
-		_, _, err = app.AdminManager().RegisterAdmin(
-			dept,
-			servs,
-			admin.NodeInfo().Other[0],
-			recvr,
-			sendr,
-		)
-		if err != nil {
-			Exit(err.Error())
-		}
-	*/
+	adminPubKeyString, _, err := app.AdminManager().Register(
+		"infrastructure",
+		"head of transportation",
+		"admin-passphrase",
+	)
+	if err != nil {
+		Exit(err.Error())
+	}
 
 	// Read response data
 	done := make(chan struct{}, 1)
@@ -115,18 +97,28 @@ func TestStream(t *testing.T) {
 	// Write requests
 	for iter := 0; iter < numAppendTxs; iter++ {
 
-		// Generate txstr
-		txstr := GenerateTxstr(user.NodeInfo().PubKey)
+		// Generate submit string
+		submit, ID := GenerateSubmit(userPubKeyString)
 
 		// Send request
-		var req = types.ToRequestAppendTx([]byte(txstr))
+		var req = types.ToRequestAppendTx([]byte(submit))
 		err := types.WriteMessage(req, conn)
 		if err != nil {
 			t.Fatal(err.Error())
 		}
 
+		// Generate resolve string
+		resolve := GenerateResolve(ID, adminPubKeyString)
+
+		// Send request
+		req = types.ToRequestAppendTx([]byte(resolve))
+		err = types.WriteMessage(req, conn)
+		if err != nil {
+			t.Fatal(err.Error())
+		}
+
 		// Sometimes send flush messages
-		if iter%123 == 0 {
+		if iter%17 == 0 {
 			t.Log("flush")
 			err := types.WriteMessage(types.ToRequestFlush(), conn)
 			if err != nil {
@@ -180,29 +172,24 @@ func GenerateAddress() string {
 	return RandomChars(numbers, 2) + " " + RandomChars(letters, 6) + " st."
 }
 
-/*
-func GenerateDescription(length int) string {
-	var buf bytes.Buffer
-	for i := 0; i < length; i++ {
-		buf.WriteString(RandomChar(letters))
-		if i%17 == 0 {
-			buf.WriteString(RandomChar(symbols))
-		} else if i%23 == 0 {
-			buf.WriteString(RandomChar(numbers))
-		}
-	}
-	return buf.String()
-}
-*/
-
-func GenerateTxstr(pubKey PubKeyEd25519) string {
+func GenerateSubmit(pubKeyString string) (string, string) {
+	action := lib.SERVICE.WriteField("submit", "action")
 	serviceName := RandomString(services)
 	service := lib.SERVICE.WriteField(serviceName, "service")
 	address := lib.SERVICE.WriteField(GenerateAddress(), "address")
 	description := lib.SERVICE.WriteField("this is a description", "description")
-	specfield := lib.SERVICE.WriteDetail(RandOption(serviceName), serviceName)
-	pubkey := util.WritePubKeyString(util.PubKeyToString(pubKey))
-	return service + address + description + specfield + pubkey
+	detail := lib.SERVICE.WriteDetail(RandOption(serviceName), serviceName)
+	pubkey := util.WritePubKeyString(pubKeyString)
+	str := action + service + address + description + detail + pubkey
+	form, _ := MakeForm(str)
+	return str, FormID(form)
+}
+
+func GenerateResolve(ID string, pubKeyString string) string {
+	action := lib.SERVICE.WriteField("resolve", "action")
+	formID := lib.SERVICE.WriteField(ID, "ID")
+	pubkey := util.WritePubKeyString(pubKeyString)
+	return action + formID + pubkey
 }
 
 // example

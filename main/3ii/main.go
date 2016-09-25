@@ -33,7 +33,6 @@ func main() {
 		"resolve_form.html",
 		"search_forms.html",
 		"feed.html",
-		"admin.html",
 		"metrics.html",
 	)
 
@@ -47,7 +46,6 @@ func main() {
 		"resolve_form",
 		"search_forms",
 		"feed",
-		"admin",
 		"metrics",
 	)
 
@@ -71,7 +69,6 @@ func main() {
 	http.HandleFunc("/resolve_form", CustomHandler("resolve_form.html"))
 	http.HandleFunc("/search_forms", CustomHandler("search_forms.html"))
 	http.HandleFunc("/feed", CustomHandler("feed.html"))
-	http.HandleFunc("/admin", CustomHandler("admin.html"))
 	http.HandleFunc("/metrics", CustomHandler("metrics.html"))
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(js)))
 	http.ListenAndServe(":8888", nil)

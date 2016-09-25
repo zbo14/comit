@@ -6,8 +6,9 @@ import (
 	types "github.com/tendermint/tmsp/types"
 	. "github.com/zballs/3ii/accounts"
 	. "github.com/zballs/3ii/cache"
+	lib "github.com/zballs/3ii/lib"
 	. "github.com/zballs/3ii/types"
-	"log"
+	util "github.com/zballs/3ii/util"
 )
 
 type Application struct {
@@ -53,26 +54,62 @@ func (app *Application) SetOption(key string, value string) (log string) {
 }
 
 func (app *Application) AppendTx(tx []byte) types.Result {
-	form, err := MakeForm(string(tx))
-	if err != nil {
-		log.Println(err.Error())
+	str := string(tx)
+	action := lib.SERVICE.ReadField(str, "action")
+	if action == "submit" {
+		form, err := MakeForm(str)
+		if err != nil {
+			return types.NewResult(types.CodeType_InternalError, nil, err.Error())
+		}
+		ID := FormID(form)
+		err = app.cache.NewForm(ID, form)
+		if err != nil {
+			return types.NewResult(types.CodeType_InternalError, nil, err.Error())
+		}
+		app.state.Set([]byte(ID), []byte("submit"))
+		newstr := lib.SERVICE.WriteField(ID, "ID") + str
+		return types.NewResultOK([]byte(newstr), ID)
+	} else if action == "resolve" {
+		ID := lib.SERVICE.ReadField(str, "ID")
+		pubKeyString := util.ReadPubKeyString(str)
+		form, err := app.Cache().ResolveForm(ID)
+		if err != nil {
+			return types.NewResult(types.CodeType_InternalError, nil, err.Error())
+		}
+		newstr := lib.SERVICE.WriteField(ID, "ID") +
+			lib.SERVICE.WriteField("resolve", "action") +
+			lib.SERVICE.WriteField(form.Service(), "service") +
+			lib.SERVICE.WriteField(form.Address(), "address") +
+			util.WritePubKeyString(pubKeyString)
+		app.state.Set([]byte(ID), []byte("resolve"))
+		return types.NewResultOK([]byte(newstr), "")
 	}
-	log.Println(*form)
-	id := FormID(form)
-	err = app.cache.NewForm(id, form)
-	if err != nil {
-		return types.NewResult(types.CodeType_InternalError, nil, err.Error())
-	}
-	app.state.Set([]byte(id), tx)
-	return types.NewResultOK(nil, id)
+	return types.NewResult(types.CodeType_UnknownRequest, nil, "")
 }
 
 func (app *Application) CheckTx(tx []byte) types.Result {
-	_, err := MakeForm(string(tx))
-	if err != nil {
-		return types.NewResult(types.CodeType_InternalError, nil, err.Error())
+	str := string(tx)
+	action := lib.SERVICE.ReadField(str, "action")
+	if action == "submit" {
+		form, err := MakeForm(string(tx))
+		if err != nil {
+			return types.NewResult(types.CodeType_InternalError, nil, err.Error())
+		}
+		ID := FormID(form)
+		err = app.cache.NewForm(ID, form)
+		if err != nil {
+			return types.NewResult(types.CodeType_InternalError, nil, err.Error())
+		}
+		return types.NewResultOK(nil, "")
+	} else if action == "resolve" {
+		ID := lib.SERVICE.ReadField(str, "ID")
+		_, err := app.Cache().ResolveForm(ID)
+		if err != nil {
+			return types.NewResult(types.CodeType_InternalError, nil, err.Error())
+		}
+		return types.NewResultOK(nil, "")
 	}
-	return types.NewResultOK(nil, "")
+	return types.NewResult(types.CodeType_UnknownRequest, nil, "")
 }
 
 func (app *Application) Commit() types.Result {

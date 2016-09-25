@@ -10,9 +10,11 @@
 			<option value="general">general</option>
 			<option value="infrastructure">infrastructure</option>
 			<option value="sanitation">sanitation</option>
-		</select><br>
-		<h5 class="my-header" id="services-label">services</h5>
-		<select id="services" multiple></select>
+		</select>
+		<br><br>
+		<h5 class="my-header" id="position-label">position</h5>
+		<input type="text" class="my-input" id="position"></input>
+		<br><br>
 		<h5 class="my-header">passphrase</h5>
 		<input type="password" id="passphrase" class="my-input"></input>
 		<br><br>
@@ -23,34 +25,28 @@
 	<script type="text/javascript">
 		$(function() {
 			var socket = io();
-			$('#dept').on('change', function() {
-				socket.emit('select-dept', $('#dept').val())
-				socket.on('services', function(msg) {
-					document.getElementById('services').innerHTML = msg
-				})
-			})
 			$('#create-admin').bind('click', function() {
-				var valid_entry = true
+				var valid_entry = true;
 				var dept = $('#dept').val();
-				if (dept.length == 0) {
+				if (dept == null) {
 					$('#dept-label').html("<span style='color:red;'>select department</span>"); 
-					valid_entry = false
+					valid_entry = false;
 				}
-				var services = $('#services').val();
-				if (services.length == 0) {
-					$('#services-label').html("<span style='color:red;'>select services</span>")
-					valid_entry = false
+				var position = $('#position').val();
+				if (position == null) {
+					$('#position-label').html("<span style='color:red;'>enter position</span>");
+					valid_entry = false;
 				}
 				var passphrase = $('#passphrase').val();
-				if (passphrase.length == 0) {
-					$('#passphrase-label').html("<span style='color:red;'>enter passphrase</span>")
-					valid_entry = false
+				if (passphrase == null) {
+					$('#passphrase-label').html("<span style='color:red;'>enter passphrase</span>");
+					valid_entry = false;
 				}
 				if (valid_entry) {
 					$('#dept-label').html("<span style='color:black;'>department</span>"); 
-					$('#services-label').html("<span style='color:black;'>services</span>")
+					$('#position-label').html("<span style='color:black;'>position</span>")
 					$('#passphrase-label').html("<span style='color:black;'>passphrase</span>");
-					socket.emit('create-admin', dept, services, passphrase)
+					socket.emit('create-admin', dept, position, passphrase)
 					socket.on('admin-keys-msg', function(msg) {
 						$('#keys').show(100, "linear").html(msg)
 					})

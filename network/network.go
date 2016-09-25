@@ -231,12 +231,11 @@ func CreateChannelDescriptors(channelIDs []byte) []*ChannelDescriptor {
 	return chs
 }
 
-func CreateSwitch(privkey PrivKeyEd25519, passphrase string) (sw *Switch) {
+func CreateSwitch(privkey PrivKeyEd25519) (sw *Switch) {
 	sw = NewSwitch(config)
 	sw.SetNodeInfo(&NodeInfo{PubKey: privkey.PubKey().(PubKeyEd25519),
 		Network: "testing",
 		Version: "311.311.311",
-		Other:   []string{passphrase},
 	})
 	sw.SetNodePrivKey(privkey)
 	return
