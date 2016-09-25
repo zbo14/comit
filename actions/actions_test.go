@@ -11,6 +11,7 @@ import (
 	. "github.com/zballs/3ii/types"
 	// . "github.com/zballs/3ii/network"
 	util "github.com/zballs/3ii/util"
+	"log"
 	"math/rand"
 	"reflect"
 	"testing"
@@ -19,7 +20,10 @@ import (
 
 func TestStream(t *testing.T) {
 
-	numAppendTxs := 8
+	var numAppendTxs = 4
+	var mode = "submit"
+	var ID string
+
 	app := NewApplication()
 	server, err := server.NewSocketServer("unix://test.sock", app)
 	if err != nil {
@@ -96,25 +100,32 @@ func TestStream(t *testing.T) {
 
 	// Write requests
 	for iter := 0; iter < numAppendTxs; iter++ {
+		if mode == "submit" {
 
-		// Generate submit string
-		submit, ID := GenerateSubmit(userPubKeyString)
+			// Generate submit string
+			submit, id := GenerateSubmit(userPubKeyString)
+			ID = id
 
-		// Send request
-		var req = types.ToRequestAppendTx([]byte(submit))
-		err := types.WriteMessage(req, conn)
-		if err != nil {
-			t.Fatal(err.Error())
-		}
+			// Send request
+			req := types.ToRequestAppendTx([]byte(submit))
+			err := types.WriteMessage(req, conn)
+			if err != nil {
+				t.Fatal(err.Error())
+			}
+			mode = "resolve"
 
-		// Generate resolve string
-		resolve := GenerateResolve(ID, adminPubKeyString)
+		} else if mode == "resolve" {
 
-		// Send request
-		req = types.ToRequestAppendTx([]byte(resolve))
-		err = types.WriteMessage(req, conn)
-		if err != nil {
-			t.Fatal(err.Error())
+			// Generate resolve string
+			resolve := GenerateResolve(ID, adminPubKeyString)
+
+			// Send request
+			req := types.ToRequestAppendTx([]byte(resolve))
+			err := types.WriteMessage(req, conn)
+			if err != nil {
+				t.Fatal(err.Error())
+			}
+			mode = "submit"
 		}
 
 		// Sometimes send flush messages
