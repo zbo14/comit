@@ -77,18 +77,19 @@ func (db Accountdb) restore(accounts Accounts, done chan struct{}) {
 	done <- struct{}{}
 }
 
-func (db Accountdb) add(account *Account) error {
+func (db Accountdb) add(account *Account) (err error) {
 	accounts := db.access()
 	pubKeyString := account.toPubKeyString()
 	if accounts[pubKeyString] != nil {
-		return errors.New(account_already_exists)
+		err = errors.New(account_already_exists)
+	} else {
+		accounts[pubKeyString] = account
 	}
-	accounts[pubKeyString] = account
 	done := make(chan struct{}, 1)
 	go db.restore(accounts, done)
 	select {
 	case <-done:
-		return nil
+		return err
 	}
 }
 
