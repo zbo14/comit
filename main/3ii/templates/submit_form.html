@@ -23,15 +23,15 @@
 		<h5 class="my-header" id="detail-label" style="display:hidden;"></h5>
 		<select id="detail" style="display:hidden;"></select>
 		<br><br>
-		<h5 class="my-header" id="pubkey-label">public key</h5>
-		<input service="text" id="pubkey" class="my-input"></input>
+		<h5 class="my-header" id="pubKey-label">public key</h5>
+		<input service="text" id="pubKey" class="my-input"></input>
 		<br><br>
-		<h5 class="my-header" id="passphrase-label">passphrase</h5>
-		<input type="password" id="passphrase" class="my-input"></input>
+		<h5 class="my-header" id="privKey-label">private key</h5>
+		<input type="password" id="privKey" class="my-input"></input>
 		<br><br>
 		<button service="button" id="submit" class="my-button">submit</button>
 		<br><br>
-		<p id="formID"></p>
+		<p id="submit-form-msg"></p>
 	</div>
 	<script service="text/javascript" charset="utf-8">
 	$(function() {
@@ -62,19 +62,18 @@
 			}
 			var detail = $('#detail').val();
 			var detail_label = $('#detail-label').text();
-			console.log("" == null)
 			if ((detail == null) && (detail_label != "no options")) {
 				$('#detail-label').html("<span style='color:red;'>select option</span>"); 
 				valid_entry = false;
 			}
-			var pubKeyString = $('#pubkey').val();
+			var pubKeyString = $('#pubKey').val();
 			if (pubKeyString.length == 0) {
-				$('#pubkey-label').html("<span style='color:red;'>enter public key</span>"); 
+				$('#pubKey-label').html("<span style='color:red;'>enter public key</span>"); 
 				valid_entry = false;
 			}
-			var passphrase = $('#passphrase').val();
-			if (passphrase.length == 0) {
-				$('#passphrase-label').html("<span style='color:red;'>enter passphrase</span>"); 
+			var privKeyString = $('#privKey').val();
+			if (privKeyString.length == 0) {
+				$('#privKey-label').html("<span style='color:red;'>enter private key</span>"); 
 				valid_entry = false;
 			}
 
@@ -83,11 +82,11 @@
 				$('#address-label').html("<span style='color:black;'>address</span>"); 
 				$('#description-label').html("<span style='color:black;'>description</span>");
 				$('#detail-label').html("<span style='color:black;'>" + detail_label + "</span>");
-				$('#pubkey-label').html("<span style='color:black;'>public key</span>"); 
-				$('#passphrase-label').html("<span style='color:black;'>passphrase</span>"); 
-				socket.emit('submit-form', service, address, description, detail, pubKeyString, passphrase)
-				socket.on('formID-msg', function(msg){
-					$('#formID').html(msg)
+				$('#pubKey-label').html("<span style='color:black;'>public key</span>"); 
+				$('#privKey-label').html("<span style='color:black;'>private key</span>"); 
+				socket.emit('submit-form', service, address, description, detail, pubKeyString, privKeyString)
+				socket.on('submit-form-msg', function(msg){
+					$('#submit-form-msg').html(msg)
 				})
 			}
 			// redirect

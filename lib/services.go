@@ -123,10 +123,10 @@ func (s Service) FormatDetail(service string) (string, string) {
 	}
 	var Bytes bytes.Buffer
 	Bytes.WriteString(`<option value="">--</option>`)
-	for _, opt := range sd.Options() {
+	for _, opt := range sd.Options {
 		Bytes.WriteString(fmt.Sprintf(`<option value="%v">%v</option>`, opt, opt))
 	}
-	return sd.Detail(), Bytes.String()
+	return sd.Detail, Bytes.String()
 }
 
 var SERVICE ServiceInterface = Service{}

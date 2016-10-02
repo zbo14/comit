@@ -2,286 +2,402 @@ package actions
 
 import (
 	"bytes"
-	"fmt"
 	socketio "github.com/googollee/go-socket.io"
-	. "github.com/tendermint/go-crypto"
-	. "github.com/tendermint/go-p2p"
+	. "github.com/tendermint/go-common"
+	crypto "github.com/tendermint/go-crypto"
+	p2p "github.com/tendermint/go-p2p"
+	wire "github.com/tendermint/go-wire"
 	. "github.com/zballs/3ii/app"
 	lib "github.com/zballs/3ii/lib"
-	. "github.com/zballs/3ii/network"
-	. "github.com/zballs/3ii/types"
-	util "github.com/zballs/3ii/util"
+	"github.com/zballs/3ii/network"
+	"github.com/zballs/3ii/types"
+	. "github.com/zballs/3ii/util"
 	"log"
 )
 
 type ActionListener struct {
 	*socketio.Server
-	recvr *Switch
+	*p2p.Switch
 }
 
 func StartActionListener() (ActionListener, error) {
 	server, err := socketio.NewServer(nil)
-	recvr := CreateSwitch(GenPrivKeyEd25519())
-	AddListener(recvr, RecvrListenerAddr())
-	AddReactor(recvr, DeptChannelIDs(), "dept-feed")
-	AddReactor(recvr, ServiceChannelIDs(), "service-feed")
-	recvr.Start()
-	return ActionListener{server, recvr}, err
+	sw := network.CreateSwitch(crypto.GenPrivKeyEd25519())
+	network.AddListener(
+		sw,
+		network.RecvrListenerAddr,
+	)
+	network.AddReactor(
+		sw,
+		network.DeptChannelIDs,
+		"dept-feed",
+	)
+	network.AddReactor(
+		sw,
+		network.ServiceChannelIDs,
+		"service-feed",
+	)
+	sw.Start()
+	return ActionListener{server, sw}, err
 }
 
-func FormatForm(form *Form) string {
-	posted := util.ToTheMinute(form.Time().String())
-	status := CheckStatus(form.Resolved())
-	sd := lib.SERVICE.ServiceDetail(form.Service())
-	detail := "no options"
-	if sd != nil {
-		detail = sd.Detail()
-	}
-	return "<li>" + fmt.Sprintf(line, "posted", posted) +
-		fmt.Sprintf(line, "service", form.Service()) +
-		fmt.Sprintf(line, "address", form.Address()) +
-		fmt.Sprintf(line, "description", form.Description()) +
-		fmt.Sprintf(line, detail, form.Detail()) +
-		fmt.Sprintf(line, "user", form.Pubkey()) +
-		fmt.Sprintf(line, "status", status) + "<br></li>"
-}
+/*
 
 func FormatUpdate(update string) string {
 	action := lib.SERVICE.ReadField(update, "action")
 	ID := lib.SERVICE.ReadField(update, "ID")
 	service := lib.SERVICE.ReadField(update, "service")
 	address := lib.SERVICE.ReadField(update, "address")
-	pubkey := util.ReadPubKeyString(update)
-	return "<li>" + fmt.Sprintf(line, action, ID) +
-		fmt.Sprintf(line, "service", service) +
-		fmt.Sprintf(line, "address", address) +
-		fmt.Sprintf(line, "user", pubkey) + "<br></li>"
+	pubkey := ReadPubKeyString(update)
+	return "<li>" + Fmt(line, action, ID) +
+		Fmt(line, "service", service) +
+		Fmt(line, "address", address) +
+		Fmt(line, "account", pubkey) + "<br></li>"
 }
 
 func (al ActionListener) FeedUpdates() {
 	for {
-		if al.recvr.IsRunning() {
-			deptFeed := al.recvr.Reactor("dept-feed").(*MyReactor)
-			for dept, chID := range DeptChannelIDs() {
+		if al.IsRunning() {
+			deptFeed := al.Reactor("dept-feed").(*MyReactor)
+			for dept, chID := range network.DeptChannelIDs {
 				update := string(deptFeed.GetMsg(chID).Bytes)
 				if len(update) > 0 {
-					al.BroadcastTo("feed", fmt.Sprintf("%v-update", dept), FormatUpdate(update))
+					al.BroadcastTo("feed", Fmt("%v-update", dept), FormatUpdate(update))
 				}
 			}
-			serviceFeed := al.recvr.Reactor("service-feed").(*MyReactor)
-			for service, chID := range ServiceChannelIDs() {
+			serviceFeed := al.Reactor("service-feed").(*MyReactor)
+			for service, chID := range network.ServiceChannelIDs {
 				update := string(serviceFeed.GetMsg(chID).Bytes)
 				if len(update) > 0 {
-					al.BroadcastTo("feed", fmt.Sprintf("%v-update", service), FormatUpdate(update))
+					al.BroadcastTo("feed", Fmt("%v-update", service), FormatUpdate(update))
 				}
 			}
 		}
 	}
 }
+*/
 
 // func (al ActionListener) CrossCheck()
 
-func (al ActionListener) Run(app *Application) {
+func (al ActionListener) Run(app *App) {
 
 	al.On("connection", func(so socketio.Socket) {
 
 		log.Println("connected")
 
 		// Feed
-		so.Join("feed")
+		// so.Join("feed")
 
-		// Send values
-		so.On("get-values", func(category string) {
-			var msg bytes.Buffer
-			if category == "services" {
-				for _, service := range lib.SERVICE.Services() {
-					msg.WriteString(fmt.Sprintf(select_option, service, service))
+		/*
+			// Send values
+			so.On("get-values", func(category string) {
+				var msg bytes.Buffer
+				if category == "services" {
+					for _, service := range lib.SERVICE.Services() {
+						msg.WriteString(Fmt(select_option, service, service))
+					}
+				} else if category == "depts" {
+					for dept, _ := range lib.SERVICE.Depts() {
+						msg.WriteString(Fmt(select_option, dept, dept))
+					}
 				}
-			} else if category == "depts" {
-				for dept, _ := range lib.SERVICE.Depts() {
-					msg.WriteString(fmt.Sprintf(select_option, dept, dept))
+				so.Emit("values", msg.String())
+			})
+
+			// Send service field options
+			so.On("select-service", func(service string) {
+				field, options := lib.SERVICE.FormatDetail(service)
+				so.Emit("field-options", field, options)
+			})
+
+			// Send dept services
+			so.On("select-dept", func(dept string) {
+				var msg bytes.Buffer
+				for _, service := range lib.SERVICE.DeptServices(dept) {
+					msg.WriteString(Fmt(select_option, service, service))
 				}
-			}
-			so.Emit("values", msg.String())
-		})
+				so.Emit("services", msg.String())
+			})
 
-		// Send service field options
-		so.On("select-service", func(service string) {
-			field, options := lib.SERVICE.FormatDetail(service)
-			so.Emit("field-options", field, options)
-		})
+		*/
 
-		// Send dept services
-		so.On("select-dept", func(dept string) {
-			var msg bytes.Buffer
-			for _, service := range lib.SERVICE.DeptServices(dept) {
-				msg.WriteString(fmt.Sprintf(select_option, service, service))
-			}
-			so.Emit("services", msg.String())
-		})
+		// Create Users
+		so.On("create-account", func(password string) {
 
-		// Create Accounts
-		so.On("create-user", func(passphrase string) {
-			pubKeyString, privKeyString, err := app.UserManager().Register(passphrase)
-			if err != nil {
-				log.Println(err.Error())
-				so.Emit("user-keys-msg", create_user_failure)
-			}
-			msg := fmt.Sprintf(keys_cautionary, pubKeyString, privKeyString)
-			so.Emit("user-keys-msg", msg)
-		})
+			// Create Tx
+			var tx = types.Tx{}
+			tx.Type = types.CreateAccountTx
 
-		// Create Admins
-		so.On("create-admin", func(dept string, position string, passphrase string) {
-			pubKeyString, privKeyString, err := app.AdminManager().Register(dept, position, passphrase)
-			if err != nil {
-				log.Println(err.Error())
-				so.Emit("admin-keys-msg", unauthorized)
+			// Password
+			tx.Data = []byte(password)
+
+			// Account Info
+			pubKey, privKey := CreateKeys(tx.Data)
+			tx.SetAccount(pubKey[:])
+
+			// Account Signature
+			sig := privKey.Sign(tx.Data).(crypto.SignatureEd25519)
+			tx.SetSignature(sig[:])
+
+			// TxBytes in AppendTx request
+			txBuf, n, err := new(bytes.Buffer), int(0), error(nil)
+			wire.WriteBinary(tx, txBuf, &n, &err)
+			res := app.AppendTx(txBuf.Bytes())
+
+			if res.IsErr() {
+				so.Emit("create-account-msg", create_account_failure)
+				log.Println(res.Error())
 			} else {
-				msg := fmt.Sprintf(keys_cautionary, pubKeyString, privKeyString)
-				so.Emit("admin-keys-msg", msg)
+				pubKeyString := BytesToHexString(pubKey[:])
+				privKeyString := BytesToHexString(privKey[:])
+				msg := Fmt(create_account_success, pubKeyString, privKeyString)
+				so.Emit("create-account-msg", msg)
+				log.Printf("SUCCESS created account with pubKey: %v", pubKeyString)
 			}
 		})
 
-		// Remove Accounts
-		so.On("remove-user", func(pubKeyString string, passphrase string) {
-			err := app.UserManager().Remove(pubKeyString, passphrase)
+		so.On("remove-account", func(pubKeyString, privKeyString string) {
+
+			// Create Tx
+			var tx = types.Tx{}
+			tx.Type = types.RemoveAccountTx
+
+			// Account Address
+			pubKeyBytes, err := HexStringToBytes(pubKeyString)
 			if err != nil {
-				log.Println(err.Error())
-				so.Emit("remove-msg", fmt.Sprintf(remove_user_failure, pubKeyString, passphrase))
-			} else {
-				so.Emit("remove-msg", fmt.Sprintf(remove_user_success, pubKeyString, passphrase))
+				so.Emit("remove-account-msg", Fmt(invalid_hex, pubKeyString))
+				log.Panic(err)
 			}
+			tx.SetAccount(pubKeyBytes)
+
+			// Account Signature
+			var privKey = crypto.PrivKeyEd25519{}
+			privKeyBytes, err := HexStringToBytes(privKeyString)
+			if err != nil {
+				so.Emit("remove-account-msg", Fmt(invalid_hex, privKeyString))
+				log.Panic(err)
+			}
+			copy(privKey[:], privKeyBytes[:])
+			sig := privKey.Sign([]byte("remove")).(crypto.SignatureEd25519)
+			tx.SetSignature(sig[:])
+
+			// TxBytes in AppendTx request
+			txBuf, n, err := new(bytes.Buffer), int(0), error(nil)
+			wire.WriteBinary(tx, txBuf, &n, &err)
+			res := app.AppendTx(txBuf.Bytes())
+
+			if res.IsErr() {
+				so.Emit("remove-account-msg", Fmt(remove_account_failure, pubKeyString))
+				log.Println(res.Error())
+			} else {
+				so.Emit("remove-account-msg", Fmt(remove_account_success, pubKeyString))
+				log.Printf("SUCCESS removed account with pubKey: %v", pubKeyString)
+			}
+
 		})
 
-		// Remove Admins
-		so.On("remove-admin", func(pubKeyString string, passphrase string) {
-			err := app.AdminManager().Remove(pubKeyString, passphrase)
-			if err != nil {
-				log.Println(err.Error())
-				so.Emit("admin-remove-msg", fmt.Sprintf(remove_admin_failure, pubKeyString, passphrase))
-			} else {
-				so.Emit("admin-remove-msg", fmt.Sprintf(remove_admin_success, pubKeyString, passphrase))
-			}
-		})
+		/*
+			// Create Admins
+			so.On("create-admin", func(dept string, position string, passphrase string) {
+				pubKeyString, privKeyString, err := app.AdminManager().Register(dept, position, passphrase)
+				if err != nil {
+					log.Println(err.Error())
+					so.Emit("admin-keys-msg", unauthorized)
+				} else {
+					msg := Fmt(keys_cautionary, pubKeyString, privKeyString)
+					so.Emit("admin-keys-msg", msg)
+				}s
+			})
+
+			// Remove Admins
+			so.On("remove-admin", func(pubKeyString string, passphrase string) {
+				err := app.AdminManager().Remove(pubKeyString, passphrase)
+				if err != nil {
+					log.Println(err.Error())
+					so.Emit("admin-remove-msg", Fmt(remove_admin_failure, pubKeyString, passphrase))
+				} else {
+					so.Emit("admin-remove-msg", Fmt(remove_admin_success, pubKeyString, passphrase))
+				}
+			})
+		*/
 
 		// Submit Forms
-		so.On("submit-form", func(service string, address string, description string, detail string, pubKeyString string, passphrase string) {
-			err := app.UserManager().Authorize(pubKeyString, passphrase)
+		so.On("submit-form", func(service, address, description, detail, pubKeyString, privKeyString string) {
+
+			// Create tx
+			var tx = types.Tx{}
+			tx.Type = types.SubmitTx
+
+			// Service request information
+			var buf bytes.Buffer
+			buf.WriteString(lib.SERVICE.WriteField(service, "service"))
+			buf.WriteString(lib.SERVICE.WriteField(address, "address"))
+			buf.WriteString(lib.SERVICE.WriteField(description, "description"))
+			buf.WriteString(lib.SERVICE.WriteDetail(detail, service))
+			tx.Data = buf.Bytes()
+
+			// Account Address
+			pubKeyBytes, err := HexStringToBytes(pubKeyString)
 			if err != nil {
-				so.Emit("formID-msg", unauthorized)
+				so.Emit("submit-form-msg", Fmt(invalid_hex, pubKeyString))
+				log.Panic(err)
+			}
+			tx.SetAccount(pubKeyBytes)
+
+			// Account Signature
+			var privKey = crypto.PrivKeyEd25519{}
+			privKeyBytes, err := HexStringToBytes(privKeyString)
+			if err != nil {
+				so.Emit("submit-form-msg", Fmt(invalid_hex, privKeyString))
+				log.Panic(err)
+			}
+			copy(privKey[:], privKeyBytes[:])
+			sig := privKey.Sign(tx.Data).(crypto.SignatureEd25519)
+			tx.SetSignature(sig[:])
+
+			// TxBytes in AppendTx request
+			txBuf, n, err := new(bytes.Buffer), int(0), error(nil)
+			wire.WriteBinary(tx, txBuf, &n, &err)
+			res := app.AppendTx(txBuf.Bytes())
+
+			if res.IsOK() {
+				so.Emit("submit-form-msg", Fmt(submit_form_success, res.Data))
+				log.Printf("SUCCESS submitted form with ID: %x", res.Data)
+			} else if res.Log == ExtractText(form_already_exists) {
+				so.Emit("submit-form-msg", form_already_exists)
+				log.Println(res.Error())
 			} else {
-				str := lib.SERVICE.WriteField("submit", "action") +
-					lib.SERVICE.WriteField(service, "service") +
-					lib.SERVICE.WriteField(address, "address") +
-					lib.SERVICE.WriteField(description, "description") +
-					lib.SERVICE.WriteDetail(detail, service) +
-					util.WritePubKeyString(pubKeyString)
-				result := app.AppendTx([]byte(str))
-				if result.IsOK() {
-					so.Emit("formID-msg", fmt.Sprintf(submit_form_success, result.Log))
-					serviceChID := ServiceChannelID(service)
-					deptChID := DeptChannelID(lib.SERVICE.ServiceDept(service))
-					go app.UserManager().Broadcast(pubKeyString, string(result.Data), serviceChID, deptChID)
-				} else if result.Log == util.ExtractText(form_already_exists) {
-					so.Emit("formID-msg", form_already_exists)
-				} else {
-					so.Emit("formID-msg", submit_form_failure)
-				}
+				so.Emit("submit-form-msg", submit_form_failure)
+				log.Println(res.Error())
 			}
 		})
 
 		// Find Forms
-		so.On("find-form", func(formID string, pubKeyString string, passphrase string) {
-			err := app.UserManager().Authorize(pubKeyString, passphrase)
-			if err != nil {
-				so.Emit("form-msg", unauthorized)
-			} else {
-				result := app.Query([]byte(formID))
-				form, err := app.Cache().FindForm(formID)
-				if !result.IsOK() {
-					so.Emit("form-msg", fmt.Sprintf(find_form_failure, formID))
-					if err == nil {
-						app.Cache().RemoveForm(formID)
-					}
-				} else if result.IsOK() && err == nil {
-					so.Emit("form-msg", FormatForm(form))
-				} else {
 
+		so.On("find-form", func(formID string) {
+
+			// FormID
+			query, err := HexStringToBytes(formID)
+			if err != nil {
+				so.Emit("find-form-msg", Fmt(invalid_hex, formID))
+				log.Panic(err)
+			}
+
+			// Query
+			res := app.Query(query)
+
+			if res.IsErr() {
+				so.Emit("find-form-msg", Fmt(find_form_failure, formID))
+				log.Println(res.Error())
+			} else {
+				var form *lib.Form
+				err := wire.ReadBinaryBytes(res.Data, form)
+				if err != nil {
+					so.Emit("find-form-msg", Fmt(decode_form_failure, formID))
+					log.Panic(err)
 				}
+				msg := form.Summary()
+				so.Emit("find-form-msg", msg)
+				log.Printf("SUCCESS found form with ID: %v", formID)
 			}
 		})
 
 		// Resolve Forms
-		so.On("resolve-form", func(formID string, pubKeyString string, passphrase string) {
-			err := app.AdminManager().Authorize(pubKeyString, passphrase)
+		so.On("resolve-form", func(formID, pubKeyString, privKeyString string) {
+
+			// Create Tx
+			var tx = types.Tx{}
+			tx.Type = types.ResolveTx
+
+			// FormID
+			formID_bytes, err := HexStringToBytes(formID)
 			if err != nil {
-				so.Emit("resolve-msg", unauthorized)
+				so.Emit("resolve-form-msg", Fmt(invalid_hex, formID))
+				log.Panic(err)
+			}
+			tx.Data = formID_bytes
+
+			// Account Address
+			pubKeyBytes, err := HexStringToBytes(pubKeyString)
+			if err != nil {
+				so.Emit("resolve-form-msg", Fmt(invalid_hex, pubKeyString))
+				log.Panic(err)
+			}
+			tx.SetAccount(pubKeyBytes)
+
+			// Account Signature
+			var privKey = crypto.PrivKeyEd25519{}
+			privKeyBytes, err := HexStringToBytes(privKeyString)
+			if err != nil {
+				so.Emit("resolve-form-msg", Fmt(invalid_hex, privKeyString))
+				log.Panic(err)
+			}
+			copy(privKey[:], privKeyBytes[:])
+			sig := privKey.Sign(tx.Data).(crypto.SignatureEd25519)
+			tx.SetSignature(sig[:])
+
+			// TxBytes in AppendTx request
+			txBuf, n, err := new(bytes.Buffer), int(0), error(nil)
+			wire.WriteBinary(tx, txBuf, &n, &err)
+			res := app.AppendTx(txBuf.Bytes())
+
+			if res.IsErr() {
+				so.Emit("resolve-form-msg", Fmt(resolve_form_failure, formID))
+				log.Println(res.Error())
 			} else {
-				str := lib.SERVICE.WriteField("resolve", "action") +
-					lib.SERVICE.WriteField(formID, "ID") +
-					util.WritePubKeyString(pubKeyString)
-				result := app.AppendTx([]byte(str))
-				if !result.IsOK() {
-					log.Println(result.Error())
-					so.Emit("resolve-msg", fmt.Sprintf(resolve_form_failure, formID))
-				} else {
-					so.Emit("resolve-msg", fmt.Sprintf(resolve_form_success, formID))
-					service := lib.SERVICE.ReadField(string(result.Data), "service")
-					serviceChID := ServiceChannelID(service)
-					dept := lib.SERVICE.ServiceDept(service)
-					deptChID := DeptChannelID(dept)
-					app.AdminManager().Broadcast(pubKeyString, string(result.Data), serviceChID, deptChID)
-				}
+				so.Emit("resolve-form-msg", Fmt(resolve_form_success, formID))
+				log.Printf("SUCCESS resolved form with ID: %v", formID)
 			}
 		})
 
-		// Search forms
-		so.On("search-forms", func(before string, after string, service string, address string, status string, pubKeyString string, passphrase string) {
-			err := app.UserManager().Authorize(pubKeyString, passphrase)
-			if err != nil {
-				so.Emit("forms-msg", unauthorized)
-			} else {
-				var str string = ""
-				if util.ToTheHour(before) != util.ToTheHour(after) {
-					str += lib.SERVICE.WriteField(util.ToTheSecond(before[:19]), "before")
-					str += lib.SERVICE.WriteField(util.ToTheSecond(after[:19]), "after")
-				}
-				if len(service) > 0 {
-					str += lib.SERVICE.WriteField(service, "service")
-				}
-				if len(address) > 0 {
-					str += lib.SERVICE.WriteField(address, "address")
-				}
-				log.Println(str)
-				formlist := app.Cache().SearchForms(str, status)
-				if formlist == nil {
-					so.Emit("forms-msg", search_forms_failure, false)
-				} else {
-					forms := make([]string, len(formlist))
-					for idx, form := range formlist {
-						forms[idx] = FormatForm(form)
-					}
-					so.Emit("forms-msg", forms, true)
-				}
-			}
-		})
-
-		// Metrics
-		so.On("calculate", func(metric string, category string, values []string, pubKeyString string, passphrase string) {
-			err := app.UserManager().Authorize(pubKeyString, passphrase)
-			if err != nil {
-				log.Println(err.Error())
-				so.Emit("metric-msg", unauthorized)
-			} else {
-				output, err := app.Cache().Calculate(metric, category, values...)
+		/*
+			// Search forms
+			so.On("search-forms", func(before string, after string, service string, address string, status string, pubKeyString string, passphrase string) {
+				err := app.UserManager().Authorize(pubKeyString, passphrase)
 				if err != nil {
-					so.Emit("metric-msg", calc_metric_failure)
+					so.Emit("forms-msg", unauthorized)
 				} else {
-					so.Emit("metric-msg", fmt.Sprintf(calc_metric_success, metric, output))
+					var str string = ""
+					if ToTheHour(before) != ToTheHour(after) {
+						str += lib.SERVICE.WriteField(ToTheSecond(before[:19]), "before")
+						str += lib.SERVICE.WriteField(ToTheSecond(after[:19]), "after")
+					}
+					if len(service) > 0 {
+						str += lib.SERVICE.WriteField(service, "service")
+					}
+					if len(address) > 0 {
+						str += lib.SERVICE.WriteField(address, "address")
+					}
+					log.Println(str)
+					formlist := app.Cache().SearchForms(str, status)
+					if formlist == nil {
+						so.Emit("forms-msg", search_forms_failure, false)
+					} else {
+						forms := make([]string, len(formlist))
+						for idx, form := range formlist {
+							forms[idx] = FormatForm(form)
+						}
+						so.Emit("forms-msg", forms, true)
+					}
 				}
-			}
-		})
+			})
+
+			// Metrics
+			so.On("calculate", func(metric string, category string, values []string, pubKeyString string, passphrase string) {
+				err := app.UserManager().Authorize(pubKeyString, passphrase)
+				if err != nil {
+					log.Println(err.Error())
+					so.Emit("metric-msg", unauthorized)
+				} else {
+					output, err := app.Cache().Calculate(metric, category, values...)
+					if err != nil {
+						so.Emit("metric-msg", calc_metric_failure)
+					} else {
+						so.Emit("metric-msg", Fmt(calc_metric_success, metric, output))
+					}
+				}
+			})
+		*/
 
 		// Disconnect
 		al.On("disconnection", func() {

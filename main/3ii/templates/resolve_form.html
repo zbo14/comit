@@ -7,15 +7,15 @@
 		<h5 class="my-header" id="formID-label">form ID</h5>
 		<input type="text" id="formID" class="my-input"></input>
 		<br><br>
-		<h5 class="my-header" id="pubkey-label">public key</h5>
-		<input type="text" id="pubkey" class="my-input"></input>
+		<h5 class="my-header" id="pubKey-label">public key</h5>
+		<input type="text" id="pubKey" class="my-input"></input>
 		<br><br>
-		<h5 class="my-header" id="passphrase-label">passphrase</h5>
-		<input type="password" id="passphrase" class="my-input"></input>
+		<h5 class="my-header" id="privKey-label">private key</h5>
+		<input type="password" id="privKey" class="my-input"></input>
 		<br><br>
 		<button type="button" id="resolve" class="my-button">resolve</button>
 		<br><br>
-		<p id="resolve-msg"></p>
+		<p id="resolve-form-msg"></p>
 	</div>
 	<script type="text/javascript" charset="utf-8">
 	$(function() {
@@ -27,23 +27,23 @@
 				$('#formID-label').html("<span style='color:red;'>enter form ID</span>"); 
 				valid_entry = false;
 			}
-			var pubKeyString = $('#pubkey').val();
+			var pubKeyString = $('#pubKey').val();
 			if (pubKeyString == null) {
-				$('#pubkey-label').html("<span style='color:red;'>enter public key</span>"); 
+				$('#pubKey-label').html("<span style='color:red;'>enter public key</span>"); 
 				valid_entry = false;
 			}
-			var passphrase = $('#passphrase').val();
-			if (passphrase == null) {
-				$('#passphrase-label').html("<span style='color:red;'>enter passphrase</span>"); 
+			var privKeyString = $('#privKey').val();
+			if (privKeyString == null) {
+				$('#privKey-label').html("<span style='color:red;'>enter private key</span>"); 
 				valid_entry = false;
 			}
 			if (valid_entry) {
 				$('#formID-label').html("<span style='color:black;'>form ID</span>"); 
-				$('#pubkey-label').html("<span style='color:black;'>public key</span>"); 
-				$('#passphrase-label').html("<span style='color:black;'>passphrase</span>"); 
-				socket.emit('resolve-form',formID, pubKeyString, passphrase)
-				socket.on('resolve-msg', function(msg){
-					$('#resolve-msg').html(msg)
+				$('#pubKey-label').html("<span style='color:black;'>public key</span>"); 
+				$('#privKey-label').html("<span style='color:black;'>private key</span>"); 
+				socket.emit('resolve-form',formID, pubKeyString, privKeyString)
+				socket.on('resolve-form-msg', function(msg){
+					$('#resolve-form-msg').html(msg)
 				})
 			}
 			// redirect

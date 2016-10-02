@@ -1,0 +1,34 @@
+{{define "head"}}
+	<title>{{ .Title}}</title>
+{{end}}
+
+{{define "body"}}
+	<div class="container">
+		<h5 class="my-header">password</h5>
+		<input type="password" id="password" class="my-input"></input>
+		<br><br>
+		<button type="button" id="create-account" class="my-button">create account</button>
+		<br><br>
+		<p id="create-account-msg" style="display: hidden;"></p>
+	</div>
+	<script type="text/javascript">
+		$(function() {
+			var socket = io();
+			$('#create-account').bind('click', function() {
+				var valid_entry = true
+				var password = $('#password').val();
+				if (password.length == 0) {
+					$('#password-label').html("<span style='color:red;'>enter password</span>")
+					valid_entry = false
+				}
+				if (valid_entry) {
+					$('#password-label').html("<span style='color:black;'>password</span>");
+					socket.emit('create-account', password)
+					socket.on('create-account-msg', function(msg) {
+						$('#create-account-msg').show(100, "linear").html(msg)
+					})
+				}
+			})
+		})
+	</script>
+{{end}}

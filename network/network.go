@@ -5,6 +5,7 @@ import (
 	. "github.com/tendermint/go-crypto"
 	"github.com/tendermint/go-logger"
 	. "github.com/tendermint/go-p2p"
+	"github.com/zballs/3ii/types"
 	"net"
 	"time"
 )
@@ -73,55 +74,60 @@ type PeerMessage struct {
 }
 
 type MyReactor struct {
-	BaseReactor
-	channels    chan []*ChannelDescriptor
-	peers       chan map[string]*Peer
+	channels    []*ChannelDescriptor
+	peers       map[string]*Peer
 	msgsRecv    map[byte]chan PeerMessage
 	logMessages bool
+	BaseReactor
+	types.Gate
 }
 
 func NewReactor(chs []*ChannelDescriptor, logMessages bool) *MyReactor {
-	peers := make(chan map[string]*Peer, 1)
-	channels := make(chan []*ChannelDescriptor, 1)
+	peers := make(map[string]*Peer)
+	channels := make([]*ChannelDescriptor, 0)
 	msgsRecv := make(map[byte]chan PeerMessage)
 	for _, ch := range chs {
 		msgsRecv[ch.ID] = make(chan PeerMessage)
 	}
-	go func() {
-		peers <- map[string]*Peer{}
-		channels <- chs
-	}()
-	reactor := &MyReactor{
+	mr := &MyReactor{
 		channels:    channels,
 		peers:       peers,
 		msgsRecv:    msgsRecv,
 		logMessages: logMessages,
 	}
-	reactor.BaseReactor = *NewBaseReactor(Log, "MyReactor", reactor)
-	return reactor
+	mr.BaseReactor = *NewBaseReactor(Log, "MyReactor", mr)
+	return mr
 }
 
-func (reactor *MyReactor) GetChannels() []*ChannelDescriptor {
-	channels := <-reactor.channels
-	done := make(chan struct{}, 1)
-	go func() {
-		reactor.channels <- channels
-		done <- struct{}{}
-	}()
-	select {
-	case <-done:
-		return channels
+func (mr *MyReactor) GetChannels() []*ChannelDescriptor {
+	return mr.channels
+}
+
+func (mr *MyReactor) AddPeer(peer *Peer) {
+	mr.Enter()
+	if mr.peers[peer.Key] == nil {
+		mr.peers[peer.Key] = peer
 	}
+	mr.Leave()
 }
 
-func (reactor *MyReactor) AddPeer(peer *Peer) {
-	peers := <-reactor.peers
-	if peers[peer.Key] == nil {
-		peers[peer.Key] = peer
-		done := make(chan struct{}, 1)
+func (mr *MyReactor) RemovePeer(peer *Peer, reason interface{}) {
+	mr.Enter()
+	if mr.peers[peer.Key] != nil {
+		delete(mr.peers, peer.Key)
+	}
+	mr.Leave()
+}
+
+func (mr *MyReactor) Receive(chID byte, peer *Peer, msgBytes []byte) {
+	if mr.logMessages {
+		done := types.MakeNilChan()
 		go func() {
-			reactor.peers <- peers
-			done <- struct{}{}
+			mr.msgsRecv[chID] <- PeerMessage{
+				peer.Key,
+				msgBytes,
+			}
+			done.Send()
 		}()
 		select {
 		case <-done:
@@ -130,46 +136,14 @@ func (reactor *MyReactor) AddPeer(peer *Peer) {
 	}
 }
 
-func (reactor *MyReactor) RemovePeer(peer *Peer, reason interface{}) {
-	peers := <-reactor.peers
-	if peers[peer.Key] != nil {
-		delete(peers, peer.Key)
-		done := make(chan struct{}, 1)
-		go func() {
-			reactor.peers <- peers
-			done <- struct{}{}
-		}()
-		select {
-		case <-done:
-			return
-		}
-	}
-}
-
-func (reactor *MyReactor) Receive(chID byte, peer *Peer, msgBytes []byte) {
-	if reactor.logMessages {
-		msg_chan := reactor.msgsRecv[chID]
-		done := make(chan struct{}, 1)
-		go func() {
-			msg_chan <- PeerMessage{peer.Key, msgBytes}
-			done <- struct{}{}
-		}()
-		select {
-		case <-done:
-			return
-		}
-	}
-}
-
-func (reactor *MyReactor) GetMsg(chID byte) PeerMessage {
-	msg_chan := reactor.msgsRecv[chID]
-	move_on := make(chan struct{}, 1)
+func (mr *MyReactor) GetMsg(chID byte) PeerMessage {
+	move_on := types.MakeNilChan()
 	go func() {
 		time.Sleep(getMsgTimeout)
-		move_on <- struct{}{}
+		move_on.Send()
 	}()
 	select {
-	case msg := <-msg_chan:
+	case msg := <-mr.msgsRecv[chID]:
 		return msg
 	case <-move_on:
 		return PeerMessage{}
@@ -180,7 +154,7 @@ func (reactor *MyReactor) GetMsg(chID byte) PeerMessage {
 
 // Channels
 
-var serviceChannelIDs = map[string]byte{
+var ServiceChannelIDs = map[string]byte{
 	"street light out":             byte(0x10),
 	"pothole in street":            byte(0x11),
 	"rodent baiting/rat complaint": byte(0x12),
@@ -188,35 +162,25 @@ var serviceChannelIDs = map[string]byte{
 	"garbage cart black maintenance/replacement": byte(0x14),
 }
 
-var deptChannelIDs = map[string]byte{
+var DeptChannelIDs = map[string]byte{
 	// "general":        byte(0x00),
 	"infrastructure": byte(0x01),
 	"sanitation":     byte(0x02),
 }
 
 func ServiceChannelID(service string) uint8 {
-	return serviceChannelIDs[service]
-}
-
-func ServiceChannelIDs() map[string]byte {
-	return serviceChannelIDs
+	return ServiceChannelIDs[service]
 }
 
 func DeptChannelID(dept string) uint8 {
-	return deptChannelIDs[dept]
+	return DeptChannelIDs[dept]
 }
 
-func DeptChannelIDs() map[string]uint8 {
-	return deptChannelIDs
-}
+// Addresses
 
-// Addrs
-
-var recvrListenerAddr = "127.0.0.1:22222"
-
-func RecvrListenerAddr() string {
-	return recvrListenerAddr
-}
+const (
+	RecvrListenerAddr = "127.0.0.1:22222"
+)
 
 // Switches
 

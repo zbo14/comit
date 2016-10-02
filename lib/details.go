@@ -10,8 +10,8 @@ import (
 type Detail struct{}
 
 type ServiceDetail struct {
-	detail  string
-	options []string
+	Detail  string
+	Options []string
 }
 
 type DetailInterface interface {
@@ -20,8 +20,8 @@ type DetailInterface interface {
 }
 
 func (Detail) Read(str string, sd *ServiceDetail) string {
-	detail := util.RegexQuestionMarks(sd.Detail())
-	options := strings.Join(sd.Options(), `|`)
+	detail := util.RegexQuestionMarks(sd.Detail)
+	options := strings.Join(sd.Options, `|`)
 	res := re.MustCompile(fmt.Sprintf(`%v {(%v)}`, detail, options)).FindStringSubmatch(str)
 	if len(res) > 1 {
 		return res[1]
@@ -30,33 +30,25 @@ func (Detail) Read(str string, sd *ServiceDetail) string {
 }
 
 func (Detail) Write(str string, sd *ServiceDetail) string {
-	detail := sd.Detail()
+	detail := sd.Detail
 	return fmt.Sprintf("%v {%v}", detail, str)
 }
 
 var DETAIL DetailInterface = Detail{}
 
-func (sd *ServiceDetail) Detail() string {
-	return sd.detail
-}
-
-func (sd *ServiceDetail) Options() []string {
-	return sd.options
-}
-
 // Service Details
 
 var completelyOut = &ServiceDetail{
-	detail:  "completely out?",
-	options: []string{"yes", "no"},
+	Detail:  "completely out?",
+	Options: []string{"yes", "no"},
 }
 
 var potholeLocation = &ServiceDetail{
-	detail:  "pothole location",
-	options: []string{"bike lane", "crosswalk", "curb lane", "intersection", "traffic lane"},
+	Detail:  "pothole location",
+	Options: []string{"bike lane", "crosswalk", "curb lane", "intersection", "traffic lane"},
 }
 
 var backyardBaited = &ServiceDetail{
-	detail:  "backyard baited?",
-	options: []string{"yes", "no"},
+	Detail:  "backyard baited?",
+	Options: []string{"yes", "no"},
 }

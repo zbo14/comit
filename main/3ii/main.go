@@ -17,36 +17,26 @@ func main() {
 	flag.Parse()
 
 	// Start the listener
-	app := NewApplication()
+	app := NewApp()
 	_, err := server.NewServer(*addrPtr, *tmspPtr, app)
 	if err != nil {
 		Exit(err.Error())
 	}
 
 	RegisterTemplates(
-		"create_user.html",
-		"create_admin.html",
-		"remove_user.html",
-		"remove_admin.html",
+		"create_account.html",
+		"remove_account.html",
 		"submit_form.html",
-		"find_form.html",
 		"resolve_form.html",
-		"search_forms.html",
-		"feed.html",
-		"metrics.html",
+		"find_form.html",
 	)
 
 	CreatePages(
-		"create_user",
-		"create_admin",
-		"remove_user",
-		"remove_admin",
+		"create_account",
+		"remove_account",
 		"submit_form",
-		"find_form",
 		"resolve_form",
-		"search_forms",
-		"feed",
-		"metrics",
+		"find_form",
 	)
 
 	action_listener, err := StartActionListener()
@@ -54,22 +44,16 @@ func main() {
 		Exit(err.Error())
 	}
 
-	go action_listener.FeedUpdates()
+	// go action_listener.FeedUpdates()
 
 	action_listener.Run(app)
 
 	js := JustFiles{http.Dir("static/")}
 	http.Handle("/", action_listener)
-	http.HandleFunc("/create_user", CustomHandler("create_user.html"))
-	http.HandleFunc("/create_admin", CustomHandler("create_admin.html"))
-	http.HandleFunc("/remove_user", CustomHandler("remove_user.html"))
-	http.HandleFunc("/remove_admin", CustomHandler("remove_admin.html"))
+	http.HandleFunc("/create_account", CustomHandler("create_account.html"))
+	http.HandleFunc("/remove_account", CustomHandler("remove_account.html"))
 	http.HandleFunc("/submit_form", CustomHandler("submit_form.html"))
-	http.HandleFunc("/find_form", CustomHandler("find_form.html"))
 	http.HandleFunc("/resolve_form", CustomHandler("resolve_form.html"))
-	http.HandleFunc("/search_forms", CustomHandler("search_forms.html"))
-	http.HandleFunc("/feed", CustomHandler("feed.html"))
-	http.HandleFunc("/metrics", CustomHandler("metrics.html"))
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(js)))
 	http.ListenAndServe(":8888", nil)
 
