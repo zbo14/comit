@@ -1,4 +1,4 @@
-package types
+package web
 
 import (
 	"html/template"

@@ -15,6 +15,12 @@ func ExecTx(state *State, tx types.Tx, isCheckTx bool) (res tmsp.Result) {
 
 	chainID := state.GetChainID()
 
+	// Validate Input Basic
+	res = tx.Input.ValidateBasic()
+	if res.IsErr() {
+		return res
+	}
+
 	// Get input account
 	inAcc := state.GetAccount(tx.Input.Address)
 	if inAcc == nil {
@@ -30,10 +36,10 @@ func ExecTx(state *State, tx types.Tx, isCheckTx bool) (res tmsp.Result) {
 
 	// Validate input, advanced
 	signBytes := tx.SignBytes(chainID)
-	res = validateInput(inAcc, signBytes, tx.Input)
+	res = validateInputAdvanced(inAcc, signBytes, tx.Input)
 	if res.IsErr() {
-		log.Info(Fmt("validateInput failed on %X: %v", tx.Input.Address, res))
-		return res.PrependLog("in validateInput()")
+		log.Info(Fmt("validateInputAdvanced failed on %X: %v", tx.Input.Address, res))
+		return res.PrependLog("in validateInputAdvanced()")
 	}
 
 	inAcc.Sequence += 1
@@ -127,7 +133,7 @@ func RunResolveTx(state *State, ctx types.CallContext, data []byte) tmsp.Result 
 
 //===============================================================================================//
 
-func validateInput(acc *types.Account, signBytes []byte, in types.TxInput) (res tmsp.Result) {
+func validateInputAdvanced(acc *types.Account, signBytes []byte, in types.TxInput) (res tmsp.Result) {
 	// Check sequence
 	seq := acc.Sequence
 	if seq+1 != in.Sequence {
