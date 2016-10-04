@@ -6,16 +6,16 @@ import (
 )
 
 type Account struct {
-	PubKey   crypto.PubKey
-	Sequence int
+	PubKey   crypto.PubKey `json:"pub_key"`
+	Sequence int           `json:"sequence"`
 }
 
-func NewAccount(addr []byte, seq int) *Account {
+func NewAccount(addr []byte) *Account {
 	var pubKey crypto.PubKeyEd25519
 	copy(pubKey[:], addr[:])
 	return &Account{
 		PubKey:   pubKey,
-		Sequence: seq,
+		Sequence: 1,
 	}
 }
 

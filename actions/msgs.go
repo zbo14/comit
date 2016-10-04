@@ -23,6 +23,8 @@ const (
 	resolve_form_failure = "<span style='color:red;'>Failed to resolve<br><strong>form ID</strong> <small>%v</small></span>"
 	resolve_form_success = "Resolved<br><strong>Form ID</strong> <small>%v</small>"
 
+	select_option = "<option value='%v'>%v</option>"
+
 /*
 	unauthorized         = "<span style='color:red;'>Unauthorized</span>"
 
@@ -31,8 +33,6 @@ const (
 	find_admin_failure = "<span style='color:red;'>Failed to find admin</span>"
 
 	admin_update = "admin-%v-update"
-
-	select_option = "<option value='%v'>%v</option>"
 
 	calc_metric_success = "<strong style='opacity: 0.9;'>%v</strong><br> <small>%v</small>"
 	calc_metric_failure = "<span style='color:red;'>Could not calculate metric -- zero forms found</span>"

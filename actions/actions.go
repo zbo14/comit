@@ -7,13 +7,16 @@ import (
 	crypto "github.com/tendermint/go-crypto"
 	p2p "github.com/tendermint/go-p2p"
 	wire "github.com/tendermint/go-wire"
-	. "github.com/zballs/3ii/app"
+	"github.com/zballs/3ii/app"
 	lib "github.com/zballs/3ii/lib"
 	"github.com/zballs/3ii/network"
 	"github.com/zballs/3ii/types"
 	. "github.com/zballs/3ii/util"
 	"log"
 )
+
+var pubKey crypto.PubKeyEd25519
+var privKey crypto.PrivKeyEd25519
 
 type ActionListener struct {
 	*socketio.Server
@@ -79,7 +82,7 @@ func (al ActionListener) FeedUpdates() {
 
 // func (al ActionListener) CrossCheck()
 
-func (al ActionListener) Run(app *App) {
+func (al ActionListener) Run(app_ *app.App) {
 
 	al.On("connection", func(so socketio.Socket) {
 
@@ -88,8 +91,24 @@ func (al ActionListener) Run(app *App) {
 		// Feed
 		// so.Join("feed")
 
+		// Send values
+
+		// Send service field options
+		so.On("select-service", func(service string) {
+			field, options := lib.SERVICE.FormatDetail(service)
+			so.Emit("field-options", field, options)
+		})
+
+		// Send dept services
+		so.On("select-dept", func(dept string) {
+			var msg bytes.Buffer
+			for _, service := range lib.SERVICE.DeptServices(dept) {
+				msg.WriteString(Fmt(select_option, service, service))
+			}
+			so.Emit("services", msg.String())
+		})
+
 		/*
-			// Send values
 			so.On("get-values", func(category string) {
 				var msg bytes.Buffer
 				if category == "services" {
@@ -103,22 +122,6 @@ func (al ActionListener) Run(app *App) {
 				}
 				so.Emit("values", msg.String())
 			})
-
-			// Send service field options
-			so.On("select-service", func(service string) {
-				field, options := lib.SERVICE.FormatDetail(service)
-				so.Emit("field-options", field, options)
-			})
-
-			// Send dept services
-			so.On("select-dept", func(dept string) {
-				var msg bytes.Buffer
-				for _, service := range lib.SERVICE.DeptServices(dept) {
-					msg.WriteString(Fmt(select_option, service, service))
-				}
-				so.Emit("services", msg.String())
-			})
-
 		*/
 
 		// Create Users
@@ -127,22 +130,26 @@ func (al ActionListener) Run(app *App) {
 			// Create Tx
 			var tx = types.Tx{}
 			tx.Type = types.CreateAccountTx
+			tx.Input.Sequence = int(app_.Query([]byte{0x00}).Data[1])
 
 			// Password
 			tx.Data = []byte(password)
 
 			// Account Info
 			pubKey, privKey := CreateKeys(tx.Data)
-			tx.SetAccount(pubKey[:])
+			if tx.Input.Sequence == 1 {
+				tx.SetAccount(pubKey.Address())
+			} else {
+				tx.Input.Address = pubKey.Address()
+			}
 
 			// Account Signature
-			sig := privKey.Sign(tx.Data).(crypto.SignatureEd25519)
-			tx.SetSignature(sig[:])
+			tx.Input.Signature = privKey.Sign(tx.Data)
 
 			// TxBytes in AppendTx request
 			txBuf, n, err := new(bytes.Buffer), int(0), error(nil)
 			wire.WriteBinary(tx, txBuf, &n, &err)
-			res := app.AppendTx(txBuf.Bytes())
+			res := app_.AppendTx(txBuf.Bytes())
 
 			if res.IsErr() {
 				so.Emit("create-account-msg", create_account_failure)
@@ -150,7 +157,7 @@ func (al ActionListener) Run(app *App) {
 			} else {
 				pubKeyString := BytesToHexString(pubKey[:])
 				privKeyString := BytesToHexString(privKey[:])
-				msg := Fmt(create_account_success, pubKeyString, privKeyString)
+				msg := Fmt(create_account_success, pubKeyString, privKeyString) // return address?
 				so.Emit("create-account-msg", msg)
 				log.Printf("SUCCESS created account with pubKey: %v", pubKeyString)
 			}
@@ -161,6 +168,7 @@ func (al ActionListener) Run(app *App) {
 			// Create Tx
 			var tx = types.Tx{}
 			tx.Type = types.RemoveAccountTx
+			tx.Input.Sequence = int(app_.Query([]byte{0x00}).Data[1])
 
 			// Account Address
 			pubKeyBytes, err := HexStringToBytes(pubKeyString)
@@ -168,23 +176,22 @@ func (al ActionListener) Run(app *App) {
 				so.Emit("remove-account-msg", Fmt(invalid_hex, pubKeyString))
 				log.Panic(err)
 			}
-			tx.SetAccount(pubKeyBytes)
+			copy(pubKey[:], pubKeyBytes[:])
+			tx.SetAccount(pubKey.Address())
 
 			// Account Signature
-			var privKey = crypto.PrivKeyEd25519{}
 			privKeyBytes, err := HexStringToBytes(privKeyString)
 			if err != nil {
 				so.Emit("remove-account-msg", Fmt(invalid_hex, privKeyString))
 				log.Panic(err)
 			}
 			copy(privKey[:], privKeyBytes[:])
-			sig := privKey.Sign([]byte("remove")).(crypto.SignatureEd25519)
-			tx.SetSignature(sig[:])
+			tx.Input.Signature = privKey.Sign([]byte("remove"))
 
 			// TxBytes in AppendTx request
 			txBuf, n, err := new(bytes.Buffer), int(0), error(nil)
 			wire.WriteBinary(tx, txBuf, &n, &err)
-			res := app.AppendTx(txBuf.Bytes())
+			res := app_.AppendTx(txBuf.Bytes())
 
 			if res.IsErr() {
 				so.Emit("remove-account-msg", Fmt(remove_account_failure, pubKeyString))
@@ -199,7 +206,7 @@ func (al ActionListener) Run(app *App) {
 		/*
 			// Create Admins
 			so.On("create-admin", func(dept string, position string, passphrase string) {
-				pubKeyString, privKeyString, err := app.AdminManager().Register(dept, position, passphrase)
+				pubKeyString, privKeyString, err := app_.AdminManager().Register(dept, position, passphrase)
 				if err != nil {
 					log.Println(err.Error())
 					so.Emit("admin-keys-msg", unauthorized)
@@ -211,7 +218,7 @@ func (al ActionListener) Run(app *App) {
 
 			// Remove Admins
 			so.On("remove-admin", func(pubKeyString string, passphrase string) {
-				err := app.AdminManager().Remove(pubKeyString, passphrase)
+				err := app_.AdminManager().Remove(pubKeyString, passphrase)
 				if err != nil {
 					log.Println(err.Error())
 					so.Emit("admin-remove-msg", Fmt(remove_admin_failure, pubKeyString, passphrase))
@@ -227,6 +234,7 @@ func (al ActionListener) Run(app *App) {
 			// Create tx
 			var tx = types.Tx{}
 			tx.Type = types.SubmitTx
+			tx.Input.Sequence = int(app_.Query([]byte{0x00}).Data[1])
 
 			// Service request information
 			var buf bytes.Buffer
@@ -242,23 +250,22 @@ func (al ActionListener) Run(app *App) {
 				so.Emit("submit-form-msg", Fmt(invalid_hex, pubKeyString))
 				log.Panic(err)
 			}
-			tx.SetAccount(pubKeyBytes)
+			copy(pubKey[:], pubKeyBytes[:])
+			tx.Input.Address = pubKey.Address()
 
 			// Account Signature
-			var privKey = crypto.PrivKeyEd25519{}
 			privKeyBytes, err := HexStringToBytes(privKeyString)
 			if err != nil {
 				so.Emit("submit-form-msg", Fmt(invalid_hex, privKeyString))
 				log.Panic(err)
 			}
 			copy(privKey[:], privKeyBytes[:])
-			sig := privKey.Sign(tx.Data).(crypto.SignatureEd25519)
-			tx.SetSignature(sig[:])
+			tx.Input.Signature = privKey.Sign(tx.Data)
 
 			// TxBytes in AppendTx request
 			txBuf, n, err := new(bytes.Buffer), int(0), error(nil)
 			wire.WriteBinary(tx, txBuf, &n, &err)
-			res := app.AppendTx(txBuf.Bytes())
+			res := app_.AppendTx(txBuf.Bytes())
 
 			if res.IsOK() {
 				so.Emit("submit-form-msg", Fmt(submit_form_success, res.Data))
@@ -282,9 +289,10 @@ func (al ActionListener) Run(app *App) {
 				so.Emit("find-form-msg", Fmt(invalid_hex, formID))
 				log.Panic(err)
 			}
+			query = append([]byte{0x01}, query...)
 
 			// Query
-			res := app.Query(query)
+			res := app_.Query(query)
 
 			if res.IsErr() {
 				so.Emit("find-form-msg", Fmt(find_form_failure, formID))
@@ -308,6 +316,7 @@ func (al ActionListener) Run(app *App) {
 			// Create Tx
 			var tx = types.Tx{}
 			tx.Type = types.ResolveTx
+			tx.Input.Sequence = int(app_.Query([]byte{0x00}).Data[1])
 
 			// FormID
 			formID_bytes, err := HexStringToBytes(formID)
@@ -323,23 +332,22 @@ func (al ActionListener) Run(app *App) {
 				so.Emit("resolve-form-msg", Fmt(invalid_hex, pubKeyString))
 				log.Panic(err)
 			}
-			tx.SetAccount(pubKeyBytes)
+			copy(pubKey[:], pubKeyBytes[:])
+			tx.Input.Address = pubKey.Address()
 
 			// Account Signature
-			var privKey = crypto.PrivKeyEd25519{}
 			privKeyBytes, err := HexStringToBytes(privKeyString)
 			if err != nil {
 				so.Emit("resolve-form-msg", Fmt(invalid_hex, privKeyString))
 				log.Panic(err)
 			}
 			copy(privKey[:], privKeyBytes[:])
-			sig := privKey.Sign(tx.Data).(crypto.SignatureEd25519)
-			tx.SetSignature(sig[:])
+			tx.Input.Signature = privKey.Sign(tx.Data).(crypto.SignatureEd25519)
 
 			// TxBytes in AppendTx request
 			txBuf, n, err := new(bytes.Buffer), int(0), error(nil)
 			wire.WriteBinary(tx, txBuf, &n, &err)
-			res := app.AppendTx(txBuf.Bytes())
+			res := app_.AppendTx(txBuf.Bytes())
 
 			if res.IsErr() {
 				so.Emit("resolve-form-msg", Fmt(resolve_form_failure, formID))
@@ -353,7 +361,7 @@ func (al ActionListener) Run(app *App) {
 		/*
 			// Search forms
 			so.On("search-forms", func(before string, after string, service string, address string, status string, pubKeyString string, passphrase string) {
-				err := app.UserManager().Authorize(pubKeyString, passphrase)
+				err := app_.UserManager().Authorize(pubKeyString, passphrase)
 				if err != nil {
 					so.Emit("forms-msg", unauthorized)
 				} else {
@@ -369,7 +377,7 @@ func (al ActionListener) Run(app *App) {
 						str += lib.SERVICE.WriteField(address, "address")
 					}
 					log.Println(str)
-					formlist := app.Cache().SearchForms(str, status)
+					formlist := app_.Cache().SearchForms(str, status)
 					if formlist == nil {
 						so.Emit("forms-msg", search_forms_failure, false)
 					} else {
@@ -384,12 +392,12 @@ func (al ActionListener) Run(app *App) {
 
 			// Metrics
 			so.On("calculate", func(metric string, category string, values []string, pubKeyString string, passphrase string) {
-				err := app.UserManager().Authorize(pubKeyString, passphrase)
+				err := app_.UserManager().Authorize(pubKeyString, passphrase)
 				if err != nil {
 					log.Println(err.Error())
 					so.Emit("metric-msg", unauthorized)
 				} else {
-					output, err := app.Cache().Calculate(metric, category, values...)
+					output, err := app_.Cache().Calculate(metric, category, values...)
 					if err != nil {
 						so.Emit("metric-msg", calc_metric_failure)
 					} else {

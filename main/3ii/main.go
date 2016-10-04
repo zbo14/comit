@@ -18,7 +18,7 @@ func main() {
 
 	addrPtr := flag.String("addr", "tcp://0.0.0.0:46658", "Listen address")
 	cliPtr := flag.String("cli", "local", "Client address, or 'local' for embedded")
-	genFilePath := flag.String("genesis", "", "Genesis file, if any")
+	genFilePath := flag.String("genesis", "genesis.json", "Genesis file, if any")
 	flag.Parse()
 
 	// Connect to Client

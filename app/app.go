@@ -1,12 +1,12 @@
 package app
 
 import (
-	"fmt"
 	. "github.com/tendermint/go-common"
 	"github.com/tendermint/go-wire"
 	tmsp "github.com/tendermint/tmsp/types"
 	sm "github.com/zballs/3ii/state"
 	"github.com/zballs/3ii/types"
+	"strings"
 )
 
 const (
@@ -32,11 +32,26 @@ func NewApp(cli *Client) *App {
 // TMSP requests
 
 func (app *App) Info() string {
-	return fmt.Sprintf("3ii v%v", version)
+	return Fmt("3ii v%v", version)
 }
 
 func (app *App) SetOption(key string, value string) (log string) {
-	return "No options are supported yet"
+	_, key = splitKey(key)
+	switch key {
+	case "chainID":
+		app.state.SetChainID(value)
+		return "Success"
+	case "account":
+		var err error
+		var acc *types.Account
+		wire.ReadJSONPtr(&acc, []byte(value), &err)
+		if err != nil {
+			return "Error decoding acc message: " + err.Error()
+		}
+		app.state.SetAccount(acc.PubKey.Address(), acc)
+		return "Success"
+	}
+	return "Unrecognized option key " + key
 }
 
 func (app *App) AppendTx(txBytes []byte) tmsp.Result {
@@ -85,4 +100,31 @@ func (app *App) Commit() (res tmsp.Result) {
 		PanicSanity("Error getting hash: " + res.Error())
 	}
 	return res
+}
+
+// TMSP::InitChain
+func (app *App) InitChain(validators []*tmsp.Validator) {
+	app.cli.InitChainSync(validators)
+}
+
+// TMSP::BeginBlock
+func (app *App) BeginBlock(height uint64) {
+	app.cli.BeginBlockSync(height)
+	app.cacheState = app.state.CacheWrap()
+}
+
+// TMSP::EndBlock
+func (app *App) EndBlock(height uint64) (vz []*tmsp.Validator) {
+	vz, _ = app.cli.EndBlockSync(height)
+	return vz
+}
+
+// -----------------------------------------
+
+func splitKey(key string) (prefix string, suffix string) {
+	if strings.Contains(key, "/") {
+		keyParts := strings.SplitN(key, "/", 2)
+		return keyParts[0], keyParts[1]
+	}
+	return key, ""
 }

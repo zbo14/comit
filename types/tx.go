@@ -21,10 +21,10 @@ const (
 )
 
 type TxInput struct {
-	Address   []byte
-	Sequence  int
-	Signature crypto.Signature
-	PubKey    crypto.PubKey
+	Address   []byte           `json: "address"`
+	Sequence  int              `json: "sequence"`
+	Signature crypto.Signature `json: "signature"`
+	PubKey    crypto.PubKey    `json: "pub_key"`
 }
 
 func (txIn TxInput) ValidateBasic() tmsp.Result {
@@ -48,9 +48,9 @@ func (txIn TxInput) String() string {
 }
 
 type Tx struct {
-	Type  byte
-	Input TxInput
-	Data  []byte
+	Type  byte    `json: "type"`
+	Input TxInput `json: "input"`
+	Data  []byte  `json: "data"`
 }
 
 func (tx *Tx) SignBytes(chainID string) []byte {
@@ -69,10 +69,9 @@ func (tx *Tx) SetAccount(addr []byte) {
 	tx.Input.PubKey = pubKey
 }
 
-func (tx *Tx) SetSignature(sigBytes []byte) {
-	var sig crypto.SignatureEd25519
-	copy(sig[:], sigBytes[:])
+func (tx *Tx) SetSignature(sig crypto.Signature) bool {
 	tx.Input.Signature = sig
+	return true
 }
 
 func (tx *Tx) String() string {

@@ -42,10 +42,8 @@ func (cli *Client) GetSync(key []byte) (res tmsp.Result) {
 }
 
 func (cli *Client) SetSync(key []byte, value []byte) (res tmsp.Result) {
-	txBytes := make([]byte, 1+wire.ByteSliceSize(key)+wire.ByteSliceSize(value))
+	txBytes := make([]byte, wire.ByteSliceSize(key)+wire.ByteSliceSize(value))
 	buf := txBytes
-	buf[0] = 0x01 // Set TypeByte
-	buf = buf[1:]
 	n, err := wire.PutByteSlice(buf, key)
 	if err != nil {
 		return tmsp.ErrInternalError.SetLog(

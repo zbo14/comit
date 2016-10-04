@@ -89,19 +89,32 @@ func (merk *MerkleApp) Query(query []byte) tmsp.Result {
 	if len(query) == 0 {
 		return tmsp.ErrEncodingError.SetLog("Query cannot be zero length")
 	}
-	key, n, err := wire.GetByteSlice(query)
-	if err != nil {
-		return tmsp.ErrEncodingError.SetLog(
-			fmt.Sprintf("Error getting key: %v", err.Error()))
+	typeByte := query[0]
+	query = query[1:]
+	switch typeByte {
+	// Size
+	case 0x00:
+		size := merk.tree.Size()
+		res := wire.BinaryBytes(size)
+		return tmsp.NewResultOK(res, "")
+	// Query by value
+	case 0x01:
+		key, n, err := wire.GetByteSlice(query)
+		if err != nil {
+			return tmsp.ErrEncodingError.SetLog(
+				fmt.Sprintf("Error getting key: %v", err.Error()))
+		}
+		query = query[n:]
+		if len(query) != 0 {
+			return tmsp.ErrEncodingError.SetLog("Got bytes left over")
+		}
+		_, value, _ := merk.tree.Get(key)
+		if len(value) == 0 {
+			return tmsp.NewResult(
+				ErrValueNotFound, nil, fmt.Sprintf("Error no value found for query: %v", query))
+		}
+		return tmsp.NewResultOK(value, "")
+	default:
+		return tmsp.ErrUnknownRequest.SetLog(Fmt("Unexpected QUery type byte %X", typeByte))
 	}
-	query = query[n:]
-	if len(query) != 0 {
-		return tmsp.ErrEncodingError.SetLog("Got bytes left over")
-	}
-	_, value, _ := merk.tree.Get(key)
-	if len(value) == 0 {
-		return tmsp.NewResult(
-			ErrValueNotFound, nil, fmt.Sprintf("Error no value found for query: %v", query))
-	}
-	return tmsp.NewResultOK(value, "")
 }

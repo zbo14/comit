@@ -21,17 +21,21 @@ func ExecTx(state *State, tx types.Tx, isCheckTx bool) (res tmsp.Result) {
 		return res
 	}
 
-	// Get input account
-	inAcc := state.GetAccount(tx.Input.Address)
-	if inAcc == nil {
-		if tx.Type != types.CreateAccountTx {
+	var inAcc *types.Account
+
+	if tx.Type == types.CreateAccountTx {
+		// Create new account
+		inAcc = types.NewAccount(tx.Input.Address)
+
+	} else {
+		// Get input account
+		inAcc = state.GetAccount(tx.Input.Address)
+		if inAcc == nil {
 			return tmsp.ErrBaseUnknownAddress
 		}
-		// Create New Account
-		inAcc = types.NewAccount(tx.Input.Address, 0)
-	}
-	if tx.Input.PubKey != nil {
-		inAcc.PubKey = tx.Input.PubKey
+		if tx.Input.PubKey != nil {
+			inAcc.PubKey = tx.Input.PubKey
+		}
 	}
 
 	// Validate input, advanced
