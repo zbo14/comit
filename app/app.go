@@ -69,7 +69,7 @@ func (app *App) AppendTx(txBytes []byte) tmsp.Result {
 	if res.IsErr() {
 		return res.PrependLog("Error in AppendTx")
 	}
-	return tmsp.OK
+	return res
 }
 
 func (app *App) CheckTx(txBytes []byte) tmsp.Result {

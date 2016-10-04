@@ -2,6 +2,7 @@ package state
 
 import (
 	"bytes"
+	"fmt"
 	. "github.com/tendermint/go-common"
 	"github.com/tendermint/go-wire"
 	tmsp "github.com/tendermint/tmsp/types"
@@ -26,7 +27,6 @@ func ExecTx(state *State, tx types.Tx, isCheckTx bool) (res tmsp.Result) {
 	if tx.Type == types.CreateAccountTx {
 		// Create new account
 		inAcc = types.NewAccount(tx.Input.Address)
-
 	} else {
 		// Get input account
 		inAcc = state.GetAccount(tx.Input.Address)
@@ -37,6 +37,9 @@ func ExecTx(state *State, tx types.Tx, isCheckTx bool) (res tmsp.Result) {
 			inAcc.PubKey = tx.Input.PubKey
 		}
 	}
+
+	// Print Account
+	fmt.Println(inAcc.String())
 
 	// Validate input, advanced
 	signBytes := tx.SignBytes(chainID)
@@ -104,7 +107,7 @@ func RunSubmitTx(state *State, ctx types.CallContext, data []byte) tmsp.Result {
 	buf, n, err := new(bytes.Buffer), int(0), error(nil)
 	wire.WriteBinary(*form, buf, &n, &err)
 	state.Set(form.ID(), buf.Bytes())
-	return tmsp.OK
+	return tmsp.NewResultOK(form.ID(), "")
 }
 
 func RunResolveTx(state *State, ctx types.CallContext, data []byte) tmsp.Result {
@@ -145,9 +148,11 @@ func validateInputAdvanced(acc *types.Account, signBytes []byte, in types.TxInpu
 			Fmt("Got %v, expected %v. (acc.seq=%v)", in.Sequence, seq+1, acc.Sequence))
 	}
 	// Check signatures
-	if !acc.PubKey.VerifyBytes(signBytes, in.Signature) {
-		return tmsp.ErrBaseInvalidSignature.AppendLog(
-			Fmt("SignBytes: %X", signBytes))
-	}
+	/*
+		if !acc.PubKey.VerifyBytes(signBytes, in.Signature) {
+			return tmsp.ErrBaseInvalidSignature.AppendLog(
+				Fmt("SignBytes: %X", signBytes))
+		}
+	*/
 	return tmsp.OK
 }

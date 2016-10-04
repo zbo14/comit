@@ -76,6 +76,7 @@ func main() {
 	http.HandleFunc("/remove_account", web.CustomHandler("remove_account.html"))
 	http.HandleFunc("/submit_form", web.CustomHandler("submit_form.html"))
 	http.HandleFunc("/resolve_form", web.CustomHandler("resolve_form.html"))
+	http.HandleFunc("/find_form", web.CustomHandler("find_form.html"))
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(js)))
 	http.ListenAndServe(":8888", nil)
 

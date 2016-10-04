@@ -97,12 +97,14 @@ func (merk *MerkleApp) Query(query []byte) tmsp.Result {
 		size := merk.tree.Size()
 		res := wire.BinaryBytes(size)
 		return tmsp.NewResultOK(res, "")
-	// Query by value
+	// Query by key
 	case 0x01:
 		key, n, err := wire.GetByteSlice(query)
 		if err != nil {
+			fmt.Println(key)
+			fmt.Println(query)
 			return tmsp.ErrEncodingError.SetLog(
-				fmt.Sprintf("Error getting key: %v", err.Error()))
+				Fmt("Error getting key: %v", err.Error()))
 		}
 		query = query[n:]
 		if len(query) != 0 {
@@ -111,7 +113,7 @@ func (merk *MerkleApp) Query(query []byte) tmsp.Result {
 		_, value, _ := merk.tree.Get(key)
 		if len(value) == 0 {
 			return tmsp.NewResult(
-				ErrValueNotFound, nil, fmt.Sprintf("Error no value found for query: %v", query))
+				ErrValueNotFound, nil, Fmt("Error no value found for query: %v", query))
 		}
 		return tmsp.NewResultOK(value, "")
 	default:

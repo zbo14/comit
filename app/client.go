@@ -1,6 +1,7 @@
 package app
 
 import (
+	"fmt"
 	"github.com/tendermint/go-wire"
 	tmspcli "github.com/tendermint/tmsp/client"
 	tmsp "github.com/tendermint/tmsp/types"
@@ -33,6 +34,7 @@ func (cli *Client) GetSync(key []byte) (res tmsp.Result) {
 	buf[0] = 0x01
 	buf = buf[1:]
 	wire.PutByteSlice(buf, key)
+	fmt.Println(query)
 	res = cli.QuerySync(query)
 	if res.IsErr() {
 		return res

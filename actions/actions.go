@@ -130,7 +130,7 @@ func (al ActionListener) Run(app_ *app.App) {
 			// Create Tx
 			var tx = types.Tx{}
 			tx.Type = types.CreateAccountTx
-			tx.Input.Sequence = int(app_.Query([]byte{0x00}).Data[1])
+			tx.Input.Sequence = int(app_.Query([]byte{0x00}).Data[1]) + 1
 
 			// Password
 			tx.Data = []byte(password)
@@ -168,7 +168,7 @@ func (al ActionListener) Run(app_ *app.App) {
 			// Create Tx
 			var tx = types.Tx{}
 			tx.Type = types.RemoveAccountTx
-			tx.Input.Sequence = int(app_.Query([]byte{0x00}).Data[1])
+			tx.Input.Sequence = int(app_.Query([]byte{0x00}).Data[1]) + 1
 
 			// Account Address
 			pubKeyBytes, err := HexStringToBytes(pubKeyString)
@@ -234,7 +234,7 @@ func (al ActionListener) Run(app_ *app.App) {
 			// Create tx
 			var tx = types.Tx{}
 			tx.Type = types.SubmitTx
-			tx.Input.Sequence = int(app_.Query([]byte{0x00}).Data[1])
+			tx.Input.Sequence = int(app_.Query([]byte{0x00}).Data[1]) + 1
 
 			// Service request information
 			var buf bytes.Buffer
@@ -268,8 +268,9 @@ func (al ActionListener) Run(app_ *app.App) {
 			res := app_.AppendTx(txBuf.Bytes())
 
 			if res.IsOK() {
-				so.Emit("submit-form-msg", Fmt(submit_form_success, res.Data))
-				log.Printf("SUCCESS submitted form with ID: %x", res.Data)
+				formID := BytesToHexString(res.Data)
+				so.Emit("submit-form-msg", Fmt(submit_form_success, formID))
+				log.Printf("SUCCESS submitted form with ID: %v", formID)
 			} else if res.Log == ExtractText(form_already_exists) {
 				so.Emit("submit-form-msg", form_already_exists)
 				log.Println(res.Error())
@@ -289,10 +290,12 @@ func (al ActionListener) Run(app_ *app.App) {
 				so.Emit("find-form-msg", Fmt(invalid_hex, formID))
 				log.Panic(err)
 			}
+			log.Println(query)
 			query = append([]byte{0x01}, query...)
 
 			// Query
 			res := app_.Query(query)
+			log.Println(res.Data)
 
 			if res.IsErr() {
 				so.Emit("find-form-msg", Fmt(find_form_failure, formID))
@@ -316,7 +319,7 @@ func (al ActionListener) Run(app_ *app.App) {
 			// Create Tx
 			var tx = types.Tx{}
 			tx.Type = types.ResolveTx
-			tx.Input.Sequence = int(app_.Query([]byte{0x00}).Data[1])
+			tx.Input.Sequence = int(app_.Query([]byte{0x00}).Data[1]) + 1
 
 			// FormID
 			formID_bytes, err := HexStringToBytes(formID)

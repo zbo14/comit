@@ -30,19 +30,19 @@ func (c *Cache) Reset() {
 func (c *Cache) Set(key []byte, value []byte) {
 	c.gate.Enter()
 	defer c.gate.Leave()
-	fmt.Println("Set [Cache]", formatBytes(key, "string"), "=", formatBytes(value, "string"))
+	fmt.Println("Set [Cache]", formatBytes(key, "hex"), "=", formatBytes(value, "string"))
 	c.KVMap.Set(key, value)
 }
 
 func (c *Cache) Get(key []byte) (value []byte) {
 	value = c.KVMap.Get(key)
 	if value != nil {
-		fmt.Println("GET [Cache, hit]", formatBytes(key, "string"), "=", formatBytes(value, "string"))
+		fmt.Println("GET [Cache, hit]", formatBytes(key, "hex"), "=", formatBytes(value, "string"))
 		return
 	}
 	value = c.store.Get(key)
 	c.Set(key, value)
-	fmt.Println("GET [Cache, miss]", formatBytes(key, "string"), "=", formatBytes(value, "string"))
+	fmt.Println("GET [Cache, miss]", formatBytes(key, "hex"), "=", formatBytes(value, "string"))
 	return
 }
 

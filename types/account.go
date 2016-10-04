@@ -28,7 +28,7 @@ func (acc *Account) String() string {
 	if acc == nil {
 		return "nil-Account"
 	}
-	return fmt.Sprintf("Account {%v %v}",
+	return fmt.Sprintf("Account {%X %v}",
 		acc.PubKey, acc.Sequence)
 }
 
