@@ -90,11 +90,11 @@ func RunCreateAccountTx(state *State, ctx types.CallContext, data []byte) tmsp.R
 }
 
 func RunRemoveAccountTx(state *State, ctx types.CallContext, data []byte) tmsp.Result {
-	state.SetAccount(ctx.Caller, nil)
-	return tmsp.OK
+	key := AccountKey(ctx.Caller)
+	return tmsp.NewResultOK(key, "")
 }
 
-func RunSubmitTx(state *State, ctx types.CallContext, data []byte) tmsp.Result {
+func RunSubmitTx(state *State, ctx types.CallContext, data []byte) (res tmsp.Result) {
 	form, err := lib.MakeForm(string(data))
 	if err != nil {
 		return tmsp.NewResult(
@@ -102,11 +102,12 @@ func RunSubmitTx(state *State, ctx types.CallContext, data []byte) tmsp.Result {
 	}
 	buf, n, err := new(bytes.Buffer), int(0), error(nil)
 	wire.WriteBinary(*form, buf, &n, &err)
-	state.Set(form.ID(), buf.Bytes())
-	return tmsp.NewResultOK(form.ID(), "")
+	formID_bytes := form.ID()
+	state.Set(formID_bytes, buf.Bytes())
+	return tmsp.NewResultOK(formID_bytes, "")
 }
 
-func RunResolveTx(state *State, ctx types.CallContext, data []byte) tmsp.Result {
+func RunResolveTx(state *State, ctx types.CallContext, data []byte) (res tmsp.Result) {
 	formID := BytesToHexString(data)
 	value := state.Get(data)
 	if len(value) == 0 {

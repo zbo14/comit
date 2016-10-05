@@ -4,6 +4,7 @@ import (
 	"github.com/tendermint/go-wire"
 	tmspcli "github.com/tendermint/tmsp/client"
 	tmsp "github.com/tendermint/tmsp/types"
+	"log"
 )
 
 type Client struct {
@@ -28,7 +29,7 @@ func NewLocalClient() *Client {
 }
 
 func (cli *Client) SizeSync() (res tmsp.Result) {
-	res = cli.QuerySync([]byte{0x00})
+	res = cli.QuerySync([]byte{0x01})
 	if res.IsErr() {
 		return res
 	}
@@ -39,7 +40,7 @@ func (cli *Client) SizeSync() (res tmsp.Result) {
 func (cli *Client) GetSync(key []byte) (res tmsp.Result) {
 	query := make([]byte, wire.ByteSliceSize(key)+1)
 	buf := query
-	buf[0] = 0x01
+	buf[0] = 0x02
 	buf = buf[1:]
 	wire.PutByteSlice(buf, key)
 	res = cli.QuerySync(query)
@@ -50,9 +51,11 @@ func (cli *Client) GetSync(key []byte) (res tmsp.Result) {
 	return tmsp.NewResultOK(value, "")
 }
 
-func (cli *Client) SetSync(key []byte, value []byte) (res tmsp.Result) {
-	txBytes := make([]byte, wire.ByteSliceSize(key)+wire.ByteSliceSize(value))
+func (cli *Client) SetSync(key []byte, value []byte) tmsp.Result {
+	txBytes := make([]byte, wire.ByteSliceSize(key)+wire.ByteSliceSize(value)+1)
 	buf := txBytes
+	buf[0] = 0x01
+	buf = buf[1:]
 	n, err := wire.PutByteSlice(buf, key)
 	if err != nil {
 		return tmsp.ErrInternalError.SetLog(
@@ -71,6 +74,7 @@ func (cli *Client) RemSync(key []byte) tmsp.Result {
 	tx := make([]byte, wire.ByteSliceSize(key)+1)
 	buf := tx
 	buf[0] = 0x02
+	buf = buf[1:]
 	_, err := wire.PutByteSlice(buf, key)
 	if err != nil {
 		return tmsp.ErrInternalError.SetLog(
@@ -81,17 +85,24 @@ func (cli *Client) RemSync(key []byte) tmsp.Result {
 
 //==============================================================//
 
-func (cli *Client) Get(key []byte) (value []byte) {
-	res := cli.GetSync(key)
+func (client *Client) Get(key []byte) (value []byte) {
+	res := client.GetSync(key)
 	if res.IsErr() {
-		panic(res.Error())
+		log.Println(res.Error())
 	}
 	return res.Data
 }
 
-func (cli *Client) Set(key []byte, value []byte) {
-	res := cli.SetSync(key, value)
+func (client *Client) Set(key []byte, value []byte) {
+	res := client.SetSync(key, value)
 	if res.IsErr() {
-		panic(res.Error())
+		log.Println(res.Error())
+	}
+}
+
+func (client *Client) Remove(key []byte) {
+	res := client.RemSync(key)
+	if res.IsErr() {
+		log.Println(res.Error())
 	}
 }

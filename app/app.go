@@ -29,6 +29,10 @@ func NewApp(cli *Client) *App {
 	}
 }
 
+func (app *App) GetChainID() string {
+	return app.state.GetChainID()
+}
+
 // TMSP requests
 
 func (app *App) Info() string {
@@ -69,6 +73,11 @@ func (app *App) AppendTx(txBytes []byte) tmsp.Result {
 	if res.IsErr() {
 		return res.PrependLog("Error in AppendTx")
 	}
+	// If RemoveAccountTx, remove account
+	if tx.Type == types.RemoveAccountTx {
+		key := res.Data
+		app.cli.Remove(key)
+	}
 	return res
 }
 
@@ -97,9 +106,9 @@ func (app *App) Query(query []byte) tmsp.Result {
 	typeByte := query[0]
 	query = query[1:]
 	switch typeByte {
-	case 0x00: // Size
+	case 0x01: // Size
 		return app.cli.SizeSync()
-	case 0x01: // Query by key
+	case 0x02: // Query by key
 		return app.cli.GetSync(query)
 	default:
 		return tmsp.ErrUnknownRequest.SetLog(

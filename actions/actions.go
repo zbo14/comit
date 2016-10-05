@@ -15,7 +15,6 @@ import (
 	"log"
 )
 
-var chainID = "3ii"
 var pubKey crypto.PubKeyEd25519
 var privKey crypto.PrivKeyEd25519
 
@@ -85,6 +84,8 @@ func (al ActionListener) FeedUpdates() {
 
 func (al ActionListener) Run(app_ *app.App) {
 
+	chainID := app_.GetChainID()
+
 	al.On("connection", func(so socketio.Socket) {
 
 		log.Println("connected")
@@ -131,7 +132,7 @@ func (al ActionListener) Run(app_ *app.App) {
 			// Create Tx
 			var tx = types.Tx{}
 			tx.Type = types.CreateAccountTx
-			tx.Input.Sequence = int(app_.Query([]byte{0x00}).Data[1]) + 1
+			tx.Input.Sequence = int(app_.Query([]byte{0x01}).Data[1]) + 1
 
 			// Password
 			tx.Data = []byte(secret)
@@ -141,7 +142,7 @@ func (al ActionListener) Run(app_ *app.App) {
 			tx.SetAccount(pubKey)
 
 			// Set Signature
-			tx.SetSignature(privKey, chainID)
+			tx.SetSignature(privKey, app_.GetChainID())
 
 			// TxBytes in AppendTx request
 			txBuf, n, err := new(bytes.Buffer), int(0), error(nil)
@@ -165,7 +166,7 @@ func (al ActionListener) Run(app_ *app.App) {
 			// Create Tx
 			var tx = types.Tx{}
 			tx.Type = types.RemoveAccountTx
-			tx.Input.Sequence = int(app_.Query([]byte{0x00}).Data[1]) + 1
+			tx.Input.Sequence = int(app_.Query([]byte{0x01}).Data[1]) + 1
 
 			// Set Account
 			pubKeyBytes, err := HexStringToBytes(pubKeyString)
@@ -231,7 +232,7 @@ func (al ActionListener) Run(app_ *app.App) {
 			// Create tx
 			var tx = types.Tx{}
 			tx.Type = types.SubmitTx
-			tx.Input.Sequence = int(app_.Query([]byte{0x00}).Data[1]) + 1
+			tx.Input.Sequence = int(app_.Query([]byte{0x01}).Data[1]) + 1
 
 			// Service request information
 			var buf bytes.Buffer
@@ -287,7 +288,7 @@ func (al ActionListener) Run(app_ *app.App) {
 				so.Emit("find-form-msg", Fmt(invalid_hex, formID))
 				log.Panic(err)
 			}
-			query = append([]byte{0x01}, query...)
+			query = append([]byte{0x02}, query...)
 
 			// Query
 			res := app_.Query(query)
@@ -315,7 +316,7 @@ func (al ActionListener) Run(app_ *app.App) {
 			// Create Tx
 			var tx = types.Tx{}
 			tx.Type = types.ResolveTx
-			tx.Input.Sequence = int(app_.Query([]byte{0x00}).Data[1]) + 1
+			tx.Input.Sequence = int(app_.Query([]byte{0x01}).Data[1]) + 1
 
 			// FormID
 			formID_bytes, err := HexStringToBytes(formID)
@@ -341,7 +342,7 @@ func (al ActionListener) Run(app_ *app.App) {
 				log.Panic(err)
 			}
 			copy(privKey[:], privKeyBytes[:])
-			tx.SetSignature(privKey, chainID)
+			tx.SetSignature(privKey, app_.GetChainID())
 
 			// TxBytes in AppendTx request
 			txBuf, n, err := new(bytes.Buffer), int(0), error(nil)

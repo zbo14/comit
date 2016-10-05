@@ -6,6 +6,10 @@ import (
 	types "github.com/zballs/3ii/types"
 )
 
+const (
+	ErrSet = 11311
+)
+
 type State struct {
 	chainID string
 	store   types.Store

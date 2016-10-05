@@ -34,23 +34,36 @@ func (merk *MerkleApp) AppendTx(txBytes []byte) tmsp.Result {
 		return tmsp.ErrEncodingError.SetLog(
 			"Tx length must be greater than zero")
 	}
+	typeByte := txBytes[0]
+	txBytes = txBytes[1:]
 	key, n, err := wire.GetByteSlice(txBytes)
 	if err != nil {
 		return tmsp.ErrEncodingError.SetLog(
 			Fmt("Error getting key: %v", err.Error()))
 	}
 	txBytes = txBytes[n:]
-	value, n, err := wire.GetByteSlice(txBytes)
-	if err != nil {
-		return tmsp.ErrEncodingError.SetLog(
-			Fmt("Error getting value: %v", err.Error()))
+	switch typeByte {
+	case 0x01:
+		value, n, err := wire.GetByteSlice(txBytes)
+		if err != nil {
+			return tmsp.ErrEncodingError.SetLog(
+				Fmt("Error getting value: %v", err.Error()))
+		}
+		txBytes = txBytes[n:]
+		if len(txBytes) != 0 {
+			return tmsp.ErrEncodingError.SetLog("Got bytes left over")
+		}
+		merk.tree.Set(key, value)
+		fmt.Println("SET", Fmt("%x", key), Fmt("%x", value))
+	case 0x02:
+		if len(txBytes) != 0 {
+			return tmsp.ErrEncodingError.SetLog("Got bytes left over")
+		}
+		merk.tree.Remove(key)
+	default:
+		return tmsp.ErrUnknownRequest.SetLog(
+			Fmt("Unexpected AppendTx type byte %X", typeByte))
 	}
-	txBytes = txBytes[n:]
-	if len(txBytes) != 0 {
-		return tmsp.ErrEncodingError.SetLog("Got bytes left over")
-	}
-	merk.tree.Set(key, value)
-	fmt.Println("SET", Fmt("%x", key), Fmt("%x", value))
 	return tmsp.OK
 }
 
@@ -92,11 +105,11 @@ func (merk *MerkleApp) Query(query []byte) tmsp.Result {
 	typeByte := query[0]
 	query = query[1:]
 	switch typeByte {
-	case 0x00: // Size
+	case 0x01: // Size
 		size := merk.tree.Size()
 		res := wire.BinaryBytes(size)
 		return tmsp.NewResultOK(res, "")
-	case 0x01: // Query by key
+	case 0x02: // Query by key
 		key, n, err := wire.GetByteSlice(query)
 		if err != nil {
 			return tmsp.ErrEncodingError.SetLog(
