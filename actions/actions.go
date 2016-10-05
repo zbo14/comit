@@ -5,11 +5,10 @@ import (
 	socketio "github.com/googollee/go-socket.io"
 	. "github.com/tendermint/go-common"
 	crypto "github.com/tendermint/go-crypto"
-	p2p "github.com/tendermint/go-p2p"
 	wire "github.com/tendermint/go-wire"
+	tmsp "github.com/tendermint/tmsp/types"
 	"github.com/zballs/3ii/app"
 	lib "github.com/zballs/3ii/lib"
-	"github.com/zballs/3ii/network"
 	"github.com/zballs/3ii/types"
 	. "github.com/zballs/3ii/util"
 	"log"
@@ -20,65 +19,32 @@ var privKey crypto.PrivKeyEd25519
 
 type ActionListener struct {
 	*socketio.Server
-	*p2p.Switch
 }
 
 func StartActionListener() (ActionListener, error) {
 	server, err := socketio.NewServer(nil)
-	sw := network.CreateSwitch(crypto.GenPrivKeyEd25519())
-	network.AddListener(
-		sw,
-		network.RecvrListenerAddr,
-	)
-	network.AddReactor(
-		sw,
-		network.DeptChannelIDs,
-		"dept-feed",
-	)
-	network.AddReactor(
-		sw,
-		network.ServiceChannelIDs,
-		"service-feed",
-	)
-	sw.Start()
-	return ActionListener{server, sw}, err
+	return ActionListener{server}, err
 }
 
-/*
-
-func FormatUpdate(update string) string {
-	action := lib.SERVICE.ReadField(update, "action")
-	ID := lib.SERVICE.ReadField(update, "ID")
-	service := lib.SERVICE.ReadField(update, "service")
-	address := lib.SERVICE.ReadField(update, "address")
-	pubkey := ReadPubKeyString(update)
-	return "<li>" + Fmt(line, action, ID) +
-		Fmt(line, "service", service) +
-		Fmt(line, "address", address) +
-		Fmt(line, "account", pubkey) + "<br></li>"
-}
-
-func (al ActionListener) FeedUpdates() {
-	for {
-		if al.IsRunning() {
-			deptFeed := al.Reactor("dept-feed").(*MyReactor)
-			for dept, chID := range network.DeptChannelIDs {
-				update := string(deptFeed.GetMsg(chID).Bytes)
-				if len(update) > 0 {
-					al.BroadcastTo("feed", Fmt("%v-update", dept), FormatUpdate(update))
-				}
-			}
-			serviceFeed := al.Reactor("service-feed").(*MyReactor)
-			for service, chID := range network.ServiceChannelIDs {
-				update := string(serviceFeed.GetMsg(chID).Bytes)
-				if len(update) > 0 {
-					al.BroadcastTo("feed", Fmt("%v-update", service), FormatUpdate(update))
-				}
-			}
-		}
+func (al ActionListener) UpdateFeed(key []byte, app_ *app.App) (res tmsp.Result) {
+	query := append([]byte{0x02}, key...)
+	res = app_.Query(query)
+	if res.IsErr() {
+		return res
 	}
+	var form lib.Form
+	value := res.Data
+	err := wire.ReadBinaryBytes(value, &form)
+	if err != nil {
+		return tmsp.ErrEncodingError.SetLog("Error decoding form: " + err.Error())
+	}
+	msg := (&form).Summary()
+	service := form.Service
+	al.BroadcastTo("feed", Fmt("%v-update", service), msg)
+	dept := lib.SERVICE.ServiceDept(service)
+	al.BroadcastTo("feed", Fmt("%v-update", dept), msg)
+	return tmsp.OK
 }
-*/
 
 // func (al ActionListener) CrossCheck()
 
@@ -91,7 +57,7 @@ func (al ActionListener) Run(app_ *app.App) {
 		log.Println("connected")
 
 		// Feed
-		// so.Join("feed")
+		so.Join("feed")
 
 		// Send values
 
@@ -201,31 +167,6 @@ func (al ActionListener) Run(app_ *app.App) {
 
 		})
 
-		/*
-			// Create Admins
-			so.On("create-admin", func(dept string, position string, passphrase string) {
-				pubKeyString, privKeyString, err := app_.AdminManager().Register(dept, position, passphrase)
-				if err != nil {
-					log.Println(err.Error())
-					so.Emit("admin-keys-msg", unauthorized)
-				} else {
-					msg := Fmt(keys_cautionary, pubKeyString, privKeyString)
-					so.Emit("admin-keys-msg", msg)
-				}s
-			})
-
-			// Remove Admins
-			so.On("remove-admin", func(pubKeyString string, passphrase string) {
-				err := app_.AdminManager().Remove(pubKeyString, passphrase)
-				if err != nil {
-					log.Println(err.Error())
-					so.Emit("admin-remove-msg", Fmt(remove_admin_failure, pubKeyString, passphrase))
-				} else {
-					so.Emit("admin-remove-msg", Fmt(remove_admin_success, pubKeyString, passphrase))
-				}
-			})
-		*/
-
 		// Submit Forms
 		so.On("submit-form", func(service, address, description, detail, pubKeyString, privKeyString string) {
 
@@ -268,6 +209,7 @@ func (al ActionListener) Run(app_ *app.App) {
 			if res.IsOK() {
 				formID := BytesToHexString(res.Data)
 				so.Emit("submit-form-msg", Fmt(submit_form_success, formID))
+				al.UpdateFeed(res.Data, app_)
 				log.Printf("SUCCESS submitted form with ID: %v", formID)
 			} else if res.Log == ExtractText(form_already_exists) {
 				so.Emit("submit-form-msg", form_already_exists)
@@ -283,12 +225,12 @@ func (al ActionListener) Run(app_ *app.App) {
 		so.On("find-form", func(formID string) {
 
 			// FormID
-			query, err := HexStringToBytes(formID)
+			key, err := HexStringToBytes(formID)
 			if err != nil {
 				so.Emit("find-form-msg", Fmt(invalid_hex, formID))
 				log.Panic(err)
 			}
-			query = append([]byte{0x02}, query...)
+			query := append([]byte{0x02}, key...)
 
 			// Query
 			res := app_.Query(query)

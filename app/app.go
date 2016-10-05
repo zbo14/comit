@@ -33,6 +33,10 @@ func (app *App) GetChainID() string {
 	return app.state.GetChainID()
 }
 
+func (app *App) Broadcast() {
+
+}
+
 // TMSP requests
 
 func (app *App) Info() string {

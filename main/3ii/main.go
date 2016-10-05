@@ -51,6 +51,7 @@ func main() {
 		"submit_form.html",
 		"resolve_form.html",
 		"find_form.html",
+		"feed.html",
 	)
 
 	web.CreatePages(
@@ -59,6 +60,7 @@ func main() {
 		"submit_form",
 		"resolve_form",
 		"find_form",
+		"feed",
 	)
 
 	action_listener, err := actions.StartActionListener()
@@ -77,6 +79,7 @@ func main() {
 	http.HandleFunc("/submit_form", web.CustomHandler("submit_form.html"))
 	http.HandleFunc("/resolve_form", web.CustomHandler("resolve_form.html"))
 	http.HandleFunc("/find_form", web.CustomHandler("find_form.html"))
+	http.HandleFunc("/feed", web.CustomHandler("feed.html"))
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(js)))
 	http.ListenAndServe(":8888", nil)
 

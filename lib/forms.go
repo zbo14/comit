@@ -1,6 +1,7 @@
 package lib
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	. "github.com/zballs/3ii/util"
@@ -97,8 +98,7 @@ func CheckStatus(timestr string) string {
 	if len(timestr) == 0 {
 		return "unresolved"
 	}
-	return fmt.Sprintf(
-		"resolved %v", ToTheMinute(timestr))
+	return fmt.Sprintf("resolved %v", ToTheMinute(timestr))
 }
 
 func (form *Form) ID() []byte {
@@ -130,12 +130,15 @@ func (form *Form) Summary() string {
 	if sd != nil {
 		detail = sd.Detail
 	}
-	return "<li>" + fmt.Sprintf(line, "posted", posted) +
-		fmt.Sprintf(line, "service", form.Service) +
-		fmt.Sprintf(line, "address", form.Address) +
-		fmt.Sprintf(line, "description", form.Description) +
-		fmt.Sprintf(line, detail, form.Detail) +
-		fmt.Sprintf(line, "status", status) + "</li>"
+	var summary bytes.Buffer
+	summary.WriteString("<li>" + fmt.Sprintf(line, "posted", posted))
+	summary.WriteString(fmt.Sprintf(line, "service", form.Service))
+	summary.WriteString(fmt.Sprintf(line, "address", form.Address))
+	summary.WriteString(fmt.Sprintf(line, "description", form.Description))
+	summary.WriteString(fmt.Sprintf(line, "description", form.Description))
+	summary.WriteString(fmt.Sprintf(line, detail, form.Detail))
+	summary.WriteString(fmt.Sprintf(line, "status", status) + "<br></li>")
+	return summary.String()
 }
 
 /*
