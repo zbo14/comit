@@ -62,16 +62,16 @@ func (tx *Tx) SignBytes(chainID string) []byte {
 	return signBytes
 }
 
-func (tx *Tx) SetAccount(addr []byte) {
-	var pubKey crypto.PubKeyEd25519
-	tx.Input.Address = addr
-	copy(pubKey[:], addr[:])
-	tx.Input.PubKey = pubKey
+func (tx *Tx) SetAccount(pubKey crypto.PubKey) {
+	if tx.Input.Sequence == 1 {
+		tx.Input.PubKey = pubKey
+	}
+	tx.Input.Address = pubKey.Address()
 }
 
-func (tx *Tx) SetSignature(sig crypto.Signature) bool {
+func (tx *Tx) SetSignature(privKey crypto.PrivKey, chainID string) {
+	sig := privKey.Sign(tx.SignBytes(chainID))
 	tx.Input.Signature = sig
-	return true
 }
 
 func (tx *Tx) String() string {

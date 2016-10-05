@@ -13,7 +13,7 @@
 
 .my-input:hover {
   transition: 0.3s;
-  box-shadow: -2px 0px 1px orangered;
+  box-shadow: -2px 0px 0.2px orangered;
 }
 
 .my-textarea {
@@ -24,7 +24,7 @@
 
 .my-textarea:hover {
   transition: 0.3s;
-  box-shadow: -2px 0px 1px orangered;
+  box-shadow: -2px 0px 0.2px orangered;
 }
 
 .my-button {

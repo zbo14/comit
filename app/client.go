@@ -1,7 +1,6 @@
 package app
 
 import (
-	"fmt"
 	"github.com/tendermint/go-wire"
 	tmspcli "github.com/tendermint/tmsp/client"
 	tmsp "github.com/tendermint/tmsp/types"
@@ -28,13 +27,21 @@ func NewLocalClient() *Client {
 	return &Client{tmspClient}
 }
 
+func (cli *Client) SizeSync() (res tmsp.Result) {
+	res = cli.QuerySync([]byte{0x00})
+	if res.IsErr() {
+		return res
+	}
+	value := res.Data
+	return tmsp.NewResultOK(value, "")
+}
+
 func (cli *Client) GetSync(key []byte) (res tmsp.Result) {
-	query := make([]byte, 1+wire.ByteSliceSize(key))
+	query := make([]byte, wire.ByteSliceSize(key)+1)
 	buf := query
 	buf[0] = 0x01
 	buf = buf[1:]
 	wire.PutByteSlice(buf, key)
-	fmt.Println(query)
 	res = cli.QuerySync(query)
 	if res.IsErr() {
 		return res
@@ -60,7 +67,17 @@ func (cli *Client) SetSync(key []byte, value []byte) (res tmsp.Result) {
 	return cli.AppendTxSync(txBytes)
 }
 
-// RemSync
+func (cli *Client) RemSync(key []byte) tmsp.Result {
+	tx := make([]byte, wire.ByteSliceSize(key)+1)
+	buf := tx
+	buf[0] = 0x02
+	_, err := wire.PutByteSlice(buf, key)
+	if err != nil {
+		return tmsp.ErrInternalError.SetLog(
+			"encoding key byteslice: " + err.Error())
+	}
+	return cli.AppendTxSync(tx)
+}
 
 //==============================================================//
 

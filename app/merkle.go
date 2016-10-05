@@ -92,17 +92,13 @@ func (merk *MerkleApp) Query(query []byte) tmsp.Result {
 	typeByte := query[0]
 	query = query[1:]
 	switch typeByte {
-	// Size
-	case 0x00:
+	case 0x00: // Size
 		size := merk.tree.Size()
 		res := wire.BinaryBytes(size)
 		return tmsp.NewResultOK(res, "")
-	// Query by key
-	case 0x01:
+	case 0x01: // Query by key
 		key, n, err := wire.GetByteSlice(query)
 		if err != nil {
-			fmt.Println(key)
-			fmt.Println(query)
 			return tmsp.ErrEncodingError.SetLog(
 				Fmt("Error getting key: %v", err.Error()))
 		}
@@ -117,6 +113,7 @@ func (merk *MerkleApp) Query(query []byte) tmsp.Result {
 		}
 		return tmsp.NewResultOK(value, "")
 	default:
-		return tmsp.ErrUnknownRequest.SetLog(Fmt("Unexpected QUery type byte %X", typeByte))
+		return tmsp.ErrUnknownRequest.SetLog(
+			Fmt("Unexpected Query type byte %X", typeByte))
 	}
 }

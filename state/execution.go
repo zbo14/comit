@@ -2,7 +2,6 @@ package state
 
 import (
 	"bytes"
-	"fmt"
 	. "github.com/tendermint/go-common"
 	"github.com/tendermint/go-wire"
 	tmsp "github.com/tendermint/tmsp/types"
@@ -37,9 +36,6 @@ func ExecTx(state *State, tx types.Tx, isCheckTx bool) (res tmsp.Result) {
 			inAcc.PubKey = tx.Input.PubKey
 		}
 	}
-
-	// Print Account
-	fmt.Println(inAcc.String())
 
 	// Validate input, advanced
 	signBytes := tx.SignBytes(chainID)
@@ -117,19 +113,19 @@ func RunResolveTx(state *State, ctx types.CallContext, data []byte) tmsp.Result 
 		return tmsp.NewResult(
 			lib.ErrFindForm, nil, Fmt("Error cannot find form with ID: %v", formID))
 	}
-	var form *lib.Form
-	err := wire.ReadBinaryBytes(value, form)
+	var form lib.Form
+	err := wire.ReadBinaryBytes(value, &form)
 	if err != nil {
 		return tmsp.ErrEncodingError.SetLog(
 			Fmt("Error parsing form bytes: %v", err.Error()))
 	}
-	err = form.Resolve(TimeString())
+	err = (&form).Resolve(TimeString())
 	if err != nil {
 		return tmsp.NewResult(
 			lib.ErrFormAlreadyResolved, nil, Fmt("Error already resolved form with ID: %v", formID))
 	}
 	buf, n, err := new(bytes.Buffer), int(0), error(nil)
-	wire.WriteBinary(*form, buf, &n, &err)
+	wire.WriteBinary(form, buf, &n, &err)
 	if err != nil {
 		return tmsp.ErrEncodingError.SetLog(
 			Fmt("Error encoding form with ID: %v", formID))

@@ -21,7 +21,7 @@ type Form struct {
 	//==============//
 
 	Resolved     string
-	ResponseTime float64
+	ResponseTime float64 `wire:"unsafe"`
 }
 
 // Functional Options
@@ -102,7 +102,7 @@ func CheckStatus(timestr string) string {
 }
 
 func (form *Form) ID() []byte {
-	bytes := make([]byte, 32)
+	bytes := make([]byte, 16)
 	daystr := ToTheDay(form.Posted)
 	items := []string{
 		daystr,
@@ -180,7 +180,7 @@ func MatchForm(str string, form *Form) bool {
 //=========================================//
 
 func (form *Form) Resolve(timestr string) error {
-	if len(form.Resolved) == 0 {
+	if len(form.Resolved) > 0 {
 		return errors.New("form already resolved")
 	}
 	(*form).Resolved = timestr

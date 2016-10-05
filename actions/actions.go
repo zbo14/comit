@@ -15,6 +15,7 @@ import (
 	"log"
 )
 
+var chainID = "3ii"
 var pubKey crypto.PubKeyEd25519
 var privKey crypto.PrivKeyEd25519
 
@@ -125,7 +126,7 @@ func (al ActionListener) Run(app_ *app.App) {
 		*/
 
 		// Create Users
-		so.On("create-account", func(password string) {
+		so.On("create-account", func(secret string) {
 
 			// Create Tx
 			var tx = types.Tx{}
@@ -133,18 +134,14 @@ func (al ActionListener) Run(app_ *app.App) {
 			tx.Input.Sequence = int(app_.Query([]byte{0x00}).Data[1]) + 1
 
 			// Password
-			tx.Data = []byte(password)
+			tx.Data = []byte(secret)
 
-			// Account Info
+			// Set Account
 			pubKey, privKey := CreateKeys(tx.Data)
-			if tx.Input.Sequence == 1 {
-				tx.SetAccount(pubKey.Address())
-			} else {
-				tx.Input.Address = pubKey.Address()
-			}
+			tx.SetAccount(pubKey)
 
-			// Account Signature
-			tx.Input.Signature = privKey.Sign(tx.Data)
+			// Set Signature
+			tx.SetSignature(privKey, chainID)
 
 			// TxBytes in AppendTx request
 			txBuf, n, err := new(bytes.Buffer), int(0), error(nil)
@@ -170,23 +167,23 @@ func (al ActionListener) Run(app_ *app.App) {
 			tx.Type = types.RemoveAccountTx
 			tx.Input.Sequence = int(app_.Query([]byte{0x00}).Data[1]) + 1
 
-			// Account Address
+			// Set Account
 			pubKeyBytes, err := HexStringToBytes(pubKeyString)
 			if err != nil {
 				so.Emit("remove-account-msg", Fmt(invalid_hex, pubKeyString))
 				log.Panic(err)
 			}
 			copy(pubKey[:], pubKeyBytes[:])
-			tx.SetAccount(pubKey.Address())
+			tx.SetAccount(pubKey)
 
-			// Account Signature
+			// Set Signature
 			privKeyBytes, err := HexStringToBytes(privKeyString)
 			if err != nil {
 				so.Emit("remove-account-msg", Fmt(invalid_hex, privKeyString))
 				log.Panic(err)
 			}
 			copy(privKey[:], privKeyBytes[:])
-			tx.Input.Signature = privKey.Sign([]byte("remove"))
+			tx.SetSignature(privKey, chainID)
 
 			// TxBytes in AppendTx request
 			txBuf, n, err := new(bytes.Buffer), int(0), error(nil)
@@ -251,7 +248,7 @@ func (al ActionListener) Run(app_ *app.App) {
 				log.Panic(err)
 			}
 			copy(pubKey[:], pubKeyBytes[:])
-			tx.Input.Address = pubKey.Address()
+			tx.SetAccount(pubKey)
 
 			// Account Signature
 			privKeyBytes, err := HexStringToBytes(privKeyString)
@@ -260,7 +257,7 @@ func (al ActionListener) Run(app_ *app.App) {
 				log.Panic(err)
 			}
 			copy(privKey[:], privKeyBytes[:])
-			tx.Input.Signature = privKey.Sign(tx.Data)
+			tx.SetSignature(privKey, chainID)
 
 			// TxBytes in AppendTx request
 			txBuf, n, err := new(bytes.Buffer), int(0), error(nil)
@@ -290,24 +287,23 @@ func (al ActionListener) Run(app_ *app.App) {
 				so.Emit("find-form-msg", Fmt(invalid_hex, formID))
 				log.Panic(err)
 			}
-			log.Println(query)
 			query = append([]byte{0x01}, query...)
 
 			// Query
 			res := app_.Query(query)
-			log.Println(res.Data)
 
 			if res.IsErr() {
 				so.Emit("find-form-msg", Fmt(find_form_failure, formID))
 				log.Println(res.Error())
 			} else {
-				var form *lib.Form
-				err := wire.ReadBinaryBytes(res.Data, form)
+				var form lib.Form
+				value := res.Data
+				err := wire.ReadBinaryBytes(value, &form)
 				if err != nil {
 					so.Emit("find-form-msg", Fmt(decode_form_failure, formID))
 					log.Panic(err)
 				}
-				msg := form.Summary()
+				msg := (&form).Summary()
 				so.Emit("find-form-msg", msg)
 				log.Printf("SUCCESS found form with ID: %v", formID)
 			}
@@ -336,7 +332,7 @@ func (al ActionListener) Run(app_ *app.App) {
 				log.Panic(err)
 			}
 			copy(pubKey[:], pubKeyBytes[:])
-			tx.Input.Address = pubKey.Address()
+			tx.SetAccount(pubKey)
 
 			// Account Signature
 			privKeyBytes, err := HexStringToBytes(privKeyString)
@@ -345,7 +341,7 @@ func (al ActionListener) Run(app_ *app.App) {
 				log.Panic(err)
 			}
 			copy(privKey[:], privKeyBytes[:])
-			tx.Input.Signature = privKey.Sign(tx.Data).(crypto.SignatureEd25519)
+			tx.SetSignature(privKey, chainID)
 
 			// TxBytes in AppendTx request
 			txBuf, n, err := new(bytes.Buffer), int(0), error(nil)

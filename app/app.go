@@ -91,7 +91,20 @@ func (app *App) CheckTx(txBytes []byte) tmsp.Result {
 }
 
 func (app *App) Query(query []byte) tmsp.Result {
-	return app.cli.QuerySync(query)
+	if len(query) == 0 {
+		return tmsp.ErrEncodingError.SetLog("Query cannot be zero length")
+	}
+	typeByte := query[0]
+	query = query[1:]
+	switch typeByte {
+	case 0x00: // Size
+		return app.cli.SizeSync()
+	case 0x01: // Query by key
+		return app.cli.GetSync(query)
+	default:
+		return tmsp.ErrUnknownRequest.SetLog(
+			Fmt("Unexpected Query type byte %X", typeByte))
+	}
 }
 
 func (app *App) Commit() (res tmsp.Result) {

@@ -4,8 +4,8 @@
 
 {{define "body"}}
 	<div class="container">
-		<h5 class="my-header">password</h5>
-		<input type="password" id="password" class="my-input"></input>
+		<h5 class="my-header">secret</h5>
+		<input type="password" id="secret" class="my-input"></input>
 		<br><br>
 		<button type="button" id="create-account" class="my-button">create account</button>
 		<br><br>
@@ -16,14 +16,14 @@
 			var socket = io();
 			$('#create-account').bind('click', function() {
 				var valid_entry = true
-				var password = $('#password').val();
-				if (password.length == 0) {
-					$('#password-label').html("<span style='color:red;'>enter password</span>")
+				var secret = $('#secret').val();
+				if (secret.length == 0) {
+					$('#secret-label').html("<span style='color:red;'>enter secret</span>")
 					valid_entry = false
 				}
 				if (valid_entry) {
-					$('#password-label').html("<span style='color:black;'>password</span>");
-					socket.emit('create-account', password)
+					$('#secret-label').html("<span style='color:black;'>secret</span>");
+					socket.emit('create-account', secret)
 					socket.on('create-account-msg', function(msg) {
 						$('#create-account-msg').show(100, "linear").html(msg)
 					})
