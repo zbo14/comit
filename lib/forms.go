@@ -106,9 +106,8 @@ func (form *Form) ID() []byte {
 	daystr := ToTheDay(form.Posted)
 	items := []string{
 		daystr,
-		(*form).Service,
-		(*form).Address,
-		(*form).Resolved,
+		form.Service,
+		form.Address,
 	}
 	for _, item := range items {
 		for idx, _ := range bytes {
@@ -140,44 +139,43 @@ func (form *Form) Summary() string {
 	return summary.String()
 }
 
-/*
-XXX TODO update
 func MatchForm(str string, form *Form) bool {
 	before := SERVICE.ReadField(str, "before")
 	if len(before) > 0 {
+		postedDate := ParseTimeString(form.Posted)
 		beforeDate := ParseTimeString(before)
-		if !((*form).Posted().Before(beforeDate)) {
+		if !(postedDate.Before(beforeDate)) {
 			return false
 		}
 	}
 	after := SERVICE.ReadField(str, "after")
 	if len(after) > 0 {
+		postedDate := ParseTimeString(form.Posted)
 		afterDate := ParseTimeString(after)
-		if !((*form).Posted().After(afterDate)) {
+		if !(postedDate.After(afterDate)) {
 			return false
 		}
 	}
 	service := SERVICE.ReadField(str, "service")
 	if len(service) > 0 {
-		if !(service == (*form).Service()) {
+		if !(service == form.Service) {
 			return false
 		}
 	}
 	address := SERVICE.ReadField(str, "address")
 	if len(address) > 0 {
-		if !SubstringMatch(address, (*form).Address()) {
+		if !SubstringMatch(address, form.Address) {
 			return false
 		}
 	}
-	detail := SERVICE.ReadDetail(str, service)
-	if len(detail) > 0 {
-		if !(detail == (*form).Detail()) {
+	status := SERVICE.ReadField(str, "status")
+	if len(status) > 0 {
+		if !(status == CheckStatus(form.Resolved)) {
 			return false
 		}
 	}
 	return true
 }
-*/
 
 //=========================================//
 
@@ -185,8 +183,8 @@ func (form *Form) Resolve(timestr string) error {
 	if len(form.Resolved) > 0 {
 		return errors.New("form already resolved")
 	}
-	(*form).Resolved = timestr
-	(*form).ResponseTime = DurationHours(
+	form.Resolved = timestr
+	form.ResponseTime = DurationHours(
 		form.Posted, form.Resolved)
 	return nil
 }

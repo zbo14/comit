@@ -89,6 +89,7 @@ func main() {
 		"submit_form.html",
 		"resolve_form.html",
 		"find_form.html",
+		"search_forms.html",
 		"connect.html",
 		"feed.html",
 	)
@@ -99,6 +100,7 @@ func main() {
 		"submit_form",
 		"resolve_form",
 		"find_form",
+		"search_forms",
 		"connect",
 		"feed",
 	)
@@ -118,6 +120,7 @@ func main() {
 	http.HandleFunc("/submit_form", web.CustomHandler("submit_form.html"))
 	http.HandleFunc("/resolve_form", web.CustomHandler("resolve_form.html"))
 	http.HandleFunc("/find_form", web.CustomHandler("find_form.html"))
+	http.HandleFunc("/search_forms", web.CustomHandler("search_forms.html"))
 	http.HandleFunc("/connect", web.CustomHandler("connect.html"))
 	http.HandleFunc("/feed", web.CustomHandler("feed.html"))
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(js)))

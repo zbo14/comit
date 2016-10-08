@@ -39,13 +39,12 @@ var serviceDepts = map[string]string{
 }
 
 var regexPatterns = map[string]string{
-	"action":      `submit|resolve`,
-	"ID":          `[a-z0-9]{32}`,
 	"service":     `[\w\s\/]+`,
 	"address":     `[\w\s'\-\.\,]+`,
 	"description": `[\w\s'\-\.\,\?\!\/]+`,
 	"before":      `\d{4}-\d{2}-\d{2}T\w{2}\:\d{2}:\d{2}`,
 	"after":       `\d{4}-\d{2}-\d{2}T\w{2}\:\d{2}:\d{2}`,
+	"status":      `resolved|unresolved`,
 }
 
 func (Service) Services() []string {

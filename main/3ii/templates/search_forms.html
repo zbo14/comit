@@ -48,11 +48,6 @@
 			<h5 class="my-header">address</h5>
 			<input id="address" class="my-input"></input>
 			<br><br>
-			<!--
-			<h5 class="my-header" id="detail-label" style="display:hidden;"></h5>
-			<select id="detail" style="display:hidden;"></select>
-			<br><br>
-			-->
 			<h5 class="my-header">status</h5>
 			<select id="status">
 				<option value="">--</option>
@@ -60,15 +55,8 @@
 				<option value="resolved">resolved</option>
 			</select>
 			<br><br>
-			<h5 class="my-header">public key</h5>
-			<input type="text" id="pubkey" class="my-input"></input>
-			<br><br>
-			<h5 class="my-header">passphrase</h5>
-			<input type="password" id="passphrase" class="my-input"></input>
-			<br><br>
 			<button type="button" id="search" class="my-button">search</button>
 			<br><br>
-			<p id="forms-error"></p>
 		</div>
 		<div class="col-sm-6">
 			<ul id="forms"></ul>
@@ -77,48 +65,16 @@
 	<script type="text/javascript" charset="utf-8">
 	$(function() {
 		var socket = io();
-		/*
-		$('#type').on('change', function() {
-			socket.emit('select-type', $('#type').val())
-			socket.on('field-options', function(field, options) {
-				$('#detail-label').show(100, 'linear').html(field);
-				$('#detail').show(100, 'linear').html(options);
-			})
-		})
-		*/
 		$('#search').bind('click', function() {
-			var valid_entry = true;
 			var before = $('#before').data("DateTimePicker").viewDate();
 			var after = $('#after').data("DateTimePicker").viewDate();
 			var service = $('#service').val();
 			var address = $('#address').val();
-			// var detail = $('#detail').val();
 			var status = $('#status').val();
-			var pubKeyString = $('#pubkey').val();
-			if (pubKeyString.length == 0) {
-				$('#pubkey-label').html("<span style='color:red;'>enter public key</span>"); 
-				valid_entry = false;
-			}
-			var passphrase = $('#passphrase').val();
-			if (passphrase.length == 0) {
-				$('#passphrase-label').html("<span style='color:red;'>enter passphrase</span>"); 
-				valid_entry = false;
-			}
-			if (valid_entry) {
-				$('#pubkey-label').html("<span style='color:black;'>public key</span>"); 
-				$('#passphrase-label').html("<span style='color:black;'>passphrase</span>"); 
-				socket.emit('search-forms', before, after, service, address, status, pubKeyString, passphrase)
-				socket.on('forms-msg', function(msg, success){
-					if (!success) {
-						$('#forms-error').html(msg)
-					} else {
-						for (var f = 0; f < msg.length; f++) { // msg[f] is form
-							$('#forms').append(msg[f]);
-						}
-					}
-				})
-			}
-			// redirect
+			socket.emit('search-forms', before, after, service, address, status)
+			socket.on('search-forms-msg', function(msg){
+				$('#forms').append(msg);
+			})
 		})
 	})
 	</script>

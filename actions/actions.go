@@ -181,13 +181,13 @@ func (al ActionListener) Run(app_ *app.App, feed *p2p.Switch, peerAddr string) {
 			// Create Tx
 			var tx = types.Tx{}
 			tx.Type = types.CreateAccountTx
-			tx.Input.Sequence = 1
 
 			// Secret
 			tx.Data = []byte(secret)
 
-			// Set Account, Signature
+			// Set Sequence, Account, Signature
 			pubKey, privKey := CreateKeys(tx.Data)
+			tx.Input.Sequence = 1
 			tx.SetAccount(pubKey)
 			tx.SetSignature(privKey, app_.GetChainID())
 
@@ -390,7 +390,11 @@ func (al ActionListener) Run(app_ *app.App, feed *p2p.Switch, peerAddr string) {
 				so.Emit("find-form-msg", Fmt(invalid_hex, formID))
 				log.Panic(err)
 			}
-			query := append([]byte{0x02}, key...)
+			query := make([]byte, wire.ByteSliceSize(key)+1)
+			buf := query
+			buf[0] = 0x02
+			buf = buf[1:]
+			wire.PutByteSlice(buf, key)
 
 			// Query
 			res := app_.Query(query)
@@ -413,32 +417,47 @@ func (al ActionListener) Run(app_ *app.App, feed *p2p.Switch, peerAddr string) {
 		})
 
 		/// Search forms
-		so.On("search-forms", func(before string, after string, service string, address string, status string, pubKeyString string, passphrase string) {
-			err := app_.UserManager().Authorize(pubKeyString, passphrase)
-			if err != nil {
-				so.Emit("forms-msg", unauthorized)
-			} else {
-				var str string = ""
-				if ToTheHour(before) != ToTheHour(after) {
-					str += lib.SERVICE.WriteField(ToTheSecond(before[:19]), "before")
-					str += lib.SERVICE.WriteField(ToTheSecond(after[:19]), "after")
+		so.On("search-forms", func(before string, after string, service string, address string, status string) {
+
+			var buf bytes.Buffer
+			buf.WriteString(lib.SERVICE.WriteField(before, "before"))
+			buf.WriteString(lib.SERVICE.WriteField(after, "after"))
+			buf.WriteString(lib.SERVICE.WriteField(service, "service"))
+			buf.WriteString(lib.SERVICE.WriteField(address, "address"))
+			buf.WriteString(lib.SERVICE.WriteField(status, "status"))
+
+			res := app_.Query([]byte{0x01})
+			if res.IsErr() {
+				log.Println(res.Error())
+			}
+			var treesize int
+			wire.ReadBinaryBytes(res.Data, &treesize)
+			var form lib.Form
+			for i := 0; i < treesize; i++ {
+				length := len(wire.BinaryBytes(i))
+				bz := make([]byte, length)
+				n, err := wire.PutVarint(bz, i)
+				if err != nil {
+					log.Panic(err)
 				}
-				if len(service) > 0 {
-					str += lib.SERVICE.WriteField(service, "service")
+				bz = bz[:n]
+				query := make([]byte, wire.ByteSliceSize(bz)+1)
+				buf2 := query
+				buf2[0] = 0x03
+				buf2 = buf2[1:]
+				wire.PutByteSlice(buf2, bz)
+				res = app_.Query(query)
+				if res.IsErr() {
+					log.Panic(err)
 				}
-				if len(address) > 0 {
-					str += lib.SERVICE.WriteField(address, "address")
+				err = wire.ReadBinaryBytes(res.Data, &form)
+				if err != nil {
+					log.Panic(err)
 				}
-				log.Println(str)
-				formlist := app_.Cache().SearchForms(str, status)
-				if formlist == nil {
-					so.Emit("forms-msg", search_forms_failure, false)
-				} else {
-					forms := make([]string, len(formlist))
-					for idx, form := range formlist {
-						forms[idx] = FormatForm(form)
-					}
-					so.Emit("forms-msg", forms, true)
+				log.Println((&form).Summary())
+				match := lib.MatchForm(buf.String(), &form)
+				if match {
+					so.On("search-forms-msg", (&form).Summary())
 				}
 			}
 		})

@@ -28,15 +28,6 @@ func NewLocalClient() *Client {
 	return &Client{tmspClient}
 }
 
-func (cli *Client) SizeSync() (res tmsp.Result) {
-	res = cli.QuerySync([]byte{0x01})
-	if res.IsErr() {
-		return res
-	}
-	value := res.Data
-	return tmsp.NewResultOK(value, "")
-}
-
 func (cli *Client) GetSync(key []byte) (res tmsp.Result) {
 	query := make([]byte, wire.ByteSliceSize(key)+1)
 	buf := query
