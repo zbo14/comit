@@ -4,16 +4,6 @@
 
 {{define "body"}}
 <div class="container">
-	<h5 class="my-header">service feeds</h5>
-	<select id="service-feed">
-		<option value="">--</option>
-		<option value="street light out">street light out</option>
-		<option value="pothole in street">pothole in street</option>
-		<option value="rodent baiting/rat complaint">rodent baiting/rat complaint</option>
-		<option value="tree trim">tree trim</option>
-		<option value="garbage cart black maintenance/replacement">garbage cart black maintenance/replacement</option>
-	</select>  
-	<br><br>
 	<h5 class="my-header">department feeds</h5>
 	<select id="dept-feed">
 		<option value="">--</option>
@@ -26,32 +16,14 @@
 <script type="text/javascript">
 	$(function() {
 		var socket = io();
-		var services = $.map($('#service-feed option'), function(opt) {
-			if (opt.value.length > 0) {
-				return opt.value;
-			}
-		})
 		var depts = $.map($('#dept-feed option'), function(opt) {
 			if (opt.value.length > 0) {
 				return opt.value;
 			}
 		})
-		$("#service-feed").on("change", function() {
-			console.log($("#service-feed").val());
-			$("ul").html("");
-			$("ul").attr("id", $("#service-feed").val());
-
-		})
 		$("#dept-feed").on("change", function() {
 			$("ul").html("");
 			$("ul").attr("id", $("#dept-feed").val());
-		})
-		$.map(services, function(service) {
-			return socket.on(service + "-update", function(update) {
-				if ($("ul").attr("id") == service) {
-					$("ul").append(update);
-				}
-			})
 		})
 		$.map(depts, function(dept) {
 			return socket.on(dept + "-update", function(update) {

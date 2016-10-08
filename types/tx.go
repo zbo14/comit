@@ -62,6 +62,10 @@ func (tx *Tx) SignBytes(chainID string) []byte {
 	return signBytes
 }
 
+func (tx *Tx) SetSequence(seq int) {
+	tx.Input.Sequence = seq + 1
+}
+
 func (tx *Tx) SetAccount(pubKey crypto.PubKey) {
 	if tx.Input.Sequence == 1 {
 		tx.Input.PubKey = pubKey
@@ -70,8 +74,7 @@ func (tx *Tx) SetAccount(pubKey crypto.PubKey) {
 }
 
 func (tx *Tx) SetSignature(privKey crypto.PrivKey, chainID string) {
-	sig := privKey.Sign(tx.SignBytes(chainID))
-	tx.Input.Signature = sig
+	tx.Input.Signature = privKey.Sign(tx.SignBytes(chainID))
 }
 
 func (tx *Tx) String() string {

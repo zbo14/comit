@@ -9,7 +9,11 @@ import (
 	"github.com/zballs/3ii/actions"
 	"github.com/zballs/3ii/app"
 	// "github.com/zballs/3ii/types"
+	"github.com/tendermint/go-crypto"
+	"github.com/tendermint/go-p2p"
+	ntwk "github.com/zballs/3ii/network"
 	"github.com/zballs/3ii/web"
+	// "log"
 	"net/http"
 	"reflect"
 )
@@ -18,6 +22,8 @@ func main() {
 
 	addrPtr := flag.String("addr", "tcp://0.0.0.0:46658", "Listen address")
 	cliPtr := flag.String("cli", "local", "Client address, or 'local' for embedded")
+	feedPtr := flag.String("feed", "127.0.0.1:3111", "Feeds address")
+	peerPtr := flag.String("peer", "127.0.0.1:3112", "Peer address")
 	genFilePath := flag.String("genesis", "genesis.json", "Genesis file, if any")
 	flag.Parse()
 
@@ -45,12 +51,45 @@ func main() {
 		Exit("create listener: " + err.Error())
 	}
 
+	// Start the feed
+	feed := p2p.NewSwitch(ntwk.Config)
+	feed.SetNodeInfo(&p2p.NodeInfo{
+		Network: "testing",
+		Version: "311.311.311",
+	})
+	feed.SetNodePrivKey(crypto.GenPrivKeyEd25519())
+	feed.AddReactor("dept-feed", ntwk.DeptFeed) // just dept feed for now
+	l := p2p.NewDefaultListener("tcp", *feedPtr, false)
+	feed.AddListener(l)
+	feed.Start()
+
+	// listener routines
+	// Dept feed
+	/*
+		deptFeed := feed.Reactor("dept-feed").(*ntwk.MyReactor)
+		for _, chDesc := range deptFeed.GetChannels() {
+			chID := chDesc.ID
+			go func() {
+				idx := -1
+				for {
+					msg := deptFeed.GetLatestMsg(chID)
+					if msg.Counter == idx || msg.Bytes == nil {
+						continue
+					}
+					idx = msg.Counter
+					feed.Broadcast(chID, msg.Bytes)
+				}
+			}()
+		}
+	*/
+
 	web.RegisterTemplates(
 		"create_account.html",
 		"remove_account.html",
 		"submit_form.html",
 		"resolve_form.html",
 		"find_form.html",
+		"connect.html",
 		"feed.html",
 	)
 
@@ -60,17 +99,17 @@ func main() {
 		"submit_form",
 		"resolve_form",
 		"find_form",
+		"connect",
 		"feed",
 	)
 
+	// Start action listener
 	action_listener, err := actions.StartActionListener()
 	if err != nil {
 		Exit("action listener: " + err.Error())
 	}
 
-	// go action_listener.FeedUpdates()
-
-	action_listener.Run(app_)
+	action_listener.Run(app_, feed, *peerPtr)
 
 	js := web.JustFiles{http.Dir("static/")}
 	http.Handle("/", action_listener)
@@ -79,6 +118,7 @@ func main() {
 	http.HandleFunc("/submit_form", web.CustomHandler("submit_form.html"))
 	http.HandleFunc("/resolve_form", web.CustomHandler("resolve_form.html"))
 	http.HandleFunc("/find_form", web.CustomHandler("find_form.html"))
+	http.HandleFunc("/connect", web.CustomHandler("connect.html"))
 	http.HandleFunc("/feed", web.CustomHandler("feed.html"))
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(js)))
 	http.ListenAndServe(":8888", nil)

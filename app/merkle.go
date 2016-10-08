@@ -54,7 +54,7 @@ func (merk *MerkleApp) AppendTx(txBytes []byte) tmsp.Result {
 			return tmsp.ErrEncodingError.SetLog("Got bytes left over")
 		}
 		merk.tree.Set(key, value)
-		fmt.Println("SET", Fmt("%x", key), Fmt("%x", value))
+		fmt.Println("SET", Fmt("%X", key), Fmt("%X", value))
 	case 0x02:
 		if len(txBytes) != 0 {
 			return tmsp.ErrEncodingError.SetLog("Got bytes left over")

@@ -10,13 +10,8 @@ type Account struct {
 	Sequence int           `json:"sequence"`
 }
 
-func NewAccount(addr []byte) *Account {
-	var pubKey crypto.PubKeyEd25519
-	copy(pubKey[:], addr[:])
-	return &Account{
-		PubKey:   pubKey,
-		Sequence: 1,
-	}
+func NewAccount(pubKey crypto.PubKey) *Account {
+	return &Account{pubKey, 0}
 }
 
 func (acc *Account) Copy() *Account {

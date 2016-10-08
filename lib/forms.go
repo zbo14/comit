@@ -135,7 +135,6 @@ func (form *Form) Summary() string {
 	summary.WriteString(fmt.Sprintf(line, "service", form.Service))
 	summary.WriteString(fmt.Sprintf(line, "address", form.Address))
 	summary.WriteString(fmt.Sprintf(line, "description", form.Description))
-	summary.WriteString(fmt.Sprintf(line, "description", form.Description))
 	summary.WriteString(fmt.Sprintf(line, detail, form.Detail))
 	summary.WriteString(fmt.Sprintf(line, "status", status) + "<br></li>")
 	return summary.String()

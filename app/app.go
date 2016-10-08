@@ -1,6 +1,7 @@
 package app
 
 import (
+	"errors"
 	. "github.com/tendermint/go-common"
 	"github.com/tendermint/go-wire"
 	tmsp "github.com/tendermint/tmsp/types"
@@ -21,6 +22,7 @@ type App struct {
 }
 
 func NewApp(cli *Client) *App {
+
 	state := sm.NewState(cli)
 	return &App{
 		cli:        cli,
@@ -33,8 +35,12 @@ func (app *App) GetChainID() string {
 	return app.state.GetChainID()
 }
 
-func (app *App) Broadcast() {
-
+func (app *App) GetSequence(addr []byte) (int, error) {
+	acc := app.state.GetAccount(addr)
+	if acc == nil {
+		return 0, errors.New("Error could not find account")
+	}
+	return acc.Sequence, nil
 }
 
 // TMSP requests
@@ -96,7 +102,7 @@ func (app *App) CheckTx(txBytes []byte) tmsp.Result {
 		return tmsp.ErrBaseEncodingError.AppendLog("Error decoding tx: " + err.Error())
 	}
 	// Validate and exec tx
-	res := sm.ExecTx(app.cacheState, tx, true)
+	res := sm.ExecTx(app.state, tx, true)
 	if res.IsErr() {
 		return res.PrependLog("Error in CheckTx")
 	}

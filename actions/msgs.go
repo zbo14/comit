@@ -23,6 +23,8 @@ const (
 	resolve_form_failure = "<span style='color:red;'>Failed to resolve<br><strong>form ID</strong> <small>%v</small></span>"
 	resolve_form_success = "Resolved<br><strong>Form ID</strong> <small>%v</small>"
 
+	connect_failure = "<span style='color:red;'>Failed to connect to network</span>"
+
 	select_option = "<option value='%v'>%v</option>"
 
 /*

@@ -1,13 +1,12 @@
 package network
 
 import (
+	"fmt"
+	. "github.com/tendermint/go-common"
 	cfg "github.com/tendermint/go-config"
-	. "github.com/tendermint/go-crypto"
 	"github.com/tendermint/go-logger"
 	. "github.com/tendermint/go-p2p"
-	"github.com/zballs/3ii/types"
-	"net"
-	"time"
+	"sync"
 )
 
 const (
@@ -56,44 +55,39 @@ func setConfigDefaults(config cfg.Config) {
 	config.SetDefault(configFuzzProbSleep, 0.00)
 }
 
-var config cfg.Config
+var Config cfg.Config
 var Log = logger.New("module", "p2p")
 
 func init() {
-	config = cfg.NewMapConfig(nil)
-	setConfigDefaults(config)
+	Config = cfg.NewMapConfig(nil)
+	setConfigDefaults(Config)
 }
 
 //===================================================//
 
-// Reactor
-
 type PeerMessage struct {
 	PeerKey string
 	Bytes   []byte
+	Counter int
 }
 
 type MyReactor struct {
-	channels    []*ChannelDescriptor
-	peers       map[string]*Peer
-	msgsRecv    map[byte]chan PeerMessage
-	logMessages bool
 	BaseReactor
-	types.Gate
+
+	mtx          sync.Mutex
+	channels     []*ChannelDescriptor
+	peersAdded   []*Peer
+	peersRemoved []*Peer
+	logMessages  bool
+	msgsCounter  int
+	msgsReceived map[byte][]PeerMessage
 }
 
-func NewReactor(chs []*ChannelDescriptor, logMessages bool) *MyReactor {
-	peers := make(map[string]*Peer)
-	channels := make([]*ChannelDescriptor, 0)
-	msgsRecv := make(map[byte]chan PeerMessage)
-	for _, ch := range chs {
-		msgsRecv[ch.ID] = make(chan PeerMessage)
-	}
+func NewReactor(channels []*ChannelDescriptor, logMessages bool) *MyReactor {
 	mr := &MyReactor{
-		channels:    channels,
-		peers:       peers,
-		msgsRecv:    msgsRecv,
-		logMessages: logMessages,
+		channels:     channels,
+		logMessages:  logMessages,
+		msgsReceived: make(map[byte][]PeerMessage),
 	}
 	mr.BaseReactor = *NewBaseReactor(Log, "MyReactor", mr)
 	return mr
@@ -104,127 +98,83 @@ func (mr *MyReactor) GetChannels() []*ChannelDescriptor {
 }
 
 func (mr *MyReactor) AddPeer(peer *Peer) {
-	mr.Enter()
-	if mr.peers[peer.Key] == nil {
-		mr.peers[peer.Key] = peer
-	}
-	mr.Leave()
+	mr.mtx.Lock()
+	defer mr.mtx.Unlock()
+	mr.peersAdded = append(mr.peersAdded, peer)
 }
 
 func (mr *MyReactor) RemovePeer(peer *Peer, reason interface{}) {
-	mr.Enter()
-	if mr.peers[peer.Key] != nil {
-		delete(mr.peers, peer.Key)
-	}
-	mr.Leave()
+	mr.mtx.Lock()
+	defer mr.mtx.Unlock()
+	mr.peersRemoved = append(mr.peersRemoved, peer)
 }
 
 func (mr *MyReactor) Receive(chID byte, peer *Peer, msgBytes []byte) {
 	if mr.logMessages {
-		done := types.MakeNilChan()
-		go func() {
-			mr.msgsRecv[chID] <- PeerMessage{
-				peer.Key,
-				msgBytes,
-			}
-			done.Send()
-		}()
-		select {
-		case <-done:
-			return
-		}
+		mr.mtx.Lock()
+		defer mr.mtx.Unlock()
+		fmt.Printf("Received: %X, %X\n", chID, msgBytes)
+		mr.msgsReceived[chID] = append(mr.msgsReceived[chID], PeerMessage{peer.Key, msgBytes, mr.msgsCounter})
+		mr.msgsCounter++
 	}
 }
 
-func (mr *MyReactor) GetMsg(chID byte) PeerMessage {
-	move_on := types.MakeNilChan()
-	go func() {
-		time.Sleep(getMsgTimeout)
-		move_on.Send()
-	}()
-	select {
-	case msg := <-mr.msgsRecv[chID]:
-		return msg
-	case <-move_on:
+func (mr *MyReactor) getMsgs(chID byte) []PeerMessage {
+	mr.mtx.Lock()
+	defer mr.mtx.Unlock()
+	return mr.msgsReceived[chID]
+}
+
+func (mr *MyReactor) GetLatestMsg(chID byte) PeerMessage {
+	msgs := mr.getMsgs(chID)
+	if len(msgs) == 0 || mr.msgsCounter > len(msgs) {
 		return PeerMessage{}
 	}
+	return msgs[mr.msgsCounter-1]
 }
 
 //======================================================================================//
 
-// Channels
+// Create Channel Descriptors
 
+func CreateChDescs(mapChannelIDs map[string]byte) []*ChannelDescriptor {
+	chDescs := make([]*ChannelDescriptor, len(mapChannelIDs))
+	idx := 0
+	for _, ch := range mapChannelIDs {
+		chDescs[idx] = &ChannelDescriptor{
+			ID:       ch,
+			Priority: 1,
+		}
+		idx++
+	}
+	return chDescs
+}
+
+/*
+// Service Feed
 var ServiceChannelIDs = map[string]byte{
-	"street light out":             byte(0x10),
-	"pothole in street":            byte(0x11),
-	"rodent baiting/rat complaint": byte(0x12),
-	"tree trim":                    byte(0x13),
-	"garbage cart black maintenance/replacement": byte(0x14),
+	"street light out":             byte(0x11),
+	"pothole in street":            byte(0x12),
+	"rodent baiting/rat complaint": byte(0x13),
+	"tree trim":                    byte(0x14),
+	"garbage cart black maintenance/replacement": byte(0x15),
 }
-
-var DeptChannelIDs = map[string]byte{
-	// "general":        byte(0x00),
-	"infrastructure": byte(0x01),
-	"sanitation":     byte(0x02),
-}
+var ServiceChannelDescs = CreateChDescs(ServiceChannelIDs)
+var ServiceFeed = NewReactor(ServiceChannelDescs, true)
 
 func ServiceChannelID(service string) uint8 {
 	return ServiceChannelIDs[service]
 }
+*/
+
+// Dept Feed
+var DeptChannelIDs = map[string]byte{
+	"infrastructure": byte(0x01),
+	"sanitation":     byte(0x02),
+}
+var DeptChannelDescs = CreateChDescs(DeptChannelIDs)
+var DeptFeed = NewReactor(DeptChannelDescs, true)
 
 func DeptChannelID(dept string) uint8 {
 	return DeptChannelIDs[dept]
-}
-
-// Addresses
-
-const (
-	RecvrListenerAddr = "127.0.0.1:22222"
-)
-
-// Switches
-
-func CreateChannelDescriptors(channelIDs []byte) []*ChannelDescriptor {
-	chs := make([]*ChannelDescriptor, len(channelIDs))
-	for idx, _ := range chs {
-		chs[idx] = &ChannelDescriptor{
-			ID:       channelIDs[idx],
-			Priority: 10,
-		}
-	}
-	return chs
-}
-
-func CreateSwitch(privkey PrivKeyEd25519) (sw *Switch) {
-	sw = NewSwitch(config)
-	sw.SetNodeInfo(&NodeInfo{PubKey: privkey.PubKey().(PubKeyEd25519),
-		Network: "testing",
-		Version: "311.311.311",
-	})
-	sw.SetNodePrivKey(privkey)
-	return
-}
-
-func AddListener(sw *Switch, lAddr string) {
-	l := NewDefaultListener("tcp", lAddr, false)
-	sw.AddListener(l)
-}
-
-func AddReactor(sw *Switch, mapChannelIDs map[string]byte, name string) {
-	var channelIDs []byte
-	for _, chID := range mapChannelIDs {
-		channelIDs = append(channelIDs, chID)
-	}
-	sw.AddReactor(name, NewReactor(CreateChannelDescriptors(channelIDs), true))
-}
-
-func Connect2Switches(sw1 *Switch, sw2 *Switch) {
-	c1, c2 := net.Pipe()
-	go sw1.AddPeerWithConnection(c1, false) // AddPeer is blocking, requires handshake.
-	go sw2.AddPeerWithConnection(c2, true)
-	time.Sleep(100 * time.Millisecond * time.Duration(4))
-}
-
-func DialPeerWithAddr(sw *Switch, lAddr string) (*Peer, error) {
-	return sw.DialPeerWithAddress(NewNetAddressString(lAddr))
 }

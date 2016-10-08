@@ -8,7 +8,7 @@ import (
 // Hex string (for map indexing)
 
 func BytesToHexString(bytes []byte) string {
-	return fmt.Sprintf("%x", bytes)
+	return fmt.Sprintf("%X", bytes)
 }
 
 func HexStringToBytes(hexstr string) ([]byte, error) {

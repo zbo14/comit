@@ -1,0 +1,35 @@
+{{define "head"}}
+	<title>{{ .Title}}</title>
+{{end}}
+
+{{define "body"}}
+	<div class="container">
+		<h5 class="my-header">public key</h5>
+		<input type="text" id="pubKey" class="my-input"></input>
+		<br><br>
+		<h5 class="my-header">private key</h5>
+		<input type="password" id="privKey" class="my-input"></input>
+		<br><br>
+		<button type="button" id="connect" class="my-button">connect</button>
+		<br><br>
+		<p id="connect-msg"></p>
+	</div>
+	<script type="text/javascript">
+		$(function() {
+			var socket = io();
+			$('#connect').bind('click', function() {
+				var pubKeyString = $('#pubKey').val();
+				var privKeyString = $('#privKey').val();
+				socket.emit('connect-to-network', pubKeyString, privKeyString)
+				socket.on('connect-msg', function(msg) {
+					console.log(msg)
+					if (msg == "connected") {
+						window.location = "http://localhost:8888/feed";
+					} else {
+						$('#connect-msg').html(msg);
+					}
+				})
+			})
+		})
+	</script>
+{{end}}

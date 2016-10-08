@@ -30,19 +30,19 @@ func (c *Cache) Reset() {
 func (c *Cache) Set(key []byte, value []byte) {
 	c.gate.Enter()
 	defer c.gate.Leave()
-	fmt.Println("Set [Cache]", formatBytes(key, "hex"), "=", formatBytes(value, "string"))
+	fmt.Println("Set [Cache]", formatBytes(key, "hex"), "=", formatBytes(value, "hex"))
 	c.KVMap.Set(key, value)
 }
 
 func (c *Cache) Get(key []byte) (value []byte) {
 	value = c.KVMap.Get(key)
 	if value != nil {
-		fmt.Println("GET [Cache, hit]", formatBytes(key, "hex"), "=", formatBytes(value, "string"))
+		fmt.Println("GET [Cache, hit]", formatBytes(key, "hex"), "=", formatBytes(value, "hex"))
 		return
 	}
 	value = c.store.Get(key)
 	c.Set(key, value)
-	fmt.Println("GET [Cache, miss]", formatBytes(key, "hex"), "=", formatBytes(value, "string"))
+	fmt.Println("GET [Cache, miss]", formatBytes(key, "hex"), "=", formatBytes(value, "hex"))
 	return
 }
 
@@ -61,7 +61,7 @@ func formatBytes(data []byte, mode string) (str string) {
 			if 0x21 <= b && b < 0x7F {
 				str += Green(string(b))
 			} else {
-				str += Red("?")
+				str += " "
 			}
 		}
 	} else if mode == "hex" {
