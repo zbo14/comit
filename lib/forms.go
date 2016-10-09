@@ -21,8 +21,10 @@ type Form struct {
 
 	//==============//
 
-	Resolved     string
-	ResponseTime float64 `wire:"unsafe"`
+	Status     string
+	ResolvedBy string
+	ResolvedAt string
+	// ResponseTime float64 `wire:"unsafe"`
 }
 
 // Functional Options
@@ -42,37 +44,37 @@ func NewForm(items ...Item) (*Form, error) {
 
 func setPosted(timestr string) Item {
 	return func(form *Form) error {
-		(*form).Posted = timestr
+		form.Posted = timestr
 		return nil
 	}
 }
 
 func setService(str string) Item {
 	return func(form *Form) error {
-		(*form).Service = SERVICE.ReadField(str, "service")
+		form.Service = SERVICE.ReadField(str, "service")
 		return nil
 	}
 }
 
 func setAddress(str string) Item {
 	return func(form *Form) error {
-		(*form).Address = SERVICE.ReadField(str, "address")
+		form.Address = SERVICE.ReadField(str, "address")
 		return nil
 	}
 }
 
 func setDescription(str string) Item {
 	return func(form *Form) error {
-		(*form).Description = SERVICE.ReadField(str, "description")
+		form.Description = SERVICE.ReadField(str, "description")
 		return nil
 	}
 }
 
 func setDetail(str string) Item {
 	return func(form *Form) error {
-		service := (*form).Service
+		service := form.Service
 		if len(service) > 0 {
-			(*form).Detail = SERVICE.ReadDetail(str, service)
+			form.Detail = SERVICE.ReadDetail(str, service)
 			return nil
 		}
 		return errors.New("cannot set form detail without service")
@@ -86,19 +88,12 @@ func MakeForm(str string) (*Form, error) {
 		setService(str),
 		setAddress(str),
 		setDescription(str),
-		setDetail(str),
-	)
+		setDetail(str))
 	if err != nil {
 		return nil, err
 	}
+	form.Status = "unresolved"
 	return form, nil
-}
-
-func CheckStatus(timestr string) string {
-	if len(timestr) == 0 {
-		return "unresolved"
-	}
-	return fmt.Sprintf("resolved %v", ToTheMinute(timestr))
 }
 
 func (form *Form) ID() []byte {
@@ -122,8 +117,15 @@ func (form *Form) ID() []byte {
 }
 
 func (form *Form) Summary() string {
+	if form.Resolved() {
+		status := fmt.Sprintf(
+			"resolved at %v by %v",
+			form.ResolvedAt,
+			form.ResolvedBy)
+	} else {
+		status := "unresolved"
+	}
 	posted := ToTheMinute(form.Posted)
-	status := CheckStatus(form.Resolved)
 	sd := SERVICE.ServiceDetail(form.Service)
 	detail := "no options"
 	if sd != nil {
@@ -170,7 +172,7 @@ func MatchForm(str string, form *Form) bool {
 	}
 	status := SERVICE.ReadField(str, "status")
 	if len(status) > 0 {
-		if !(status == CheckStatus(form.Resolved)) {
+		if !(status == form.Status) {
 			return false
 		}
 	}
@@ -179,13 +181,17 @@ func MatchForm(str string, form *Form) bool {
 
 //=========================================//
 
-func (form *Form) Resolve(timestr string) error {
-	if len(form.Resolved) > 0 {
+func (form *Form) Resolved() bool {
+	return form.Status == "resolved"
+}
+
+func (form *Form) Resolve(timestr, pubKeyString string) error {
+	if form.Resolved() {
 		return errors.New("form already resolved")
 	}
-	form.Resolved = timestr
-	form.ResponseTime = DurationHours(
-		form.Posted, form.Resolved)
+	form.Status = "resolved"
+	form.ResolvedAt = timestr
+	form.ResolvedBy = pubKeyString
 	return nil
 }
 

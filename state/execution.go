@@ -124,7 +124,9 @@ func RunResolveTx(state *State, ctx types.CallContext, data []byte) (res tmsp.Re
 		return tmsp.ErrEncodingError.SetLog(
 			Fmt("Error parsing form bytes: %v", err.Error()))
 	}
-	err = (&form).Resolve(TimeString())
+	timestr := TimeString()
+	pubKeyString := BytesToHexString(ctx.Caller)
+	err = (&form).Resolve(timestr, pubKeyString)
 	if err != nil {
 		return tmsp.NewResult(
 			lib.ErrFormAlreadyResolved, nil, Fmt("Error already resolved form with ID: %v", formID))

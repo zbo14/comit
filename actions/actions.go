@@ -28,24 +28,25 @@ func StartActionListener() (ActionListener, error) {
 
 func (al ActionListener) UpdateFeed(sw *p2p.Switch) {
 	deptFeed := sw.Reactor("dept-feed").(*ntwk.MyReactor)
-	log.Println(deptFeed.GetChannels())
 	for dept, chID := range ntwk.DeptChannelIDs {
 		go func(dept string, chID byte) {
-			log.Printf("DEPT %v, CH %X", dept, chID)
+			// log.Printf("DEPT %v, CH %X", dept, chID)
 			idx := -1
+		FOR_LOOP:
 			for {
 				msg := deptFeed.GetLatestMsg(chID)
 				if msg.Counter == idx || msg.Bytes == nil {
 					// time.Sleep?
-					continue
+					continue FOR_LOOP
 				}
 				idx = msg.Counter
 				var form lib.Form
 				err := wire.ReadBinaryBytes(msg.Bytes[2:], &form)
 				if err != nil {
 					log.Println("ERROR " + err.Error())
-					continue
+					continue FOR_LOOP
 				}
+				log.Println(Fmt("%v-update", dept))
 				al.BroadcastTo(
 					"feed",
 					Fmt("%v-update", dept),
@@ -61,7 +62,11 @@ func (al ActionListener) UpdateFeed(sw *p2p.Switch) {
 }
 
 func (al ActionListener) SendMsg(app_ *app.App, peer *p2p.Peer, key []byte) error {
-	query := append([]byte{0x02}, key...)
+	query := make([]byte, wire.ByteSliceSize(key)+1)
+	buf := query
+	buf[0] = 0x02
+	buf = buf[1:]
+	wire.PutByteSlice(buf, key)
 	res := app_.Query(query)
 	if res.IsErr() {
 		return errors.New(res.Error())
@@ -153,8 +158,8 @@ func (al ActionListener) Run(app_ *app.App, feed *p2p.Switch, peerAddr string) {
 					log.Println(err.Error())
 					so.Emit("connect-msg", connect_failure)
 				} else {
-					so.Join("feed")
 					so.Emit("connect-msg", "connected")
+					so.Join("feed")
 					al.UpdateFeed(peer_sw)
 				}
 			}
@@ -432,53 +437,32 @@ func (al ActionListener) Run(app_ *app.App, feed *p2p.Switch, peerAddr string) {
 			}
 			var treesize int
 			wire.ReadBinaryBytes(res.Data, &treesize)
-			var form lib.Form
 			for i := 0; i < treesize; i++ {
-				length := len(wire.BinaryBytes(i))
-				bz := make([]byte, length)
-				n, err := wire.PutVarint(bz, i)
-				if err != nil {
-					log.Panic(err)
-				}
-				bz = bz[:n]
-				query := make([]byte, wire.ByteSliceSize(bz)+1)
+				query := make([]byte, 100)
 				buf2 := query
 				buf2[0] = 0x03
 				buf2 = buf2[1:]
-				wire.PutByteSlice(buf2, bz)
+				n, err := wire.PutVarint(buf2, i)
+				if err != nil {
+					log.Panic(err)
+				}
+				query = query[:n+1]
 				res = app_.Query(query)
 				if res.IsErr() {
 					log.Panic(err)
 				}
+				var form lib.Form
 				err = wire.ReadBinaryBytes(res.Data, &form)
 				if err != nil {
-					log.Panic(err)
+					// Ok, maybe account not form
+					continue
 				}
 				log.Println((&form).Summary())
-				match := lib.MatchForm(buf.String(), &form)
-				if match {
-					so.On("search-forms-msg", (&form).Summary())
+				if match := lib.MatchForm(buf.String(), &form); match {
+					so.Emit("search-forms-msg", (&form).Summary())
 				}
 			}
 		})
-
-		/*
-			// Metrics
-			so.On("calculate", func(metric string, category string, values []string, pubKeyString string, passphrase string) {
-				err := app_.UserManager().Authorize(pubKeyString, passphrase)
-				if err != nil {
-					log.Println(err.Error())
-					so.Emit("metric-msg", unauthorized)
-				} else {
-					output, err := app_.Cache().Calculate(metric, category, values...)
-					if err != nil {
-						so.Emit("metric-msg", calc_metric_failure)
-					} else {
-						so.Emit("metric-msg", Fmt(calc_metric_success, metric, output))
-					}
-				}
-			})
-		*/
 
 		// Disconnect
 		al.On("disconnection", func() {
@@ -491,19 +475,3 @@ func (al ActionListener) Run(app_ *app.App, feed *p2p.Switch, peerAddr string) {
 		log.Println(err.Error())
 	})
 }
-
-/*
-	so.On("get-values", func(category string) {
-		var msg bytes.Buffer
-		if category == "services" {
-			for _, service := range lib.SERVICE.Services() {
-				msg.WriteString(Fmt(select_option, service, service))
-			}
-		} else if category == "depts" {
-			for dept, _ := range lib.SERVICE.Depts() {
-				msg.WriteString(Fmt(select_option, dept, dept))
-			}
-		}
-		so.Emit("values", msg.String())
-	})
-*/

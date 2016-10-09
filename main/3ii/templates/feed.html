@@ -26,8 +26,10 @@
 			$("ul").attr("id", $("#dept-feed").val());
 		})
 		$.map(depts, function(dept) {
-			return socket.on(dept + "-update", function(update) {
+			var dept_update = dept + "-update";
+			return socket.on(dept_update, function(update) {
 				if ($("ul").attr("id") == dept) {
+					console.log(update)
 					$("ul").append(update);
 				}
 			})

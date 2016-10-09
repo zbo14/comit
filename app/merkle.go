@@ -132,8 +132,10 @@ func (merk *MerkleApp) Query(query []byte) tmsp.Result {
 			return tmsp.ErrEncodingError.SetLog(
 				Fmt("Error getting index: %v", err.Error()))
 		}
+		fmt.Printf("INDEX %d\n", index)
 		query = query[n:]
 		if len(query) != 0 {
+			fmt.Println(query)
 			return tmsp.ErrEncodingError.SetLog(
 				Fmt("Got bytes left over"))
 		}
