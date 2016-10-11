@@ -117,13 +117,12 @@ func (form *Form) ID() []byte {
 }
 
 func (form *Form) Summary() string {
+	status := "unresolved"
 	if form.Resolved() {
-		status := fmt.Sprintf(
+		status = fmt.Sprintf(
 			"resolved at %v by %v",
 			form.ResolvedAt,
 			form.ResolvedBy)
-	} else {
-		status := "unresolved"
 	}
 	posted := ToTheMinute(form.Posted)
 	sd := SERVICE.ServiceDetail(form.Service)

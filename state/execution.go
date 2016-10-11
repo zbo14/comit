@@ -90,10 +90,12 @@ func ExecTx(state *State, tx types.Tx, isCheckTx bool) (res tmsp.Result) {
 //=====================================================================//
 
 func RunCreateAccountTx(state *State, ctx types.CallContext, data []byte) tmsp.Result {
+	// Just return OK
 	return tmsp.OK
 }
 
 func RunRemoveAccountTx(state *State, ctx types.CallContext, data []byte) tmsp.Result {
+	// Return key so we can remove in AppendTx
 	key := AccountKey(ctx.Caller)
 	return tmsp.NewResultOK(key, "")
 }

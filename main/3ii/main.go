@@ -105,8 +105,8 @@ func main() {
 		"feed",
 	)
 
-	// Start action listener
-	action_listener, err := actions.StartActionListener()
+	// Create action listener
+	action_listener, err := actions.CreateActionListener()
 	if err != nil {
 		Exit("action listener: " + err.Error())
 	}

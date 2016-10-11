@@ -21,7 +21,7 @@ type ActionListener struct {
 	*socketio.Server
 }
 
-func StartActionListener() (ActionListener, error) {
+func CreateActionListener() (ActionListener, error) {
 	server, err := socketio.NewServer(nil)
 	return ActionListener{server}, err
 }
@@ -313,11 +313,13 @@ func (al ActionListener) Run(app_ *app.App, feed *p2p.Switch, peerAddr string) {
 				formID := BytesToHexString(res.Data)
 				so.Emit("submit-form-msg", Fmt(submit_form_success, formID))
 				log.Printf("SUCCESS submitted form with ID: %v", formID)
-				peer := feed.Peers().Get(pubKeyString)
-				if peer != nil {
-					err := al.SendMsg(app_, peer, res.Data)
-					if err != nil {
-						log.Println(err.Error())
+				if feed != nil {
+					peer := feed.Peers().Get(pubKeyString)
+					if peer != nil {
+						err := al.SendMsg(app_, peer, res.Data)
+						if err != nil {
+							log.Println(err.Error())
+						}
 					}
 				}
 			} else if res.Log == ExtractText(form_already_exists) {
