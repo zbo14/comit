@@ -6,12 +6,17 @@ import (
 )
 
 type Account struct {
-	PubKey   crypto.PubKey `json:"pub_key"`
-	Sequence int           `json:"sequence"`
+	PubKey     crypto.PubKey `json:"pub_key"`
+	Sequence   int           `json:"sequence"`
+	permission int           `json:"permission"`
 }
 
-func NewAccount(pubKey crypto.PubKey) *Account {
-	return &Account{pubKey, 0}
+func NewAccount(pubKey crypto.PubKey, permission int) *Account {
+	return &Account{
+		PubKey:     pubKey,
+		Sequence:   0,
+		permission: permission,
+	}
 }
 
 func (acc *Account) Copy() *Account {
@@ -25,6 +30,14 @@ func (acc *Account) String() string {
 	}
 	return fmt.Sprintf("Account {%X %v}",
 		acc.PubKey, acc.Sequence)
+}
+
+func (acc *Account) PermissionToResolve() bool {
+	return acc.permission >= 1
+}
+
+func (acc *Account) PermissionToAddAdmin() bool {
+	return acc.permission >= 2
 }
 
 type PrivAccount struct {

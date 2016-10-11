@@ -27,7 +27,7 @@ func ExecTx(state *State, tx types.Tx, isCheckTx bool) (res tmsp.Result) {
 	if tx.Type == types.CreateAccountTx {
 		// Create new account
 		// Must have txIn pubKey
-		inAcc = types.NewAccount(tx.Input.PubKey)
+		inAcc = types.NewAccount(tx.Input.PubKey, 0)
 	} else {
 		// Get input account
 		inAcc = state.GetAccount(tx.Input.Address)
@@ -61,7 +61,6 @@ func ExecTx(state *State, tx types.Tx, isCheckTx bool) (res tmsp.Result) {
 
 	// Run the tx.
 	cacheState := state.CacheWrap()
-	fmt.Println(*inAcc)
 	cacheState.SetAccount(tx.Input.Address, inAcc)
 	ctx := types.NewCallContext(tx.Input.Address)
 	switch tx.Type {
@@ -72,7 +71,11 @@ func ExecTx(state *State, tx types.Tx, isCheckTx bool) (res tmsp.Result) {
 	case types.SubmitTx:
 		res = RunSubmitTx(cacheState, ctx, tx.Data)
 	case types.ResolveTx:
-		res = RunResolveTx(cacheState, ctx, tx.Data)
+		if !inAcc.PermissionToResolve() {
+			res = tmsp.ErrUnauthorized
+		} else {
+			res = RunResolveTx(cacheState, ctx, tx.Data)
+		}
 	default:
 		res = tmsp.ErrUnknownRequest.SetLog(
 			Fmt("Error unrecognized tx type: %v", tx.Type))
