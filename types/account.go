@@ -36,7 +36,7 @@ func (acc *Account) PermissionToResolve() bool {
 	return acc.permission >= 1
 }
 
-func (acc *Account) PermissionToAddAdmin() bool {
+func (acc *Account) PermissionToCreateAdmin() bool {
 	return acc.permission >= 2
 }
 

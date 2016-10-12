@@ -85,6 +85,7 @@ func main() {
 
 	web.RegisterTemplates(
 		"create_account.html",
+		"create_admin.html",
 		"remove_account.html",
 		"submit_form.html",
 		"resolve_form.html",
@@ -96,6 +97,7 @@ func main() {
 
 	web.CreatePages(
 		"create_account",
+		"create_admin",
 		"remove_account",
 		"submit_form",
 		"resolve_form",
@@ -116,6 +118,7 @@ func main() {
 	js := web.JustFiles{http.Dir("static/")}
 	http.Handle("/", action_listener)
 	http.HandleFunc("/create_account", web.CustomHandler("create_account.html"))
+	http.HandleFunc("/create_admin", web.CustomHandler("create_admin.html"))
 	http.HandleFunc("/remove_account", web.CustomHandler("remove_account.html"))
 	http.HandleFunc("/submit_form", web.CustomHandler("submit_form.html"))
 	http.HandleFunc("/resolve_form", web.CustomHandler("resolve_form.html"))

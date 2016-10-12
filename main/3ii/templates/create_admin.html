@@ -4,20 +4,23 @@
 
 {{define "body"}}
 	<div class="container">
+		<h5 class="my-header">secret</h5>
+		<input type="password" id="secret" class="my-input"></input>
+		<br><br>
 		<h5 class="my-header" id="pubKey-label">public key</h5>
 		<input type="text" id="pubKey" class="my-input"></input>
 		<br><br>
 		<h5 class="my-header">private key</h5>
 		<input type="password" id="privKey" class="my-input"></input>
 		<br><br>
-		<button type="button" id="remove-account" class="my-button">remove account</button>
+		<button type="button" id="create-admin" class="my-button">create admin</button>
 		<br><br>
-		<p id="remove-account-msg"></p>
+		<p id="create-admin-msg" style="display: hidden;"></p>
 	</div>
 	<script type="text/javascript">
 		$(function() {
 			var socket = io();
-			$('#remove-account').bind('click', function() {
+			$('#create-admin').bind('click', function() {
 				var valid_entry = true;
 				var pubKeyString = $('#pubKey').val();
 				if (pubKeyString.length == 0) {
@@ -31,10 +34,10 @@
 				}
 				if (valid_entry) {
 					$('#pubKey-label').html("<span style='color:black;'>public key</span>"); 
-					$('#privKey-label').html("<span style='color:black;'>private key</span>"); 
-					socket.emit('remove-account', pubKeyString, privKeyString)
-					socket.on('remove-account-msg', function(msg) {
-						$('#remove-account-msg').html(msg)
+					$('#privKey-label').html("<span style='color:black;'>private key</span>");
+					socket.emit('create-admin', pubKeyString, privKeyString)
+					socket.on('create-admin-msg', function(msg) {
+						$('#create-admin-msg').show(100, "linear").html(msg)
 					})
 				}
 			})

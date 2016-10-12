@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	. "github.com/tendermint/go-common"
+	"github.com/tendermint/go-crypto"
 	"github.com/tendermint/go-wire"
 	tmsp "github.com/tendermint/tmsp/types"
 	"github.com/zballs/3ii/lib"
@@ -76,6 +77,12 @@ func ExecTx(state *State, tx types.Tx, isCheckTx bool) (res tmsp.Result) {
 		} else {
 			res = RunResolveTx(cacheState, ctx, tx.Data)
 		}
+	case types.CreateAdminTx:
+		if !inAcc.PermissionToCreateAdmin() {
+			res = tmsp.ErrUnauthorized
+		} else {
+			res = RunCreateAdminTx(cacheState, ctx, tx.Data)
+		}
 	default:
 		res = tmsp.ErrUnknownRequest.SetLog(
 			Fmt("Error unrecognized tx type: %v", tx.Type))
@@ -95,6 +102,29 @@ func ExecTx(state *State, tx types.Tx, isCheckTx bool) (res tmsp.Result) {
 func RunCreateAccountTx(state *State, ctx types.CallContext, data []byte) tmsp.Result {
 	// Just return OK
 	return tmsp.OK
+}
+
+func RunCreateAdminTx(state *State, ctx types.CallContext, data []byte) tmsp.Result {
+
+	// Create keys
+	pubKey, privKey := CreateKeys(data)
+
+	// Create new admin
+	newAcc := types.NewAccount(pubKey, 1)
+
+	buf, n, err := new(bytes.Buffer), int(0), error(nil)
+	wire.WriteBinary(*newAcc, buf, &n, &err)
+	state.SetAccount(pubKey.Address(), buf.Bytes())
+
+	// Create pubKey, privKey pair
+	keyPair := struct {
+		crypto.PubKey
+		crypto.PrivKey
+	}{pubKey, privKey}
+
+	buf, n, err = new(bytes.Buffer), int(0), error(nil)
+	wire.WriteBinary(&keypair, buf, &n, &err)
+	return tmsp.NewResultOK(buf.Bytes(), "")
 }
 
 func RunRemoveAccountTx(state *State, ctx types.CallContext, data []byte) tmsp.Result {

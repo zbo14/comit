@@ -7,13 +7,13 @@ import (
 
 // Account keys
 
-func GenerateSecret(passwordBytes []byte) []byte {
-	secret, _ := bcrypt.GenerateFromPassword(passwordBytes, 0)
+func GenerateSecret(secretBytes []byte) []byte {
+	secret, _ := bcrypt.GenerateFromPassword(secretBytes, 0)
 	return secret
 }
 
-func CreateKeys(passwordBytes []byte) (crypto.PubKeyEd25519, crypto.PrivKeyEd25519) {
-	secret := GenerateSecret(passwordBytes)
+func CreateKeys(secretBytes []byte) (crypto.PubKeyEd25519, crypto.PrivKeyEd25519) {
+	secret := GenerateSecret(secretBytes)
 	privKey := crypto.GenPrivKeyEd25519FromSecret(secret)
 	pubKey := privKey.PubKey().(crypto.PubKeyEd25519)
 	return pubKey, privKey

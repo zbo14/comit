@@ -62,7 +62,7 @@
 			}
 			var detail = $('#detail').val();
 			var detail_label = $('#detail-label').text();
-			if ((detail == null) && (detail_label != "no options")) {
+			if ((detail.length == 0) && (detail_label != "no options")) {
 				$('#detail-label').html("<span style='color:red;'>select option</span>"); 
 				valid_entry = false;
 			}

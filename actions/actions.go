@@ -191,7 +191,7 @@ func (al ActionListener) Run(app_ *app.App, feed *p2p.Switch, peerAddr string) {
 			tx.Data = []byte(secret)
 
 			// Set Sequence, Account, Signature
-			pubKey, privKey := CreateKeys(tx.Data)
+			pubKey, privKey := CreateKeys(tx.Data) // create keys now
 			tx.Input.Sequence = 1
 			tx.SetAccount(pubKey)
 			tx.SetSignature(privKey, app_.GetChainID())
@@ -211,6 +211,71 @@ func (al ActionListener) Run(app_ *app.App, feed *p2p.Switch, peerAddr string) {
 				so.Emit("create-account-msg", msg)
 				log.Printf("SUCCESS created account with pubKey: %v", pubKeyString)
 			}
+		})
+
+		// Create admin
+		so.On("create-admin", func(secret, pubKeyString, privKeyString string) {
+
+			// Create Tx
+			var tx = types.Tx{}
+			tx.Type = types.CreateAdminTx
+
+			// Secret
+			tx.Data = []byte(secret) // create keys later
+
+			// PubKey
+			var pubKey = crypto.PubKeyEd25519{}
+			pubKeyBytes, err := HexStringToBytes(pubKeyString)
+			if err != nil {
+				so.Emit("create-admin-msg", Fmt(invalid_hex, pubKeyString))
+				log.Panic(err)
+			}
+			copy(pubKey[:], pubKeyBytes[:])
+
+			// PrivKey
+			var privKey = crypto.PrivKeyEd25519{}
+			privKeyBytes, err := HexStringToBytes(privKeyString)
+			if err != nil {
+				so.Emit("create-admin-msg", Fmt(invalid_hex, privKeyString))
+				log.Panic(err)
+			}
+			copy(privKey[:], privKeyBytes[:])
+
+			// Set Sequence, Account, Signature
+			seq, err := app_.GetSequence(pubKey.Address())
+			if err != nil {
+				so.Emit("create-admin-msg", create_admin_failure)
+				log.Panic(err)
+			}
+			tx.SetSequence(seq)
+			tx.SetAccount(pubKey)
+			tx.SetSignature(privKey, app_.GetChainID())
+
+			// TxBytes in AppendTx request
+			txBuf, n, err := new(bytes.Buffer), int(0).error(nil)
+			wire.WriteBinary(&tx, txBuf, &n, &err)
+			res := app_.AppendTx(txBuf.Bytes())
+
+			if res.IsErr() {
+				so.Emit("create-admin-msg", create_admin_failure)
+				log.Println(res.Error())
+			} else {
+				var keyPair struct {
+					crypto.PubKey
+					crypto.PrivKey
+				}
+				err = wire.ReadBinaryBytes(res.Data, &keyPair)
+				if err != nil {
+					so.Emit("create-admin-msg", create_admin_failure) // for now
+					log.Println(res.Error())
+				}
+				pubKeyString = BytesToHexString(keyPair.PubKey.(crypto.PubKeyEd25519)[:])
+				privKeyString = BytesToHexString(keyPair.PrivKey.(crypto.PrivKeyEd25519)[:])
+				msg := Fmt(create_admin_success, pubKeyString, privKeyString)
+				so.Emit("create-admin-msg", msg)
+				log.Printf("SUCCESS created admin with pubKey: %v", pubKeyString)
+			}
+
 		})
 
 		so.On("remove-account", func(pubKeyString, privKeyString string) {

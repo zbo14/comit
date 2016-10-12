@@ -14,6 +14,8 @@ const (
 	RemoveAccountTx = 0x02
 	SubmitTx        = 0x03
 	ResolveTx       = 0x04
+	CreateAdminTx   = 0x05
+	RemoveAdminTx   = 0x06
 
 	// Errors
 	ErrUnexpectedData       = 1311
