@@ -65,6 +65,12 @@ func init() {
 
 //===================================================//
 
+func waitGroup1() *sync.WaitGroup {
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
+	return wg
+}
+
 type PeerMessage struct {
 	PeerKey string
 	Bytes   []byte
@@ -74,19 +80,30 @@ type PeerMessage struct {
 type MyReactor struct {
 	BaseReactor
 
-	mtx          sync.Mutex
+	mtx *sync.Mutex
+	wgs map[byte]*sync.WaitGroup
+
 	channels     []*ChannelDescriptor
 	peersAdded   []*Peer
 	peersRemoved []*Peer
 	logMessages  bool
-	msgsCounter  int
+	msgCounters  map[byte]int //counter for each channel
 	msgsReceived map[byte][]PeerMessage
 }
 
 func NewReactor(channels []*ChannelDescriptor, logMessages bool) *MyReactor {
+	mtx := &sync.Mutex{}
+	wgs := make(map[byte]*sync.WaitGroup)
+	for _, ch := range channels {
+		wgs[ch.ID] = waitGroup1()
+	}
+
 	mr := &MyReactor{
+		mtx:          mtx,
+		wgs:          wgs,
 		channels:     channels,
 		logMessages:  logMessages,
+		msgCounters:  make(map[byte]int),
 		msgsReceived: make(map[byte][]PeerMessage),
 	}
 	mr.BaseReactor = *NewBaseReactor(Log, "MyReactor", mr)
@@ -114,8 +131,14 @@ func (mr *MyReactor) Receive(chID byte, peer *Peer, msgBytes []byte) {
 		mr.mtx.Lock()
 		defer mr.mtx.Unlock()
 		fmt.Printf("Received: %X, %X\n", chID, msgBytes)
-		mr.msgsReceived[chID] = append(mr.msgsReceived[chID], PeerMessage{peer.Key, msgBytes, mr.msgsCounter})
-		mr.msgsCounter++
+		counter := mr.msgCounters[chID]
+		peer_msg := PeerMessage{peer.Key, msgBytes, counter}
+		mr.msgsReceived[chID] = append(mr.msgsReceived[chID], peer_msg)
+		if counter == 0 {
+			wg := mr.wgs[chID]
+			wg.Done()
+		}
+		mr.msgCounters[chID] = counter + 1
 	}
 }
 
@@ -127,10 +150,15 @@ func (mr *MyReactor) getMsgs(chID byte) []PeerMessage {
 
 func (mr *MyReactor) GetLatestMsg(chID byte) PeerMessage {
 	msgs := mr.getMsgs(chID)
-	if len(msgs) == 0 || mr.msgsCounter > len(msgs) {
-		return PeerMessage{}
+	if len(msgs) == 0 {
+		wg := mr.wgs[chID]
+		// fmt.Println("waiting for message...")
+		wg.Wait()
+		delete(mr.wgs, chID)
+		msgs = mr.getMsgs(chID)
 	}
-	return msgs[mr.msgsCounter-1]
+	latest := len(msgs) - 1
+	return msgs[latest]
 }
 
 //======================================================================================//

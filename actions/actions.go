@@ -14,6 +14,7 @@ import (
 	"github.com/zballs/3ii/types"
 	. "github.com/zballs/3ii/util"
 	"log"
+	"time"
 )
 
 type ActionListener struct {
@@ -133,8 +134,9 @@ func (al ActionListener) Run(app_ *app.App, feed *p2p.Switch, peerAddr string) {
 				FOR_LOOP:
 					for {
 						msg := deptFeed.GetLatestMsg(chID)
-						if msg.Counter == idx || msg.Bytes == nil {
-							// time.Sleep?
+						if msg.Counter == idx {
+							time.Sleep(time.Second * 30)
+							runtime.Gosched()
 							continue FOR_LOOP
 						}
 						idx = msg.Counter
@@ -146,7 +148,6 @@ func (al ActionListener) Run(app_ *app.App, feed *p2p.Switch, peerAddr string) {
 						}
 						log.Println(Fmt("%v-update", dept))
 						so.Emit(Fmt("%v-update", dept), (&form).Summary())
-						// time.Sleep?
 					}
 				}(dept, chID)
 			}
