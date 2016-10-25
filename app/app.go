@@ -13,6 +13,10 @@ import (
 const (
 	version   = "0.1"
 	maxTxSize = 10240
+
+	querySize    = 0x01
+	queryByKey   = 0x02
+	queryByIndex = 0x03
 )
 
 type App struct {
@@ -22,7 +26,6 @@ type App struct {
 }
 
 func NewApp(cli *Client) *App {
-
 	state := sm.NewState(cli)
 	return &App{
 		cli:        cli,
@@ -41,6 +44,71 @@ func (app *App) GetSequence(addr []byte) (int, error) {
 		return 0, errors.New("Error could not find account")
 	}
 	return acc.Sequence, nil
+}
+
+func (app *App) GetSize() int {
+	res := app.Query([]byte{querySize})
+	var s int
+	wire.ReadBinaryBytes(res.Data, &s)
+	return s
+}
+
+func (app *App) FilterFunc(filters []string) func(data []byte) bool {
+	return app.state.FilterFunc(filters)
+}
+
+func (app *App) QueryByKey(bz []byte) tmsp.Result {
+	query := make([]byte, wire.ByteSliceSize(bz)+1)
+	buf := query
+	buf[0] = queryByKey
+	buf = buf[1:]
+	wire.PutByteSlice(buf, bz)
+	res := app.Query(query)
+	return res
+}
+
+func (app *App) QueryByIndex(i int) tmsp.Result {
+	query := make([]byte, 100)
+	buf := query
+	buf[0] = queryByIndex
+	buf = buf[1:]
+	n, err := wire.PutVarint(buf, i)
+	if err != nil {
+		return tmsp.ErrInternalError
+	}
+	query = query[:n+1]
+	res := app.Query(query)
+	return res
+}
+
+// Run in goroutine
+func (app *App) Iterate(fun func(data []byte) bool, out chan []byte, errs chan error) {
+	for i := 0; i < app.GetSize(); i++ {
+		res := app.QueryByIndex(i)
+		if res.IsErr() {
+			errs <- errors.New(res.Error())
+		}
+		if !fun(res.Data) {
+			continue
+		}
+		out <- res.Data
+	}
+	close(out)
+	close(errs)
+}
+
+func (app *App) IterateNext(fun func(data []byte) bool, in, out chan []byte) {
+	for {
+		data, more := <-in
+		if more {
+			if !fun(data) {
+				continue
+			}
+			out <- data
+		} else {
+			break
+		}
+	}
 }
 
 // TMSP requests

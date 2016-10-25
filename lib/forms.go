@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	// "github.com/tendermint/go-wire"
 	. "github.com/zballs/3ii/util"
 	"time"
 )
@@ -96,14 +97,7 @@ func MakeForm(str string) (*Form, error) {
 	return form, nil
 }
 
-func (form *Form) ID() []byte {
-	bytes := make([]byte, 16)
-	daystr := ToTheDay(form.Posted)
-	items := []string{
-		daystr,
-		form.Service,
-		form.Address,
-	}
+func XOR(bytes []byte, items ...string) []byte {
 	for _, item := range items {
 		for idx, _ := range bytes {
 			if idx < len(item) {
@@ -113,6 +107,13 @@ func (form *Form) ID() []byte {
 			}
 		}
 	}
+	return bytes
+}
+
+func (form *Form) ID() []byte {
+	bytes := make([]byte, 16)
+	daystr := ToTheDay(form.Posted)
+	bytes = XOR(bytes, daystr, form.Service) //form.Address
 	return bytes
 }
 

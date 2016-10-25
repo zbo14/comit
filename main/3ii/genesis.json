@@ -1,5 +1,5 @@
 [
-	"base/chainID", "3ii",
+	"base/chainID", "comit",
 	"base/account", {
 		"pub_key": [1, "4252C8CC36B12BA8D5F45803D6D423DF91E1D72FB23257A688F3FAE14E8B337F"],
 		"permission": 2

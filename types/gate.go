@@ -5,6 +5,9 @@ type Gate struct {
 	done NilChan
 }
 
+// TODO: test
+// more performant than mutex??
+
 func MakeGate() Gate {
 	gate := MakeNilChan()
 	done := MakeNilChan()

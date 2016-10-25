@@ -62,12 +62,7 @@ func (al ActionListener) UpdateFeed(sw *p2p.Switch) {
 }
 
 func (al ActionListener) SendMsg(app_ *app.App, peer *p2p.Peer, key []byte) error {
-	query := make([]byte, wire.ByteSliceSize(key)+1)
-	buf := query
-	buf[0] = 0x02
-	buf = buf[1:]
-	wire.PutByteSlice(buf, key)
-	res := app_.Query(query)
+	res := app_.QueryByKey(key)
 	if res.IsErr() {
 		return errors.New(res.Error())
 	}
@@ -121,7 +116,8 @@ func (al ActionListener) Run(app_ *app.App, feed *p2p.Switch, peerAddr string) {
 			copy(privKey[:], privKeyBytes[:])
 
 			// Set Sequence, Account, Signature
-			seq, err := app_.GetSequence(pubKey.Address())
+			addr := pubKey.Address()
+			seq, err := app_.GetSequence(addr)
 			if err != nil {
 				log.Println(err.Error()) //for now
 			}
@@ -242,7 +238,8 @@ func (al ActionListener) Run(app_ *app.App, feed *p2p.Switch, peerAddr string) {
 			copy(privKey[:], privKeyBytes[:])
 
 			// Set Sequence, Account, Signature
-			seq, err := app_.GetSequence(pubKey.Address())
+			addr := pubKey.Address()
+			seq, err := app_.GetSequence(addr)
 			if err != nil {
 				so.Emit("create-admin-msg", create_admin_failure)
 				log.Panic(err)
@@ -252,7 +249,7 @@ func (al ActionListener) Run(app_ *app.App, feed *p2p.Switch, peerAddr string) {
 			tx.SetSignature(privKey, app_.GetChainID())
 
 			// TxBytes in AppendTx request
-			txBuf, n, err := new(bytes.Buffer), int(0).error(nil)
+			txBuf, n, err := new(bytes.Buffer), int(0), error(nil)
 			wire.WriteBinary(&tx, txBuf, &n, &err)
 			res := app_.AppendTx(txBuf.Bytes())
 
@@ -260,17 +257,17 @@ func (al ActionListener) Run(app_ *app.App, feed *p2p.Switch, peerAddr string) {
 				so.Emit("create-admin-msg", create_admin_failure)
 				log.Println(res.Error())
 			} else {
-				var keyPair struct {
-					crypto.PubKey
-					crypto.PrivKey
-				}
-				err = wire.ReadBinaryBytes(res.Data, &keyPair)
+				var keypair = struct {
+					PubKeyBytes  []byte
+					PrivKeyBytes []byte
+				}{}
+				err = wire.ReadBinaryBytes(res.Data, &keypair)
 				if err != nil {
 					so.Emit("create-admin-msg", create_admin_failure) // for now
 					log.Println(res.Error())
 				}
-				pubKeyString = BytesToHexString(keyPair.PubKey.(crypto.PubKeyEd25519)[:])
-				privKeyString = BytesToHexString(keyPair.PrivKey.(crypto.PrivKeyEd25519)[:])
+				pubKeyString = BytesToHexString(keypair.PubKeyBytes)
+				privKeyString = BytesToHexString(keypair.PrivKeyBytes)
 				msg := Fmt(create_admin_success, pubKeyString, privKeyString)
 				so.Emit("create-admin-msg", msg)
 				log.Printf("SUCCESS created admin with pubKey: %v", pubKeyString)
@@ -361,7 +358,8 @@ func (al ActionListener) Run(app_ *app.App, feed *p2p.Switch, peerAddr string) {
 			copy(privKey[:], privKeyBytes[:])
 
 			// Set Sequence, Account, Signature
-			seq, err := app_.GetSequence(pubKey.Address())
+			addr := pubKey.Address()
+			seq, err := app_.GetSequence(addr)
 			if err != nil {
 				log.Panic(err)
 			}
@@ -430,7 +428,8 @@ func (al ActionListener) Run(app_ *app.App, feed *p2p.Switch, peerAddr string) {
 			copy(privKey[:], privKeyBytes[:])
 
 			// Set Sequence, Account, Signature
-			seq, err := app_.GetSequence(pubKey.Address())
+			addr := pubKey.Address()
+			seq, err := app_.GetSequence(addr)
 			if err != nil {
 				log.Panic(err)
 			}
@@ -462,14 +461,9 @@ func (al ActionListener) Run(app_ *app.App, feed *p2p.Switch, peerAddr string) {
 				so.Emit("find-form-msg", Fmt(invalid_hex, formID))
 				log.Panic(err)
 			}
-			query := make([]byte, wire.ByteSliceSize(key)+1)
-			buf := query
-			buf[0] = 0x02
-			buf = buf[1:]
-			wire.PutByteSlice(buf, key)
 
 			// Query
-			res := app_.Query(query)
+			res := app_.QueryByKey(key)
 
 			if res.IsErr() {
 				so.Emit("find-form-msg", Fmt(find_form_failure, formID))
@@ -489,44 +483,64 @@ func (al ActionListener) Run(app_ *app.App, feed *p2p.Switch, peerAddr string) {
 		})
 
 		/// Search forms
-		so.On("search-forms", func(before string, after string, service string, address string, status string) {
+		so.On("search-forms", func(before, after, service, status string) { //location
 
-			var buf bytes.Buffer
-			buf.WriteString(lib.SERVICE.WriteField(before, "before"))
-			buf.WriteString(lib.SERVICE.WriteField(after, "after"))
-			buf.WriteString(lib.SERVICE.WriteField(service, "service"))
-			buf.WriteString(lib.SERVICE.WriteField(address, "address"))
-			buf.WriteString(lib.SERVICE.WriteField(status, "status"))
-
-			res := app_.Query([]byte{0x01})
-			if res.IsErr() {
-				log.Println(res.Error())
+			var filters []string
+			if len(service) > 0 {
+				filters = append(filters, service)
 			}
-			var treesize int
-			wire.ReadBinaryBytes(res.Data, &treesize)
-			for i := 0; i < treesize; i++ {
-				query := make([]byte, 100)
-				buf2 := query
-				buf2[0] = 0x03
-				buf2 = buf2[1:]
-				n, err := wire.PutVarint(buf2, i)
-				if err != nil {
-					log.Panic(err)
+			// location
+			if len(status) > 0 {
+				filters = append(filters, status)
+			}
+
+			beforeDate := ParseTimeString(before)
+			afterDate := ParseTimeString(after)
+
+			fun1 := app_.FilterFunc(filters)
+			fun2 := func(data []byte) bool {
+				datestr := string(lib.XOR(data, service)) //location too
+				date := ParseDateString(datestr)
+				if !date.Before(beforeDate) || !date.After(afterDate) {
+					return false
 				}
-				query = query[:n+1]
-				res = app_.Query(query)
-				if res.IsErr() {
-					log.Panic(err)
-				}
-				var form lib.Form
-				err = wire.ReadBinaryBytes(res.Data, &form)
-				if err != nil {
-					// Ok, maybe account not form
-					continue
-				}
-				log.Println((&form).Summary())
-				if match := lib.MatchForm(buf.String(), &form); match {
-					so.Emit("search-forms-msg", (&form).Summary())
+				return true
+			}
+
+			in := make(chan []byte)
+			out := make(chan []byte)
+			errs := make(chan error)
+
+			go app_.Iterate(fun1, in, errs)
+			go app_.IterateNext(fun2, in, out)
+
+			var form lib.Form
+			for {
+				select {
+				case err, more := <-errs:
+					if more {
+						log.Println(err.Error()) //for now
+					} else {
+						log.Println("Search finished")
+						break
+					}
+				case key, more := <-out:
+					if more {
+						res := app_.QueryByKey(key)
+						if res.IsErr() {
+							log.Println(res.Error())
+							continue
+						}
+						err := wire.ReadBinaryBytes(res.Data, &form)
+						if err != nil {
+							log.Println(err.Error())
+							continue
+						}
+						so.Emit("search-forms-msg", (&form).Summary())
+					} else {
+						log.Println("Search finished")
+						break
+					}
 				}
 			}
 		})

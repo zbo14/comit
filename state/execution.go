@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	. "github.com/tendermint/go-common"
-	"github.com/tendermint/go-crypto"
 	"github.com/tendermint/go-wire"
 	tmsp "github.com/tendermint/tmsp/types"
 	"github.com/zballs/3ii/lib"
@@ -111,18 +110,12 @@ func RunCreateAdminTx(state *State, ctx types.CallContext, data []byte) tmsp.Res
 
 	// Create new admin
 	newAcc := types.NewAccount(pubKey, 1)
-
-	buf, n, err := new(bytes.Buffer), int(0), error(nil)
-	wire.WriteBinary(*newAcc, buf, &n, &err)
-	state.SetAccount(pubKey.Address(), buf.Bytes())
+	state.SetAccount(pubKey.Address(), newAcc)
 
 	// Create pubKey, privKey pair
-	keyPair := struct {
-		crypto.PubKey
-		crypto.PrivKey
-	}{pubKey, privKey}
+	keypair := types.PairBytes{pubKey[:], privKey[:]}
 
-	buf, n, err = new(bytes.Buffer), int(0), error(nil)
+	buf, n, err := new(bytes.Buffer), int(0), error(nil)
 	wire.WriteBinary(&keypair, buf, &n, &err)
 	return tmsp.NewResultOK(buf.Bytes(), "")
 }
@@ -135,6 +128,7 @@ func RunRemoveAccountTx(state *State, ctx types.CallContext, data []byte) tmsp.R
 
 func RunSubmitTx(state *State, ctx types.CallContext, data []byte) (res tmsp.Result) {
 	form, err := lib.MakeForm(string(data))
+	service := form.Service
 	if err != nil {
 		return tmsp.NewResult(
 			lib.ErrMakeForm, nil, Fmt("Error could not make form with data: %v", data))
@@ -143,6 +137,13 @@ func RunSubmitTx(state *State, ctx types.CallContext, data []byte) (res tmsp.Res
 	wire.WriteBinary(*form, buf, &n, &err)
 	formID_bytes := form.ID()
 	state.Set(formID_bytes, buf.Bytes())
+	err = state.AddToFilter(formID_bytes, service)
+	if err != nil {
+		// OK, false positive
+		// print for now
+		fmt.Println(err.Error())
+	}
+	fmt.Printf("Added form to %s filter\n", service)
 	return tmsp.NewResultOK(formID_bytes, "")
 }
 
@@ -173,6 +174,12 @@ func RunResolveTx(state *State, ctx types.CallContext, data []byte) (res tmsp.Re
 			Fmt("Error encoding form with ID: %v", formID))
 	}
 	state.Set(data, buf.Bytes())
+	err = state.AddToFilter(data, "resolved")
+	if err != nil {
+		// OK, false positive
+		// print for now
+		fmt.Println(err.Error())
+	}
 	return tmsp.OK
 }
 

@@ -9,7 +9,6 @@ import (
 type Cache struct {
 	*KVMap
 	store Store
-	gate  Gate
 	// mtx *sync.Mutex
 }
 
@@ -17,7 +16,6 @@ func NewCache(store Store) *Cache {
 	c := &Cache{
 		store: store,
 		// mtx:   &sync.Mutex{},
-		gate: MakeGate(),
 	}
 	c.Reset()
 	return c
@@ -28,8 +26,8 @@ func (c *Cache) Reset() {
 }
 
 func (c *Cache) Set(key []byte, value []byte) {
-	c.gate.Enter()
-	defer c.gate.Leave()
+	// c.mtx.Lock()
+	// defer c.mtx.Unlock()
 	fmt.Println("Set [Cache]", formatBytes(key, "hex"), "=", formatBytes(value, "hex"))
 	c.KVMap.Set(key, value)
 }
@@ -47,8 +45,8 @@ func (c *Cache) Get(key []byte) (value []byte) {
 }
 
 func (c *Cache) Sync() {
-	c.gate.Enter()
-	defer c.gate.Leave()
+	// c.mtx.Lock()
+	// c.mtx.Unlock()
 	for kvn := c.KVList.head; kvn != nil; kvn = kvn.next {
 		c.store.Set(kvn.key, kvn.value)
 	}

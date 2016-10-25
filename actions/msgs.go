@@ -9,6 +9,9 @@ const (
 	remove_account_failure = "<span style='color:red;'>Could not remove account<br><strong>public key</strong> <small>%v</small>"
 	remove_account_success = "Removed account<br><strong>public key</strong> <small>%v</small>"
 
+	create_admin_failure = "<span style='color:red;'>Failed to create admin</span>"
+	create_admin_success = ""
+
 	remove_admin_failure = "<span style='color:red;'>Could not remove admin<br><strong>Public Key</strong> <small>%v</small><br><strong>Passphrase</strong> <small>%v</small></span>"
 	remove_admin_success = "Removed admin<br><strong>Public Key</strong> <small>%v</small><br><strong>Passphrase</strong> <small>%v</small>"
 
@@ -23,14 +26,14 @@ const (
 	resolve_form_failure = "<span style='color:red;'>Failed to resolve<br><strong>form ID</strong> <small>%v</small></span>"
 	resolve_form_success = "Resolved<br><strong>Form ID</strong> <small>%v</small>"
 
+	search_forms_failure = "<span style='color:red;'>Failed to find forms</span>"
+
 	connect_failure = "<span style='color:red;'>Failed to connect to network</span>"
 
 	select_option = "<option value='%v'>%v</option>"
 
 /*
 	unauthorized         = "<span style='color:red;'>Unauthorized</span>"
-
-	search_forms_failure = "<span style='color:red;'>Failed to find forms</span>"
 
 	find_admin_failure = "<span style='color:red;'>Failed to find admin</span>"
 

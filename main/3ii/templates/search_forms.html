@@ -45,9 +45,11 @@
 				<option value="garbage cart black maintenance/replacement">garbage cart black maintenance/replacement</option>
 			</select> 
 			<br><br>
+			<!-- TODO: change to location
 			<h5 class="my-header">address</h5>
 			<input id="address" class="my-input"></input>
 			<br><br>
+			-->
 			<h5 class="my-header">status</h5>
 			<select id="status">
 				<option value="">--</option>
@@ -69,9 +71,9 @@
 			var before = $('#before').data("DateTimePicker").viewDate();
 			var after = $('#after').data("DateTimePicker").viewDate();
 			var service = $('#service').val();
-			var address = $('#address').val();
+			// var location =
 			var status = $('#status').val();
-			socket.emit('search-forms', before, after, service, address, status)
+			socket.emit('search-forms', before, after, service, status) //location
 			socket.on('search-forms-msg', function(msg){
 				console.log(msg);
 				$('#forms').append(msg);

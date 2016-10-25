@@ -6,6 +6,8 @@ import (
 	re "regexp"
 )
 
+// TODO: change to complaint/issue/incident
+
 type Service struct{}
 
 type ServiceInterface interface {
@@ -37,6 +39,16 @@ var serviceDepts = map[string]string{
 	"tree trim":                    "i dont know",
 	"garbage cart black maintenance/replacement": "sanitation",
 }
+
+/* Map or list?
+var issueMap = map[string]string{
+	"police officer complaint": "public safety",
+}
+
+var issueList = []string{
+	"police complaint",
+}
+*/
 
 var regexPatterns = map[string]string{
 	"service":     `[\w\s\/]+`,

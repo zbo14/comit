@@ -19,6 +19,13 @@ func ParseTimeString(timestr string) time.Time {
 	return time.Date(yr, time.Month(mo), d, hr, min, sec, 0, time.UTC)
 }
 
+func ParseDateString(datestr string) time.Time {
+	yr, _ := strconv.Atoi(datestr[:4])
+	mo, _ := strconv.Atoi(datestr[5:7])
+	d, _ := strconv.Atoi(datestr[8:10])
+	return time.Date(yr, time.Month(mo), d, 0, 0, 0, 0, time.UTC)
+}
+
 func DurationTimeStrings(timestr1, timestr2 string) time.Duration {
 	tm1 := ParseTimeString(timestr1)
 	tm2 := ParseTimeString(timestr2)

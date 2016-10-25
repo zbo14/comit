@@ -139,10 +139,14 @@ func (merk *MerkleApp) Query(query []byte) tmsp.Result {
 			return tmsp.ErrEncodingError.SetLog(
 				Fmt("Got bytes left over"))
 		}
-		_, value := merk.tree.GetByIndex(index)
-		return tmsp.NewResultOK(value, "")
+		key, _ := merk.tree.GetByIndex(index)
+		return tmsp.NewResultOK(key, "")
 	default:
 		return tmsp.ErrUnknownRequest.SetLog(
 			Fmt("Unexpected Query type byte %X", typeByte))
 	}
+}
+
+func (merk *MerkleApp) Iterate(fn func(key []byte, value []byte) bool) {
+	merk.tree.Iterate(fn)
 }
