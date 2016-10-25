@@ -57,12 +57,12 @@ func (app *App) FilterFunc(filters []string) func(data []byte) bool {
 	return app.state.FilterFunc(filters)
 }
 
-func (app *App) QueryByKey(bz []byte) tmsp.Result {
-	query := make([]byte, wire.ByteSliceSize(bz)+1)
+func (app *App) QueryByKey(key []byte) tmsp.Result {
+	query := make([]byte, wire.ByteSliceSize(key)+1)
 	buf := query
 	buf[0] = queryByKey
 	buf = buf[1:]
-	wire.PutByteSlice(buf, bz)
+	wire.PutByteSlice(buf, key)
 	res := app.Query(query)
 	return res
 }

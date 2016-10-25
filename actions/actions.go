@@ -11,7 +11,6 @@ import (
 	"github.com/zballs/3ii/app"
 	lib "github.com/zballs/3ii/lib"
 	ntwk "github.com/zballs/3ii/network"
-	// sm "github.com/zballs/3ii/state"
 	"github.com/zballs/3ii/types"
 	. "github.com/zballs/3ii/util"
 	"log"
@@ -26,41 +25,6 @@ func CreateActionListener() (ActionListener, error) {
 	return ActionListener{server}, err
 }
 
-func (al ActionListener) UpdateFeed(sw *p2p.Switch) {
-	deptFeed := sw.Reactor("dept-feed").(*ntwk.MyReactor)
-	for dept, chID := range ntwk.DeptChannelIDs {
-		go func(dept string, chID byte) {
-			// log.Printf("DEPT %v, CH %X", dept, chID)
-			idx := -1
-		FOR_LOOP:
-			for {
-				msg := deptFeed.GetLatestMsg(chID)
-				if msg.Counter == idx || msg.Bytes == nil {
-					// time.Sleep?
-					continue FOR_LOOP
-				}
-				idx = msg.Counter
-				var form lib.Form
-				err := wire.ReadBinaryBytes(msg.Bytes[2:], &form)
-				if err != nil {
-					log.Println("ERROR " + err.Error())
-					continue FOR_LOOP
-				}
-				log.Println(Fmt("%v-update", dept))
-				al.BroadcastTo(
-					"feed",
-					Fmt("%v-update", dept),
-					(&form).Summary())
-				// time.Sleep?
-			}
-		}(dept, chID)
-	}
-	// Wait
-	TrapSignal(func() {
-		// Cleanup
-	})
-}
-
 func (al ActionListener) SendMsg(app_ *app.App, peer *p2p.Peer, key []byte) error {
 	res := app_.QueryByKey(key)
 	if res.IsErr() {
@@ -73,7 +37,7 @@ func (al ActionListener) SendMsg(app_ *app.App, peer *p2p.Peer, key []byte) erro
 		return errors.New("Error decoding form bytes")
 	}
 	dept := lib.SERVICE.ServiceDept(form.Service)
-	deptChID := byte(ntwk.DeptChannelID(dept))
+	deptChID := ntwk.DeptChannelID(dept)
 	peer.Send(deptChID, formBytes)
 	return nil
 }
@@ -155,10 +119,41 @@ func (al ActionListener) Run(app_ *app.App, feed *p2p.Switch, peerAddr string) {
 					so.Emit("connect-msg", connect_failure)
 				} else {
 					so.Emit("connect-msg", "connected")
-					so.Join("feed")
-					al.UpdateFeed(peer_sw)
 				}
 			}
+		})
+
+		// Update feed
+		so.On("update-feed", func() {
+			deptFeed := feed.Reactor("dept-feed").(*ntwk.MyReactor)
+			for dept, chID := range ntwk.DeptChannelIDs {
+				go func(dept string, chID byte) {
+					// log.Printf("DEPT %v, CH %X", dept, chID)
+					idx := -1
+				FOR_LOOP:
+					for {
+						msg := deptFeed.GetLatestMsg(chID)
+						if msg.Counter == idx || msg.Bytes == nil {
+							// time.Sleep?
+							continue FOR_LOOP
+						}
+						idx = msg.Counter
+						var form lib.Form
+						err := wire.ReadBinaryBytes(msg.Bytes[2:], &form)
+						if err != nil {
+							log.Println("ERROR " + err.Error())
+							continue FOR_LOOP
+						}
+						log.Println(Fmt("%v-update", dept))
+						so.Emit(Fmt("%v-update", dept), (&form).Summary())
+						// time.Sleep?
+					}
+				}(dept, chID)
+			}
+			// Wait
+			TrapSignal(func() {
+				// Cleanup
+			})
 		})
 
 		// Send service field options
@@ -378,6 +373,7 @@ func (al ActionListener) Run(app_ *app.App, feed *p2p.Switch, peerAddr string) {
 				log.Printf("SUCCESS submitted form with ID: %v", formID)
 				if feed != nil {
 					peer := feed.Peers().Get(pubKeyString)
+					log.Println(peer)
 					if peer != nil {
 						err := al.SendMsg(app_, peer, res.Data)
 						if err != nil {

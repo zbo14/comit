@@ -92,7 +92,6 @@ func main() {
 		"find_form.html",
 		"search_forms.html",
 		"connect.html",
-		"feed.html",
 	)
 
 	web.CreatePages(
@@ -104,7 +103,6 @@ func main() {
 		"find_form",
 		"search_forms",
 		"connect",
-		"feed",
 	)
 
 	// Create action listener
@@ -125,7 +123,6 @@ func main() {
 	http.HandleFunc("/find_form", web.CustomHandler("find_form.html"))
 	http.HandleFunc("/search_forms", web.CustomHandler("search_forms.html"))
 	http.HandleFunc("/connect", web.CustomHandler("connect.html"))
-	http.HandleFunc("/feed", web.CustomHandler("feed.html"))
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(js)))
 	http.ListenAndServe(":8888", nil)
 

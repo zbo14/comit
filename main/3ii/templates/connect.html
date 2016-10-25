@@ -3,7 +3,7 @@
 {{end}}
 
 {{define "body"}}
-	<div class="container">
+	<div class="container" id="connect-container">
 		<h5 class="my-header">public key</h5>
 		<input type="text" id="pubKey" class="my-input"></input>
 		<br><br>
@@ -14,22 +14,54 @@
 		<br><br>
 		<p id="connect-msg"></p>
 	</div>
+	<div class="container" id="feed-container" style="display: none">
+		<h5 class="my-header">department feeds</h5>
+		<select id="dept-feed">
+			<option value="">--</option>
+			<option value="infrastructure">infrastructure</option>
+			<option value="sanitation">sanitation</option>
+		</select>
+		<br><br>
+		<ul></ul>
+	</div>
 	<script type="text/javascript">
 		$(function() {
 			var socket = io();
-			$('#connect').bind('click', function() {
-				var pubKeyString = $('#pubKey').val();
-				var privKeyString = $('#privKey').val();
-				socket.emit('connect-to-network', pubKeyString, privKeyString)
-				socket.on('connect-msg', function(msg) {
+			$("#connect").bind("click", function() {
+				var pubKeyString = $("#pubKey").val();
+				var privKeyString = $("#privKey").val();
+				socket.emit("connect-to-network", pubKeyString, privKeyString)
+				socket.on("connect-msg", function(msg) {
 					console.log(msg)
 					if (msg == "connected") {
-						window.location = "http://localhost:8888/feed";
+						$(".title").html("feed"); //change title text
+						$("#connect-container").hide(300, "linear");
+						$("#feed-container").show(300, "linear");
+						socket.emit("update-feed")
+						var depts = $.map($("#dept-feed option"), function(opt) {
+							if (opt.value.length > 0) {
+								return opt.value;
+							}
+						})
+						$("#dept-feed").on("change", function() {
+							$("ul").html("");
+							$("ul").attr("id", $("#dept-feed").val());
+						})
+						$.map(depts, function(dept) {
+							var dept_update = dept + "-update";
+							console.log(dept_update);
+							return socket.on(dept_update, function(update) {
+								if ($("ul").attr("id") == dept) {
+									console.log(update)
+									$("ul").append(update);
+								}
+							})
+						})
 					} else {
-						$('#connect-msg').html(msg);
+						$("#connect-msg").html(msg);
 					}
 				})
 			})
 		})
-	</script>
+</script>
 {{end}}
