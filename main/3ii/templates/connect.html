@@ -15,8 +15,8 @@
 		<p id="connect-msg"></p>
 	</div>
 	<div class="container" id="feed-container" style="display: none">
-		<h5 class="my-header">department feeds</h5>
-		<select id="dept-feed">
+		<h5 class="my-header">feeds</h5>
+		<select id="feeds">
 			<option value="">--</option>
 			<option value="infrastructure">infrastructure</option>
 			<option value="sanitation">sanitation</option>
@@ -24,6 +24,17 @@
 		<br><br>
 		<ul></ul>
 	</div>
+	<div class="container" id="message-container" style="display: none">
+		<h5 class="my-header">message</h5>
+		<!-- TODO: add message fields -->
+		<input type="text" id="message" class="my-textarea"></input>
+		<br><br>
+		<h5 class="my-header">admin</h5>
+		<input type="text" id="admin-pubKey" class="my-input"></input>
+		<br><br>
+		<button type="button" id="send" class="my-button">send</button>
+	</div>
+
 	<script type="text/javascript">
 		$(function() {
 			var socket = io();
@@ -32,30 +43,36 @@
 				var privKeyString = $("#privKey").val();
 				socket.emit("connect-to-network", pubKeyString, privKeyString)
 				socket.on("connect-msg", function(msg) {
-					console.log(msg)
+					// console.log(msg)
 					if (msg == "connected") {
-						$(".title").html("feed"); //change title text
+						//change title text
 						$("#connect-container").hide(300, "linear");
 						$("#feed-container").show(300, "linear");
+						$("#message-container").show(300, "linear");
 						socket.emit("update-feed")
-						var depts = $.map($("#dept-feed option"), function(opt) {
+						var depts = $.map($("#feeds option"), function(opt) {
 							if (opt.value.length > 0) {
 								return opt.value;
 							}
 						})
-						$("#dept-feed").on("change", function() {
+						$("#feeds").on("change", function() {
 							$("ul").html("");
-							$("ul").attr("id", $("#dept-feed").val());
+							$("ul").attr("id", $("#feeds").val());
 						})
 						$.map(depts, function(dept) {
 							var dept_update = dept + "-update";
-							console.log(dept_update);
+							// console.log(dept_update);
 							return socket.on(dept_update, function(update) {
 								if ($("ul").attr("id") == dept) {
 									console.log(update)
 									$("ul").append(update);
 								}
 							})
+						})
+						$("#send").bind("click", function() {
+							var message = $("#message").val();
+							var adminPubKeyString = $("#admin-pubKey").val();
+							socket.emit("send-message", message, pubKeyString, adminPubKeyString)
 						})
 					} else {
 						$("#connect-msg").html(msg);

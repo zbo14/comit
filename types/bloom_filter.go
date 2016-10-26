@@ -1,8 +1,8 @@
 package types
 
 import (
-	// "encoding/binary"
-	"fmt"
+// "encoding/binary"
+// "fmt"
 )
 
 type BloomFilter struct {
@@ -145,11 +145,11 @@ func (bloom *BloomFilter) HasMember(bytes []byte, n uint64) bool {
 		hash += bloom.fnvHash(bytes)
 		pos := hash % bloom.size()
 		if !bloom.hasBit(pos) {
-			fmt.Printf("%X not a member\n", bytes)
+			// fmt.Printf("%X not a member\n", bytes)
 			return false
 		}
 	}
-	fmt.Printf("%X is a member\n", bytes)
+	// fmt.Printf("%X is a member\n", bytes)
 	return true
 }
 
@@ -168,12 +168,12 @@ func (bloom *BloomFilter) setBits(bytes []byte, n uint64) {
 
 func (bloom *BloomFilter) AddMember(bytes []byte, n uint64) {
 	if bloom.HasMember(bytes, n) {
-		fmt.Printf("%X is already a member\n", bytes)
+		// fmt.Printf("%X is already a member\n", bytes)
 		return
 	}
 	bloom.setBits(bytes, n)
 	bloom.members++
-	fmt.Printf("added member %X\n", bytes)
+	// fmt.Printf("added member %X\n", bytes)
 }
 
 func (bloom *BloomFilter) OverCapacity() bool {

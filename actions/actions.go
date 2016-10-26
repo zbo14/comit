@@ -2,7 +2,6 @@ package actions
 
 import (
 	"bytes"
-	"errors"
 	socketio "github.com/googollee/go-socket.io"
 	. "github.com/tendermint/go-common"
 	crypto "github.com/tendermint/go-crypto"
@@ -11,9 +10,11 @@ import (
 	"github.com/zballs/3ii/app"
 	lib "github.com/zballs/3ii/lib"
 	ntwk "github.com/zballs/3ii/network"
+	sm "github.com/zballs/3ii/state"
 	"github.com/zballs/3ii/types"
 	. "github.com/zballs/3ii/util"
 	"log"
+	"runtime"
 	"time"
 )
 
@@ -26,24 +27,7 @@ func CreateActionListener() (ActionListener, error) {
 	return ActionListener{server}, err
 }
 
-func (al ActionListener) SendMsg(app_ *app.App, peer *p2p.Peer, key []byte) error {
-	res := app_.QueryByKey(key)
-	if res.IsErr() {
-		return errors.New(res.Error())
-	}
-	var form lib.Form
-	formBytes := res.Data
-	err := wire.ReadBinaryBytes(formBytes, &form)
-	if err != nil {
-		return errors.New("Error decoding form bytes")
-	}
-	dept := lib.SERVICE.ServiceDept(form.Service)
-	deptChID := ntwk.DeptChannelID(dept)
-	peer.Send(deptChID, formBytes)
-	return nil
-}
-
-func (al ActionListener) Run(app_ *app.App, feed *p2p.Switch, peerAddr string) {
+func (al ActionListener) Run(app_ *app.App, network *p2p.Switch, peerAddr string) {
 
 	al.On("connection", func(so socketio.Socket) {
 
@@ -54,6 +38,7 @@ func (al ActionListener) Run(app_ *app.App, feed *p2p.Switch, peerAddr string) {
 
 			// Create tx
 			var tx = types.Tx{}
+			tx.Data = []byte{sm.ConnectAccount}
 
 			// PubKey
 			var pubKey = crypto.PubKeyEd25519{}
@@ -65,10 +50,9 @@ func (al ActionListener) Run(app_ *app.App, feed *p2p.Switch, peerAddr string) {
 			copy(pubKey[:], pubKeyBytes[:])
 
 			// Check if already connected
-			err = feed.FilterConnByPubKey(pubKey)
-			if err != nil {
-				so.Emit("connect-msg", connect_failure)
-				log.Panic(err)
+			peer := network.Peers().Get(pubKeyString)
+			if peer.IsRunning() {
+				log.Panic("Error: peer already connected network") //for now
 			}
 
 			// PrivKey
@@ -99,21 +83,29 @@ func (al ActionListener) Run(app_ *app.App, feed *p2p.Switch, peerAddr string) {
 				log.Println(res.Error())
 				so.Emit("connect-msg", connect_failure)
 			} else {
-				// Create/Start peer switch
+
+				// Peer switch info
 				peer_sw := p2p.NewSwitch(ntwk.Config)
 				peer_sw.SetNodeInfo(&p2p.NodeInfo{
 					Network: "testing",
 					Version: "311.311.311",
 				})
 				peer_sw.SetNodePrivKey(privKey)
+
+				// Add reactors
+				depts := network.Reactor("depts").(*ntwk.MyReactor)
+				peer_sw.AddReactor("depts", depts)
+				admins := network.Reactor("admins").(*ntwk.MyReactor)
+				peer_sw.AddReactor("admins", admins)
+
+				// Add listener
 				l := p2p.NewDefaultListener("tcp", peerAddr, false)
-				peer_sw.AddReactor("dept-feed", ntwk.DeptFeed)
 				peer_sw.AddListener(l)
 				peer_sw.Start()
 
-				// Add peer to feed
+				// Add peer to network
 				addr := p2p.NewNetAddressString(peerAddr)
-				_, err := feed.DialPeerWithAddress(addr)
+				_, err := network.DialPeerWithAddress(addr)
 
 				if err != nil {
 					log.Println(err.Error())
@@ -124,18 +116,103 @@ func (al ActionListener) Run(app_ *app.App, feed *p2p.Switch, peerAddr string) {
 			}
 		})
 
+		so.On("connect-admin-to-network", func(pubKeyString, privKeyString string) {
+
+			// Create tx
+			var tx = types.Tx{}
+			tx.Data = []byte{sm.ConnectAdmin}
+
+			// PubKey
+			var pubKey = crypto.PubKeyEd25519{}
+			pubKeyBytes, err := HexStringToBytes(pubKeyString)
+			if err != nil {
+				so.Emit("connect-admin-msg", Fmt(invalid_hex, pubKeyString))
+				log.Panic(err)
+			}
+			copy(pubKey[:], pubKeyBytes[:])
+
+			// PrivKey
+			var privKey = crypto.PrivKeyEd25519{}
+			privKeyBytes, err := HexStringToBytes(privKeyString)
+			if err != nil {
+				so.Emit("connect-admin-msg", Fmt(invalid_hex, privKeyString))
+				log.Panic(err)
+			}
+			copy(privKey[:], privKeyBytes[:])
+
+			// Set Sequence, Account, Signature
+			addr := pubKey.Address()
+			seq, err := app_.GetSequence(addr)
+			if err != nil {
+				log.Println(err.Error()) //for now
+			}
+			tx.SetSequence(seq)
+			tx.SetAccount(pubKey)
+			tx.SetSignature(privKey, app_.GetChainID())
+
+			// TxBytes in CheckTx request
+			txBuf, n, err := new(bytes.Buffer), int(0), error(nil)
+			wire.WriteBinary(tx, txBuf, &n, &err)
+			res := app_.CheckTx(txBuf.Bytes())
+
+			if res.IsErr() {
+				log.Println(res.Error())
+				so.Emit("connect-admin-msg", connect_failure)
+			} else {
+
+				// Check if already connected
+				peer := network.Peers().Get(pubKeyString)
+				if peer.IsRunning() {
+					// OK if admin already connected?
+					// i.e. admin previously "connected-to-network"
+					so.Emit("connect-admin-msg", "connected")
+					// Or error...
+					// i.e. admins cannot "connect-to-network"
+					// log.Panic("Error: peer already connected to network")
+				} else {
+
+					// Peer switch info
+					peer_sw := p2p.NewSwitch(ntwk.Config)
+					peer_sw.SetNodeInfo(&p2p.NodeInfo{
+						Network: "testing",
+						Version: "311.311.311",
+					})
+					peer_sw.SetNodePrivKey(privKey)
+
+					// Add reactors
+					admins := network.Reactor("admins").(*ntwk.MyReactor)
+					peer_sw.AddReactor("admins", admins)
+
+					// Add listener
+					l := p2p.NewDefaultListener("tcp", peerAddr, false)
+					peer_sw.AddListener(l)
+					peer_sw.Start()
+
+					// Add peer to network
+					addr := p2p.NewNetAddressString(peerAddr)
+					_, err := network.DialPeerWithAddress(addr)
+
+					if err != nil {
+						log.Println(err.Error())
+						so.Emit("connect-admin-msg", connect_failure)
+					} else {
+						so.Emit("connect-admin-amsg", "connected")
+					}
+				}
+			}
+		})
+
 		// Update feed
 		so.On("update-feed", func() {
-			deptFeed := feed.Reactor("dept-feed").(*ntwk.MyReactor)
-			for dept, chID := range ntwk.DeptChannelIDs {
+			depts := network.Reactor("depts").(*ntwk.MyReactor)
+			for dept, chID := range app_.DeptChIDs() {
 				go func(dept string, chID byte) {
 					// log.Printf("DEPT %v, CH %X", dept, chID)
 					idx := -1
 				FOR_LOOP:
 					for {
-						msg := deptFeed.GetLatestMsg(chID)
+						msg := depts.GetLatestMsg(chID)
 						if msg.Counter == idx {
-							time.Sleep(time.Second * 30)
 							runtime.Gosched()
 							continue FOR_LOOP
 						}
@@ -155,6 +232,61 @@ func (al ActionListener) Run(app_ *app.App, feed *p2p.Switch, peerAddr string) {
 			TrapSignal(func() {
 				// Cleanup
 			})
+		})
+
+		so.On("update-messages", func(pubKeyString string) {
+			chID := app_.AdminChID(pubKeyString)
+			admins := network.Reactor("admins").(*ntwk.MyReactor)
+			go func() {
+				idx := -1
+				var message string
+				for {
+					msg := admins.GetLatestMsg(chID)
+					if msg.Counter == idx {
+						time.Sleep(time.Second * 30)
+						continue
+					}
+					idx = msg.Counter
+					err := wire.ReadBinaryBytes(msg.Bytes[2:], &message)
+					if err != nil {
+						log.Println("ERROR " + err.Error())
+						continue
+					}
+					log.Printf("MESSAGE for %X\n", pubKeyString)
+					so.Emit(Fmt("%X-update", pubKeyString), "<li>"+message+"</li>")
+				}
+			}()
+			// Wait
+			TrapSignal(func() {
+				// Cleanup
+			})
+		})
+
+		so.On("send-message", func(message, pubKeyString, adminPubKeyString string) {
+
+			// Should already be connected to network
+
+			// Get peer
+			peer := network.Peers().Get(pubKeyString)
+			if peer == nil {
+				log.Panic("Error: could not find peer") //for now
+			}
+
+			// Get channel ID
+			chID := app_.AdminChID(adminPubKeyString)
+			if chID == byte(0) {
+				so.Emit("send-message-msg", Fmt(find_admin_failure, adminPubKeyString))
+				log.Println("Error: could not find admin")
+				// log.Panic("Error: could not find admin")
+			} else {
+				// Send message
+				success := peer.Send(chID, []byte(message))
+				if !success {
+					so.Emit("send-message-msg", Fmt(send_message_failure, adminPubKeyString))
+				} else {
+					so.Emit("send-message-msg", Fmt(send_message_success, adminPubKeyString))
+				}
+			}
 		})
 
 		// Send service field options
@@ -184,9 +316,11 @@ func (al ActionListener) Run(app_ *app.App, feed *p2p.Switch, peerAddr string) {
 
 			// Set Sequence, Account, Signature
 			pubKey, privKey := CreateKeys(tx.Data) // create keys now
-			tx.Input.Sequence = 1
+			tx.SetSequence(0)
 			tx.SetAccount(pubKey)
 			tx.SetSignature(privKey, app_.GetChainID())
+
+			log.Println(tx)
 
 			// TxBytes in AppendTx request
 			txBuf, n, err := new(bytes.Buffer), int(0), error(nil)
@@ -244,6 +378,8 @@ func (al ActionListener) Run(app_ *app.App, feed *p2p.Switch, peerAddr string) {
 			tx.SetAccount(pubKey)
 			tx.SetSignature(privKey, app_.GetChainID())
 
+			log.Println(tx)
+
 			// TxBytes in AppendTx request
 			txBuf, n, err := new(bytes.Buffer), int(0), error(nil)
 			wire.WriteBinary(&tx, txBuf, &n, &err)
@@ -253,22 +389,18 @@ func (al ActionListener) Run(app_ *app.App, feed *p2p.Switch, peerAddr string) {
 				so.Emit("create-admin-msg", create_admin_failure)
 				log.Println(res.Error())
 			} else {
-				var keypair = struct {
-					PubKeyBytes  []byte
-					PrivKeyBytes []byte
-				}{}
-				err = wire.ReadBinaryBytes(res.Data, &keypair)
+				err = wire.ReadBinaryBytes(res.Data, &privKey)
 				if err != nil {
 					so.Emit("create-admin-msg", create_admin_failure) // for now
 					log.Println(res.Error())
 				}
-				pubKeyString = BytesToHexString(keypair.PubKeyBytes)
-				privKeyString = BytesToHexString(keypair.PrivKeyBytes)
+				pubKeyString = privKey.PubKey().KeyString()
+				privKeyString = BytesToHexString(privKey[:])
 				msg := Fmt(create_admin_success, pubKeyString, privKeyString)
 				so.Emit("create-admin-msg", msg)
 				log.Printf("SUCCESS created admin with pubKey: %v", pubKeyString)
+				app_.AddAdmin(pubKeyString)
 			}
-
 		})
 
 		so.On("remove-account", func(pubKeyString, privKeyString string) {
@@ -368,26 +500,33 @@ func (al ActionListener) Run(app_ *app.App, feed *p2p.Switch, peerAddr string) {
 			wire.WriteBinary(tx, txBuf, &n, &err)
 			res := app_.AppendTx(txBuf.Bytes())
 
-			if res.IsOK() {
+			if res.IsErr() {
+				so.Emit("submit-form-msg", submit_form_failure)
+				log.Println(res.Error())
+			} else {
 				formID := BytesToHexString(res.Data)
 				so.Emit("submit-form-msg", Fmt(submit_form_success, formID))
 				log.Printf("SUCCESS submitted form with ID: %v", formID)
-				if feed != nil {
-					peer := feed.Peers().Get(pubKeyString)
-					log.Println(peer)
-					if peer != nil {
-						err := al.SendMsg(app_, peer, res.Data)
-						if err != nil {
-							log.Println(err.Error())
-						}
+				/* Submitting forms off the network
+				if network != nil {
+					peer := network.Peers().Get(pubKeyString)
+					if peer == nil {
+						log.Panic("Error: could not find peer")
 					}
+					res = app_.QueryByKey(res.Data)
+					if res.IsErr() {
+						log.Panic(err)
+					}
+					var form lib.Form
+					err = wire.ReadBinaryBytes(res.Data, &form)
+					if err != nil {
+						log.Panic(err)
+					}
+					dept := lib.SERVICE.ServiceDept(form.Service)
+					chID := app_.DeptChID(dept)
+					peer.Send(chID, res.Data)
 				}
-			} else if res.Log == ExtractText(form_already_exists) {
-				so.Emit("submit-form-msg", form_already_exists)
-				log.Println(res.Error())
-			} else {
-				so.Emit("submit-form-msg", submit_form_failure)
-				log.Println(res.Error())
+				*/
 			}
 		})
 
@@ -512,6 +651,7 @@ func (al ActionListener) Run(app_ *app.App, feed *p2p.Switch, peerAddr string) {
 			go app_.IterateNext(fun2, in, out)
 
 			var form lib.Form
+		FOR_LOOP:
 			for {
 				select {
 				case err, more := <-errs:
@@ -519,24 +659,24 @@ func (al ActionListener) Run(app_ *app.App, feed *p2p.Switch, peerAddr string) {
 						log.Println(err.Error()) //for now
 					} else {
 						log.Println("Search finished")
-						break
+						break FOR_LOOP
 					}
 				case key, more := <-out:
 					if more {
 						res := app_.QueryByKey(key)
 						if res.IsErr() {
 							log.Println(res.Error())
-							continue
+							continue FOR_LOOP
 						}
 						err := wire.ReadBinaryBytes(res.Data, &form)
 						if err != nil {
 							log.Println(err.Error())
-							continue
+							continue FOR_LOOP
 						}
 						so.Emit("search-forms-msg", (&form).Summary())
 					} else {
 						log.Println("Search finished")
-						break
+						break FOR_LOOP
 					}
 				}
 			}

@@ -161,7 +161,7 @@ func (mr *MyReactor) GetLatestMsg(chID byte) PeerMessage {
 	return msgs[latest]
 }
 
-//======================================================================================//
+//========================================================================//
 
 // Create Channel Descriptors
 
@@ -176,33 +176,4 @@ func CreateChDescs(mapChannelIDs map[string]byte) []*ChannelDescriptor {
 		idx++
 	}
 	return chDescs
-}
-
-/*
-// Service Feed
-var ServiceChannelIDs = map[string]byte{
-	"street light out":             byte(0x11),
-	"pothole in street":            byte(0x12),
-	"rodent baiting/rat complaint": byte(0x13),
-	"tree trim":                    byte(0x14),
-	"garbage cart black maintenance/replacement": byte(0x15),
-}
-var ServiceChannelDescs = CreateChDescs(ServiceChannelIDs)
-var ServiceFeed = NewReactor(ServiceChannelDescs, true)
-
-func ServiceChannelID(service string) uint8 {
-	return ServiceChannelIDs[service]
-}
-*/
-
-// Dept Feed
-var DeptChannelIDs = map[string]byte{
-	"infrastructure": byte(0x01),
-	"sanitation":     byte(0x02),
-}
-var DeptChannelDescs = CreateChDescs(DeptChannelIDs)
-var DeptFeed = NewReactor(DeptChannelDescs, true)
-
-func DeptChannelID(dept string) uint8 {
-	return DeptChannelIDs[dept]
 }

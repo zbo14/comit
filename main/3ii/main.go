@@ -5,15 +5,13 @@ import (
 	"flag"
 	"fmt"
 	. "github.com/tendermint/go-common"
+	"github.com/tendermint/go-crypto"
+	"github.com/tendermint/go-p2p"
 	"github.com/tendermint/tmsp/server"
 	"github.com/zballs/3ii/actions"
 	"github.com/zballs/3ii/app"
-	// "github.com/zballs/3ii/types"
-	"github.com/tendermint/go-crypto"
-	"github.com/tendermint/go-p2p"
 	ntwk "github.com/zballs/3ii/network"
 	"github.com/zballs/3ii/web"
-	// "log"
 	"net/http"
 	"reflect"
 )
@@ -22,7 +20,7 @@ func main() {
 
 	addrPtr := flag.String("addr", "tcp://0.0.0.0:46658", "Listen address")
 	cliPtr := flag.String("cli", "local", "Client address, or 'local' for embedded")
-	feedPtr := flag.String("feed", "127.0.0.1:3111", "Feeds address")
+	networkPtr := flag.String("network", "127.0.0.1:3111", "Feeds address")
 	peerPtr := flag.String("peer", "127.0.0.1:3112", "Peer address")
 	genFilePath := flag.String("genesis", "genesis.json", "Genesis file, if any")
 	flag.Parse()
@@ -45,43 +43,28 @@ func main() {
 		}
 	}
 
+	// Create reactors for network
+	depts := app_.CreateDeptReactor()
+	admins := app_.CreateAdminReactor()
+
 	// Start the listener
 	_, err = server.NewServer(*addrPtr, "socket", app_)
 	if err != nil {
 		Exit("create listener: " + err.Error())
 	}
 
-	// Start the feed
-	feed := p2p.NewSwitch(ntwk.Config)
-	feed.SetNodeInfo(&p2p.NodeInfo{
+	// Start the network
+	network := p2p.NewSwitch(ntwk.Config)
+	network.SetNodeInfo(&p2p.NodeInfo{
 		Network: "testing",
 		Version: "311.311.311",
 	})
-	feed.SetNodePrivKey(crypto.GenPrivKeyEd25519())
-	feed.AddReactor("dept-feed", ntwk.DeptFeed) // just dept feed for now
-	l := p2p.NewDefaultListener("tcp", *feedPtr, false)
-	feed.AddListener(l)
-	feed.Start()
-
-	// listener routines
-	// Dept feed
-	/*
-		deptFeed := feed.Reactor("dept-feed").(*ntwk.MyReactor)
-		for _, chDesc := range deptFeed.GetChannels() {
-			chID := chDesc.ID
-			go func() {
-				idx := -1
-				for {
-					msg := deptFeed.GetLatestMsg(chID)
-					if msg.Counter == idx || msg.Bytes == nil {
-						continue
-					}
-					idx = msg.Counter
-					feed.Broadcast(chID, msg.Bytes)
-				}
-			}()
-		}
-	*/
+	network.SetNodePrivKey(crypto.GenPrivKeyEd25519())
+	network.AddReactor("depts", depts)   //feed
+	network.AddReactor("admins", admins) //messages
+	l := p2p.NewDefaultListener("tcp", *networkPtr, false)
+	network.AddListener(l)
+	network.Start()
 
 	web.RegisterTemplates(
 		"create_account.html",
@@ -111,7 +94,7 @@ func main() {
 		Exit("action listener: " + err.Error())
 	}
 
-	action_listener.Run(app_, feed, *peerPtr)
+	action_listener.Run(app_, network, *peerPtr)
 
 	js := web.JustFiles{http.Dir("static/")}
 	http.Handle("/", action_listener)
@@ -173,3 +156,36 @@ func loadGenesis(filePath string) (kvz []KeyValue) {
 	}
 	return kvz
 }
+
+/*
+
+func writeToGenesis(key, value interface{}, filePath string) error {
+	buf, n, err := new(bytes.Buffer), int(0), error(nil)
+	wire.WriteJSON(&key, buf, &n, &err)
+	f, err := os.OpenFile(filePath, os.O_APPEND|os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+	f.Write(buf.Bytes())
+	buf = new(bytes.Buffer)
+	wire.WriteJSON(&value, buf, &n, &err)
+	f.Write(buf.Bytes())
+	f.Close()
+	return nil
+}
+
+// Service Feed
+var ServiceChannelIDs = map[string]byte{
+	"street light out":             byte(0x11),
+	"pothole in street":            byte(0x12),
+	"rodent baiting/rat complaint": byte(0x13),
+	"tree trim":                    byte(0x14),
+	"garbage cart black maintenance/replacement": byte(0x15),
+}
+var ServiceChannelDescs = CreateChDescs(ServiceChannelIDs)
+var ServiceFeed = NewReactor(ServiceChannelDescs, true)
+
+func ServiceChannelID(service string) uint8 {
+	return ServiceChannelIDs[service]
+}
+*/

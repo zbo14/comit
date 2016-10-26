@@ -5,8 +5,8 @@
 
 ## Usage
 ####Demo app
-- `cd main/3ii` from base directory
-- `go build` and then `./3ii`
+- `cd main/comit` from base directory
+- `go build` and then `./comit`
 - Visit `localhost:8888/path_to_endpoint` in your web browser
 - See docs for list of endpoints/more details on usage
 

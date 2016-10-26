@@ -2,9 +2,11 @@ package app
 
 import (
 	"errors"
+	"fmt"
 	. "github.com/tendermint/go-common"
 	"github.com/tendermint/go-wire"
 	tmsp "github.com/tendermint/tmsp/types"
+	ntwk "github.com/zballs/3ii/network"
 	sm "github.com/zballs/3ii/state"
 	"github.com/zballs/3ii/types"
 	"strings"
@@ -14,15 +16,26 @@ const (
 	version   = "0.1"
 	maxTxSize = 10240
 
-	querySize    = 0x01
-	queryByKey   = 0x02
-	queryByIndex = 0x03
+	querySize    byte = 1
+	queryByKey   byte = 2
+	queryByIndex byte = 3
+
+	deptChID  byte = 10
+	adminChID byte = 20
 )
 
 type App struct {
 	cli        *Client
 	state      *sm.State
 	cacheState *sm.State
+
+	depts     *ntwk.MyReactor
+	deptChIDs map[string]byte
+	deptChID  byte
+
+	admins     *ntwk.MyReactor
+	adminChIDs map[string]byte
+	adminChID  byte
 }
 
 func NewApp(cli *Client) *App {
@@ -31,6 +44,12 @@ func NewApp(cli *Client) *App {
 		cli:        cli,
 		state:      state,
 		cacheState: nil,
+
+		deptChIDs: make(map[string]byte),
+		deptChID:  deptChID,
+
+		adminChIDs: make(map[string]byte),
+		adminChID:  adminChID,
 	}
 }
 
@@ -82,7 +101,7 @@ func (app *App) QueryByIndex(i int) tmsp.Result {
 }
 
 // Run in goroutine
-func (app *App) Iterate(fun func(data []byte) bool, out chan []byte, errs chan error) {
+func (app *App) Iterate(fun func(data []byte) bool, in chan []byte, errs chan error) {
 	for i := 0; i < app.GetSize(); i++ {
 		res := app.QueryByIndex(i)
 		if res.IsErr() {
@@ -91,9 +110,9 @@ func (app *App) Iterate(fun func(data []byte) bool, out chan []byte, errs chan e
 		if !fun(res.Data) {
 			continue
 		}
-		out <- res.Data
+		in <- res.Data
 	}
-	close(out)
+	close(in)
 	close(errs)
 }
 
@@ -109,6 +128,45 @@ func (app *App) IterateNext(fun func(data []byte) bool, in, out chan []byte) {
 			break
 		}
 	}
+	close(out)
+}
+
+func (app *App) AddDept(dept string) {
+	app.deptChIDs[dept] = app.deptChID
+	app.deptChID++
+}
+
+func (app *App) DeptChIDs() map[string]byte {
+	return app.deptChIDs
+}
+
+func (app *App) DeptChID(dept string) byte {
+	return app.deptChIDs[dept]
+}
+
+func (app *App) CreateDeptReactor() *ntwk.MyReactor {
+	chDescs := ntwk.CreateChDescs(app.deptChIDs)
+	app.depts = ntwk.NewReactor(chDescs, true)
+	return app.depts
+}
+
+func (app *App) AddAdmin(pubKeyString string) {
+	app.adminChIDs[pubKeyString] = app.adminChID
+	app.adminChID++
+}
+
+func (app *App) AdminChIDs() map[string]byte {
+	return app.adminChIDs
+}
+
+func (app *App) AdminChID(pubKeyString string) byte {
+	return app.adminChIDs[pubKeyString]
+}
+
+func (app *App) CreateAdminReactor() *ntwk.MyReactor {
+	chDescs := ntwk.CreateChDescs(app.adminChIDs)
+	app.admins = ntwk.NewReactor(chDescs, true)
+	return app.admins
 }
 
 // TMSP requests
@@ -123,14 +181,19 @@ func (app *App) SetOption(key string, value string) (log string) {
 	case "chainID":
 		app.state.SetChainID(value)
 		return "Success"
-	case "account":
+	case "dept":
+		app.AddDept(value)
+		return "Success"
+	case "admin":
 		var err error
 		var acc *types.Account
 		wire.ReadJSONPtr(&acc, []byte(value), &err)
 		if err != nil {
 			return "Error decoding acc message: " + err.Error()
 		}
+		fmt.Printf("%X\n", acc.PubKey.Address())
 		app.state.SetAccount(acc.PubKey.Address(), acc)
+		app.AddAdmin(acc.PubKey.KeyString())
 		return "Success"
 	}
 	return "Unrecognized option key " + key
@@ -141,7 +204,7 @@ func (app *App) AppendTx(txBytes []byte) tmsp.Result {
 		return tmsp.ErrBaseEncodingError.AppendLog("Tx size exceeds maximum")
 	}
 	// Decode Tx
-	var tx types.Tx
+	var tx = types.Tx{}
 	err := wire.ReadBinaryBytes(txBytes, &tx)
 	if err != nil {
 		return tmsp.ErrBaseEncodingError.AppendLog("Error decoding tx: " + err.Error())

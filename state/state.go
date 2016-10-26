@@ -2,7 +2,6 @@ package state
 
 import (
 	"errors"
-	// "fmt"
 	. "github.com/tendermint/go-common"
 	"github.com/tendermint/go-wire"
 	"github.com/zballs/3ii/types"

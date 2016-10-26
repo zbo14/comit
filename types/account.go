@@ -19,6 +19,10 @@ func NewAccount(pubKey crypto.PubKey, permission int) *Account {
 	}
 }
 
+func NewAdmin(pubKey crypto.PubKey) *Account {
+	return NewAccount(pubKey, 1)
+}
+
 func (acc *Account) Copy() *Account {
 	accCopy := *acc
 	return &accCopy
@@ -30,6 +34,10 @@ func (acc *Account) String() string {
 	}
 	return fmt.Sprintf("Account {%X %v}",
 		acc.PubKey, acc.Sequence)
+}
+
+func (acc *Account) IsAdmin() bool {
+	return acc.permission >= 1
 }
 
 func (acc *Account) PermissionToResolve() bool {

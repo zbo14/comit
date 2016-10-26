@@ -30,15 +30,16 @@ const (
 
 	connect_failure = "<span style='color:red;'>Failed to connect to network</span>"
 
+	find_admin_failure   = "<span style='color:red;'>Could not find admin with public key <small>%v</small></span>"
+	send_message_failure = "<span style='color:red;'>Failed to send message to <small>%v</small></span>"
+	send_message_success = "<span style='color:red;'>Sent message to <small>%v</small></span>"
+
 	select_option = "<option value='%v'>%v</option>"
 
 /*
 	unauthorized         = "<span style='color:red;'>Unauthorized</span>"
-
 	find_admin_failure = "<span style='color:red;'>Failed to find admin</span>"
-
 	admin_update = "admin-%v-update"
-
 	calc_metric_success = "<strong style='opacity: 0.9;'>%v</strong><br> <small>%v</small>"
 	calc_metric_failure = "<span style='color:red;'>Could not calculate metric -- zero forms found</span>"
 */

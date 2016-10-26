@@ -4,7 +4,7 @@
 
 {{define "body"}}
 	<div class="container">
-		<h5 class="my-header">secret</h5>
+		<h5 class="my-header" id="secret-label">secret</h5>
 		<input type="password" id="secret" class="my-input"></input>
 		<br><br>
 		<h5 class="my-header" id="pubKey-label">public key</h5>
@@ -22,6 +22,11 @@
 			var socket = io();
 			$('#create-admin').bind('click', function() {
 				var valid_entry = true;
+				var secret = $('#secret').val();
+				if (secret.length == 0) {
+					$('#secret-label').html("<span style='color:red;'>enter secret</span>"); 
+					valid_entry = false;
+				}
 				var pubKeyString = $('#pubKey').val();
 				if (pubKeyString.length == 0) {
 					$('#pubKey-label').html("<span style='color:red;'>enter public key</span>"); 
@@ -33,9 +38,10 @@
 					valid_entry = false;
 				}
 				if (valid_entry) {
+					$('#secret-label').html("<span style='color:black;'>secret</span>");
 					$('#pubKey-label').html("<span style='color:black;'>public key</span>"); 
 					$('#privKey-label').html("<span style='color:black;'>private key</span>");
-					socket.emit('create-admin', pubKeyString, privKeyString)
+					socket.emit('create-admin', secret, pubKeyString, privKeyString)
 					socket.on('create-admin-msg', function(msg) {
 						$('#create-admin-msg').show(100, "linear").html(msg)
 					})

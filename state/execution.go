@@ -11,6 +11,11 @@ import (
 	. "github.com/zballs/3ii/util"
 )
 
+const (
+	ConnectAccount byte = 0
+	ConnectAdmin   byte = 1
+)
+
 // If the tx is invalid, a TMSP error will be returned.
 func ExecTx(state *State, tx types.Tx, isCheckTx bool) (res tmsp.Result) {
 
@@ -51,8 +56,12 @@ func ExecTx(state *State, tx types.Tx, isCheckTx bool) (res tmsp.Result) {
 
 	// If CheckTx, we are done.
 	if isCheckTx {
+		// Well, not quite
+		if tx.Data[0] == ConnectAdmin && !inAcc.IsAdmin() {
+			return tmsp.ErrUnauthorized
+		}
 		state.SetAccount(tx.Input.Address, inAcc)
-		fmt.Println(*inAcc)
+		// fmt.Println(*inAcc)
 		return tmsp.OK
 	}
 
@@ -109,14 +118,12 @@ func RunCreateAdminTx(state *State, ctx types.CallContext, data []byte) tmsp.Res
 	pubKey, privKey := CreateKeys(data)
 
 	// Create new admin
-	newAcc := types.NewAccount(pubKey, 1)
+	newAcc := types.NewAdmin(pubKey)
 	state.SetAccount(pubKey.Address(), newAcc)
 
-	// Create pubKey, privKey pair
-	keypair := types.PairBytes{pubKey[:], privKey[:]}
-
+	// Return privKey
 	buf, n, err := new(bytes.Buffer), int(0), error(nil)
-	wire.WriteBinary(&keypair, buf, &n, &err)
+	wire.WriteBinary(&privKey, buf, &n, &err)
 	return tmsp.NewResultOK(buf.Bytes(), "")
 }
 

@@ -1,0 +1,48 @@
+{{define "head"}}
+	<title>{{ .Title}}</title>
+{{end}}
+
+{{define "body"}}
+	<div class="container" id="connect-container">
+		<h5 class="my-header">public key</h5>
+		<input type="text" id="pubKey" class="my-input"></input>
+		<br><br>
+		<h5 class="my-header">private key</h5>
+		<input type="password" id="privKey" class="my-input"></input>
+		<br><br>
+		<button type="button" id="connect" class="my-button">connect</button>
+		<br><br>
+		<p id="connect-msg"></p>
+	</div>
+	<div class="container" id="messages-container" style="display: none">
+		<h5 class="my-header">messages</h5>
+		<br><br>
+		<ul id="messages"></ul>
+	</div>
+
+	<script type="text/javascript">
+		$(function() {
+			var socket = io();
+			$("#connect").bind("click", function() {
+				var pubKeyString = $("#pubKey").val();
+				var privKeyString = $("#privKey").val();
+				socket.emit("connect-admin-to-network", pubKeyString, privKeyString)
+				socket.on("connect-admin-msg", function(msg) {
+					// console.log(msg)
+					if (msg == "connected") {
+						// change title text
+						$("#connect-container").hide(300, "linear");
+						$("#messages-container").show(300, "linear");
+						socket.emit("update-messages");
+						var message_update = pubKeyString + "-update";
+						socket.on(message_update, function(message) {
+							$("#messages").append(message);
+						})
+					} else {
+						$("#connect-admin-msg").html(msg);
+					}
+				})
+			})
+		})
+</script>
+{{end}}
