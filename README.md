@@ -1,6 +1,6 @@
 ## Installation
-- Download and install [Go](https://golang.org/dl/)
-- Install [Tendermint](https://github.com/tendermint/tendermint/wiki/Installation)
+- Download and install <a target="_blank" href="https://golang.org/dl/">Go</a>
+- Install <a target="_blank" href="https://github.com/tendermint/tendermint/wiki/Installation">Tendermint</a>
 - `go get` Tendermint libraries: `go-wire`, `go-crypto`, `go-p2p`
 
 ## Usage
@@ -13,3 +13,4 @@
 ####Run Tests 
 - `cd app` from base directory
 - `go test -v`
+
