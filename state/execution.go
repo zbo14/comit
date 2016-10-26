@@ -81,6 +81,7 @@ func ExecTx(state *State, tx types.Tx, isCheckTx bool) (res tmsp.Result) {
 		res = RunSubmitTx(cacheState, ctx, tx.Data)
 	case types.ResolveTx:
 		if !inAcc.PermissionToResolve() {
+			fmt.Println("Not granted permission to resolve")
 			res = tmsp.ErrUnauthorized
 		} else {
 			res = RunResolveTx(cacheState, ctx, tx.Data)
@@ -140,11 +141,13 @@ func RunSubmitTx(state *State, ctx types.CallContext, data []byte) (res tmsp.Res
 		return tmsp.NewResult(
 			lib.ErrMakeForm, nil, Fmt("Error could not make form with data: %v", data))
 	}
-	buf, n, err := new(bytes.Buffer), int(0), error(nil)
-	wire.WriteBinary(*form, buf, &n, &err)
 	formID_bytes := form.ID()
-	state.Set(formID_bytes, buf.Bytes())
-	err = state.AddToFilter(formID_bytes, service)
+	buf1, n1, err1 := new(bytes.Buffer), int(0), error(nil)
+	wire.WriteByteSlice(formID_bytes, buf1, &n1, &err1)
+	buf2, n2, err2 := new(bytes.Buffer), int(0), error(nil)
+	wire.WriteBinary(*form, buf2, &n2, &err2)
+	state.Set(buf1.Bytes(), buf2.Bytes())
+	err = state.AddToFilter(buf1.Bytes(), service)
 	if err != nil {
 		// OK, false positive
 		// print for now
@@ -156,13 +159,15 @@ func RunSubmitTx(state *State, ctx types.CallContext, data []byte) (res tmsp.Res
 
 func RunResolveTx(state *State, ctx types.CallContext, data []byte) (res tmsp.Result) {
 	formID := BytesToHexString(data)
-	value := state.Get(data)
+	buf, n, err := new(bytes.Buffer), int(0), error(nil)
+	wire.WriteByteSlice(data, buf, &n, &err)
+	value := state.Get(buf.Bytes())
 	if len(value) == 0 {
 		return tmsp.NewResult(
 			lib.ErrFindForm, nil, Fmt("Error cannot find form with ID: %v", formID))
 	}
 	var form lib.Form
-	err := wire.ReadBinaryBytes(value, &form)
+	err = wire.ReadBinaryBytes(value, &form)
 	if err != nil {
 		return tmsp.ErrEncodingError.SetLog(
 			Fmt("Error parsing form bytes: %v", err.Error()))
@@ -174,7 +179,7 @@ func RunResolveTx(state *State, ctx types.CallContext, data []byte) (res tmsp.Re
 		return tmsp.NewResult(
 			lib.ErrFormAlreadyResolved, nil, Fmt("Error already resolved form with ID: %v", formID))
 	}
-	buf, n, err := new(bytes.Buffer), int(0), error(nil)
+	buf, n, err = new(bytes.Buffer), int(0), error(nil)
 	wire.WriteBinary(form, buf, &n, &err)
 	if err != nil {
 		return tmsp.ErrEncodingError.SetLog(

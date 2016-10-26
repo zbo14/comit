@@ -635,7 +635,8 @@ func (al ActionListener) Run(app_ *app.App, network *p2p.Switch, peerAddr string
 
 			fun1 := app_.FilterFunc(filters)
 			fun2 := func(data []byte) bool {
-				datestr := string(lib.XOR(data, service)) //location too
+				key, _, _ := wire.GetByteSlice(data)
+				datestr := string(lib.XOR(key, service)) //location too
 				date := ParseDateString(datestr)
 				if !date.Before(beforeDate) || !date.After(afterDate) {
 					return false
@@ -645,41 +646,41 @@ func (al ActionListener) Run(app_ *app.App, network *p2p.Switch, peerAddr string
 
 			in := make(chan []byte)
 			out := make(chan []byte)
-			errs := make(chan error)
+			// errs := make(chan error)
 
-			go app_.Iterate(fun1, in, errs)
+			go app_.Iterate(fun1, in) //errs
 			go app_.IterateNext(fun2, in, out)
 
 			var form lib.Form
-		FOR_LOOP:
+
 			for {
-				select {
-				case err, more := <-errs:
-					if more {
-						log.Println(err.Error()) //for now
-					} else {
-						log.Println("Search finished")
-						break FOR_LOOP
-					}
-				case key, more := <-out:
-					if more {
-						res := app_.QueryByKey(key)
-						if res.IsErr() {
-							log.Println(res.Error())
+				/*
+					case err, more := <-errs:
+						if more {
+							log.Println(err.Error()) //for now
+						} else {
 							continue FOR_LOOP
 						}
-						err := wire.ReadBinaryBytes(res.Data, &form)
-						if err != nil {
-							log.Println(err.Error())
-							continue FOR_LOOP
-						}
-						so.Emit("search-forms-msg", (&form).Summary())
-					} else {
-						log.Println("Search finished")
-						break FOR_LOOP
+				*/
+				key, more := <-out
+				if more {
+					log.Printf("%X\n", key)
+					res := app_.QueryByKey(key)
+					if res.IsErr() {
+						log.Println(res.Error())
+						continue
 					}
+					err := wire.ReadBinaryBytes(res.Data, &form)
+					if err != nil {
+						log.Println(err.Error())
+						continue
+					}
+					so.Emit("search-forms-msg", (&form).Summary())
+				} else {
+					break
 				}
 			}
+			log.Println("Search finished")
 		})
 
 		// Disconnect

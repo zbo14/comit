@@ -110,7 +110,9 @@ func (merk *MerkleApp) Query(query []byte) tmsp.Result {
 		return tmsp.NewResultOK(res, "")
 	case 0x02: // Query by key
 		query = query[1:]
+		fmt.Printf("%X\n", query)
 		key, n, err := wire.GetByteSlice(query)
+		fmt.Printf("%X\n", key)
 		if err != nil {
 			return tmsp.ErrEncodingError.SetLog(
 				Fmt("Error getting key: %v", err.Error()))
@@ -132,10 +134,8 @@ func (merk *MerkleApp) Query(query []byte) tmsp.Result {
 			return tmsp.ErrEncodingError.SetLog(
 				Fmt("Error getting index: %v", err.Error()))
 		}
-		// fmt.Printf("INDEX %d\n", index)
 		query = query[n:]
 		if len(query) != 0 {
-			// fmt.Println(query)
 			return tmsp.ErrEncodingError.SetLog(
 				Fmt("Got bytes left over"))
 		}

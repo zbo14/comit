@@ -8,14 +8,14 @@ import (
 type Account struct {
 	PubKey     crypto.PubKey `json:"pub_key"`
 	Sequence   int           `json:"sequence"`
-	permission int           `json:"permission"`
+	Permission int           `json:"permission"`
 }
 
 func NewAccount(pubKey crypto.PubKey, permission int) *Account {
 	return &Account{
 		PubKey:     pubKey,
 		Sequence:   0,
-		permission: permission,
+		Permission: permission,
 	}
 }
 
@@ -37,15 +37,15 @@ func (acc *Account) String() string {
 }
 
 func (acc *Account) IsAdmin() bool {
-	return acc.permission >= 1
+	return acc.Permission >= 1
 }
 
 func (acc *Account) PermissionToResolve() bool {
-	return acc.permission >= 1
+	return acc.Permission >= 1
 }
 
 func (acc *Account) PermissionToCreateAdmin() bool {
-	return acc.permission >= 2
+	return acc.Permission >= 2
 }
 
 type PrivAccount struct {

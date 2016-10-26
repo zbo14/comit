@@ -101,29 +101,31 @@ func (app *App) QueryByIndex(i int) tmsp.Result {
 }
 
 // Run in goroutine
-func (app *App) Iterate(fun func(data []byte) bool, in chan []byte, errs chan error) {
+func (app *App) Iterate(fun func(data []byte) bool, in chan []byte) { //errs chan error
 	for i := 0; i < app.GetSize(); i++ {
 		res := app.QueryByIndex(i)
 		if res.IsErr() {
-			errs <- errors.New(res.Error())
+			fmt.Println(res.Error())
+			// errs <- errors.New(res.Error())
 		}
-		if !fun(res.Data) {
-			continue
+		// data := make([]byte, len(res.Data))
+		// copy(data, res.Data)
+		if fun(res.Data) {
+			in <- res.Data
 		}
-		in <- res.Data
 	}
 	close(in)
-	close(errs)
+	// close(errs)
 }
 
 func (app *App) IterateNext(fun func(data []byte) bool, in, out chan []byte) {
 	for {
 		data, more := <-in
 		if more {
-			if !fun(data) {
-				continue
+			fmt.Printf("%X\n", data)
+			if fun(data) {
+				out <- data
 			}
-			out <- data
 		} else {
 			break
 		}

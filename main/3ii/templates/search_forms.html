@@ -75,7 +75,7 @@
 			var status = $('#status').val();
 			socket.emit('search-forms', before, after, service, status) //location
 			socket.on('search-forms-msg', function(msg){
-				console.log(msg);
+				// console.log(msg);
 				$('#forms').append(msg);
 			})
 		})
