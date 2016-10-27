@@ -2,7 +2,7 @@ package old_lib
 
 import (
 	"fmt"
-	util "github.com/zballs/3ii/util"
+	util "github.com/zballs/comit/util"
 	re "regexp"
 	"strings"
 )

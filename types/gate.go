@@ -30,8 +30,5 @@ func (g Gate) Leave() {
 		g.Send()
 		g.done.Send()
 	}()
-	select {
-	case <-g.done:
-		return
-	}
+	<-g.done
 }

@@ -4,7 +4,7 @@ import (
 	"errors"
 	. "github.com/tendermint/go-common"
 	"github.com/tendermint/go-wire"
-	"github.com/zballs/3ii/types"
+	"github.com/zballs/comit/types"
 )
 
 const (

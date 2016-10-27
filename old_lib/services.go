@@ -6,8 +6,6 @@ import (
 	re "regexp"
 )
 
-// TODO: change to complaint/issue/incident
-
 type Service struct{}
 
 type ServiceInterface interface {

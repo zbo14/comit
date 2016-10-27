@@ -6,9 +6,9 @@ import (
 	. "github.com/tendermint/go-common"
 	"github.com/tendermint/go-wire"
 	tmsp "github.com/tendermint/tmsp/types"
-	"github.com/zballs/3ii/lib"
-	"github.com/zballs/3ii/types"
-	. "github.com/zballs/3ii/util"
+	"github.com/zballs/comit/lib"
+	"github.com/zballs/comit/types"
+	. "github.com/zballs/comit/util"
 )
 
 const (

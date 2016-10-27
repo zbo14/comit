@@ -8,10 +8,10 @@ import (
 	"github.com/tendermint/go-crypto"
 	"github.com/tendermint/go-p2p"
 	"github.com/tendermint/tmsp/server"
-	"github.com/zballs/3ii/actions"
-	"github.com/zballs/3ii/app"
-	ntwk "github.com/zballs/3ii/network"
-	"github.com/zballs/3ii/web"
+	"github.com/zballs/comit/actions"
+	"github.com/zballs/comit/app"
+	ntwk "github.com/zballs/comit/network"
+	"github.com/zballs/comit/web"
 	"net/http"
 	"reflect"
 )
@@ -31,7 +31,7 @@ func main() {
 		Exit("connect to client: " + err.Error())
 	}
 
-	// Create 3ii app
+	// Create comit app
 	app_ := app.NewApp(cli)
 
 	// If genesis file was specified, set key-value options

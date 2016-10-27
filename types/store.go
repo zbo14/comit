@@ -1,7 +1,7 @@
 package types
 
 import (
-	. "github.com/zballs/3ii/util"
+	. "github.com/zballs/comit/util"
 )
 
 type Store interface {

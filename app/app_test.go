@@ -8,9 +8,9 @@ import (
 	"github.com/tendermint/go-wire"
 	"github.com/tendermint/tmsp/server"
 	tmsp "github.com/tendermint/tmsp/types"
-	"github.com/zballs/3ii/lib"
-	"github.com/zballs/3ii/types"
-	. "github.com/zballs/3ii/util"
+	"github.com/zballs/comit/lib"
+	"github.com/zballs/comit/types"
+	. "github.com/zballs/comit/util"
 	"net"
 	"reflect"
 	"testing"
@@ -36,7 +36,7 @@ func TestStream(t *testing.T) {
 		Exit("connect to client: " + err.Error())
 	}
 
-	// Create 3ii app
+	// Create comit app
 	app_ := NewApp(cli)
 	app_.SetOption("base/chainID", chainID)
 

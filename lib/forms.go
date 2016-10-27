@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	// "github.com/tendermint/go-wire"
-	. "github.com/zballs/3ii/util"
+	. "github.com/zballs/comit/util"
 	"time"
 )
 

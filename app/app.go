@@ -6,9 +6,9 @@ import (
 	. "github.com/tendermint/go-common"
 	"github.com/tendermint/go-wire"
 	tmsp "github.com/tendermint/tmsp/types"
-	ntwk "github.com/zballs/3ii/network"
-	sm "github.com/zballs/3ii/state"
-	"github.com/zballs/3ii/types"
+	ntwk "github.com/zballs/comit/network"
+	sm "github.com/zballs/comit/state"
+	"github.com/zballs/comit/types"
 	"strings"
 )
 
@@ -184,7 +184,7 @@ func (app *App) CreateAdminReactor() *ntwk.MyReactor {
 // TMSP requests
 
 func (app *App) Info() string {
-	return Fmt("3ii v%v", version)
+	return Fmt("comit v%v", version)
 }
 
 func (app *App) SetOption(key string, value string) (log string) {
