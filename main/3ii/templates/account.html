@@ -1,0 +1,120 @@
+{{define "head"}}
+	<title>{{ .Title}}</title>
+{{end}}
+
+{{define "body"}}
+	<div class="container">
+		<div class="container col-md-4">
+			<h5 class="my-header" id="connect-label">connect to network</h5><br>
+			<input type="text" id="pubKey" class="my-input" placeholder="public key" />
+			<br><br>
+			<input type="password" id="privKey" class="my-input" placeholder="private key" />
+			<br><br>
+			<button type="button" id="connect" class="my-button">connect</button>
+			<br><br>
+			<p id="connect-msg" style="display: none;"></p>
+		</div>
+		<div class="container col-md-4">
+			<h5 class="my-header" id="create-label">create a new account</h5><br>
+			<input type="password" id="secret" class="my-input" placeholder="secret" />
+			<br><br>
+			<button type="button" id="create" class="my-button">create</button>
+			<br><br>
+			<p id="create-msg" style="display: none;"></p>
+		</div>
+		<div class="container col-md-4">
+			<h5 class="my-header" id="remove-label">remove an existing account</h5><br>
+			<input type="text" id="pubKey" class="my-input" placeholder="public key" />
+			<br><br>
+			<input type="password" id="privKey" class="my-input" placeholder="private key" />
+			<br><br>
+			<button type="button" id="remove" class="my-button">remove </button>
+			<br><br>
+			<p id="remove-msg" style="display: none;"></p>
+		</div>
+	</div>
+	<script type="text/javascript">
+		window.onload = function() {
+
+			var wsConnect = new WebSocket("ws://localhost:8888/connect_account");
+
+			$("#connect").bind("click", function() {
+				var valid_entry = true;
+				var pubKey = $("#pubKey").val();
+				if (pubKey.length == 0) {
+					$("#pubKey").attr("placeholder", "enter public key");
+					valid_entry = false;
+				};
+				var privKey = $("#privKey").val();
+				if (privKey.length == 0) {
+					$("#privKey").attr("placeholder", "enter private key");
+					valid_entry = false;
+				};
+				if (valid_entry) {
+					wsConnect.send(pubKey);
+					wsConnect.send(privKey);
+				};
+			})
+
+			wsConnect.onmessage = function (msg) {
+				if (msg.data == "connected") {
+					window.location.replace("localhost:88888/network")
+				} else {
+					$("#connect-msg").show(100, "linear").html(msg.data);
+				}
+			};
+			wsConnect.onclose = function() {
+				console.log("CONNECT ACCOUNT socket closed");
+			};
+
+			var wsCreate = new WebSocket("ws://localhost:8888/create_account");
+
+			$("#create").bind("click", function() {
+				var valid_entry = true;
+				var secret = $("#secret").val();
+				if (secret.length == 0) {
+					$("#secret").attr("placeholder", "enter secret");
+					valid_entry = false;
+				};
+				if (valid_entry) {
+					wsCreate.send(secret);
+				};
+			});
+
+			wsCreate.onmessage = function (msg) {
+				$("#create-msg").show(100, "linear").html(msg.data);
+			};
+			wsCreate.onclose = function() {
+				console.log("CREATE ACCOUNT socket closed");
+			};
+
+			var wsRemove = new WebSocket("ws://localhost:8888/remove_account");
+
+			$("#remove").bind("click", function(){
+				var valid_entry = true;
+				var pubKey = $("#pubKey").val();
+				if (pubKey.length == 0) {
+					$("#pubKey").attr("placeholder", "enter public key");
+					valid_entry = false;
+				};
+				var privKey = $("#privKey").val();
+				if (privKey.length == 0) {
+					$("#privKey").attr("placeholder", "enter private key");
+					valid_entry = false;
+				};
+				if (valid_entry) {
+					wsRemove.send(pubKey);
+					wsRemove.send(privKey);
+				};
+			});
+
+			wsRemove.onmessage = function (msg) {
+				$("#remove-msg").show(100, "linear").html(msg.data);
+			};
+			wsRemove.onclose = function() {
+				console.log("REMOVE ACCOUNT socket closed");
+			};
+		}
+
+	</script>
+{{end}}

@@ -63,17 +63,17 @@ func RegisterTemplates(ts ...string) {
 	}
 }
 
-func RenderTemplate(wr http.ResponseWriter, t string, pg *Page) {
-	Tmpl[t].ExecuteTemplate(wr, "base", &pg)
+func RenderTemplate(w http.ResponseWriter, t string, pg *Page) {
+	Tmpl[t].ExecuteTemplate(w, "base", &pg)
 }
 
 // Handler
 
 type Handler func(wr http.ResponseWriter, req *http.Request)
 
-func CustomHandler(filename string) Handler {
-	return func(wr http.ResponseWriter, req *http.Request) {
+func TemplateHandler(filename string) Handler {
+	return func(w http.ResponseWriter, req *http.Request) {
 		pg, _ := LoadPage(string(req.URL.Path[1:]))
-		RenderTemplate(wr, filename, pg)
+		RenderTemplate(w, filename, pg)
 	}
 }

@@ -1,0 +1,96 @@
+{{define "head"}}
+	<title>{{ .Title}}</title>
+{{end}}
+
+{{define "body"}}
+	<div class="container">
+		<div class="container col-md-6" id="feed-container">
+			<h5 class="my-header">choose feed</h5><br>
+			<select id="issues"></select>
+			<br><br>
+			<ul id="feed"></ul>
+		</div>
+		<div class="container col-md-6" id="message-container">
+			<h5 class="my-header">send a message</h5><br>
+			<!-- TODO: add message fields -->
+			<input type="text" id="message" class="my-textarea" placeholder="message" />
+			<br><br>
+			<h5 class="my-header">recipient</h5>
+			<input type="text" id="admin-pubKey" class="my-input" placeholder="public key" />
+			<br><br>
+			<button type="button" id="send" class="my-button">send</button>
+			<br><br>
+			<p id="message-msg" style="display: none;"></p>
+		</div>
+	</div>
+
+	<script type="text/javascript">
+		window.onload = function() {
+
+			var wsIssues = new WebSocket("ws://localhost:8888/get_issues");
+			
+			wsIssues.onmessage = function(msg) {
+				$("#issues").html(msg.data);
+			}
+
+			wsFeeds.onclose = function() {
+				console.log("GET ISSUES socket closed");
+			}
+
+			var wsFeed = new WebSocket("ws://localhost:8888/update_feed");
+			var feed = "";
+
+			// If there's only one feed, send onload
+			// wsFeed.send(data)
+
+			$("#issues").on("change", function() {
+				$("#feed").html("");
+				feed = $("#issues").val();
+				if (feed.length > 0) {
+					wsFeed.send(feed);
+				}
+			})
+
+			wsFeed.onmessage = function(msg) {
+				$("#feed").append(msg.data);
+			}
+
+			wsFeed.onclose = function() {
+				console.log("UPDATE FEED socket closed");
+			}
+
+			var wsMessage = new WebSocket("ws://localhost:8888/send_message");
+			var valid_entry = true;
+			var message = "";
+			var adminPubKey = "";
+
+			$("#send").bind("click", function() {
+				valid_entry = true;
+				message = $("#message").val();
+				if (message.length == 0) {
+					$("#message").attr("placeholder", "enter message");
+					valid_entry = false;
+				}
+				adminPubKey = $("#admin-pubKey").val();
+				if (adminPubKey.length == 0) {
+					$("#admin-pubKey").attr("placeholder", "enter public key");
+					valid_entry = false;
+				}
+				if (valid_entry) {
+					wsMessage.send(message);
+					wsMessage.send(adminPubKey);
+				}
+			})
+
+			wsMessage.onmessage = function(msg) {
+				$("#message-msg").show(100, "linear").html(msg.data);
+			}
+
+			wsMessage.onclose = function() {
+				console.log("SEND MESSAGE socket closed");
+			}
+		} 
+	}
+
+</script>
+{{end}}

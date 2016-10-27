@@ -142,10 +142,9 @@ func RunSubmitTx(state *State, ctx types.CallContext, data []byte) (res tmsp.Res
 			lib.ErrMakeForm, nil, Fmt("Error could not make form with data: %v", data))
 	}
 	formID_bytes := form.ID()
-	buf1, n1, err1 := new(bytes.Buffer), int(0), error(nil)
-	wire.WriteByteSlice(formID_bytes, buf1, &n1, &err1)
-	buf2, n2, err2 := new(bytes.Buffer), int(0), error(nil)
-	wire.WriteBinary(*form, buf2, &n2, &err2)
+	buf1, buf2, n, err := new(bytes.Buffer), new(bytes.Buffer), int(0), error(nil)
+	wire.WriteByteSlice(formID_bytes, buf1, &n, &err)
+	wire.WriteBinary(*form, buf2, &n, &err)
 	state.Set(buf1.Bytes(), buf2.Bytes())
 	err = state.AddToFilter(buf1.Bytes(), service)
 	if err != nil {

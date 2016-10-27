@@ -1,0 +1,79 @@
+{{define "head"}}
+	<title>{{ .Title}}</title>
+{{end}}
+
+{{define "body"}}
+	<div class="container">
+		<h5 class="my-header" id="issue-label">issue</h5>
+		<select id="issue">
+		</select>  
+		<br><br>
+		<input type="text" id="location" class="my-input" placeholder="location" />
+		<br><br>
+		<textarea id="description" class="my-textarea" placeholder="description"></textarea>
+		<br><br>
+		<input type="text" id="pubKey" class="my-input" placeholder="public key" />
+		<br><br>
+		<input type="password" id="privKey" class="my-input" placeholder="private key" />
+		<br><br>
+		<button type="button" id="submit" class="my-button">submit</button>
+		<br><br>
+		<p id="submit-msg"></p>
+	</div>
+	<script type="text/javascript" charset="utf-8">
+	window.onload = function() {
+
+		var wsSubmit = new WebSocket("ws://localhost:8888/submit_form")
+		var valid_entry = true;
+		var issue = "";
+		var location = "";
+		var description = "";
+		var pubKey = "";
+		var privKey = "";
+
+
+		$("#submit").bind("click", function() {
+			valid_entry = true
+			issue = $("#issue").val();
+			if (issue.length == 0) {
+				$("#issue-label").html("<span style="color:red;">select issue</span>"); 
+				valid_entry = false;
+			}
+			location = $("#location").val();
+			if (location.length == 0) {
+				$("#location-label").html("<span style="color:red;">enter location</span>"); 
+				valid_entry = false;
+			}
+			description = $("#description").val();
+			if (description.length == 0) {
+				$("#description-label").html("<span style="color:red;">enter description</span>"); 
+				valid_entry = false;
+			}
+			pubKeyString = $("#pubKey").val();
+			if (pubKeyString.length == 0) {
+				$("#pubKey-label").html("<span style="color:red;">enter public key</span>"); 
+				valid_entry = false;
+			}
+			privKeyString = $("#privKey").val();
+			if (privKeyString.length == 0) {
+				$("#privKey-label").html("<span style="color:red;">enter private key</span>"); 
+				valid_entry = false;
+			}
+
+			if (valid_entry) {
+				$("#issue-label").html("<span style="color:black;">issue</span>"); 
+				$("#location-label").html("<span style="color:black;">location</span>"); 
+				$("#description-label").html("<span style="color:black;">description</span>");
+				$("#detail-label").html("<span style="color:black;">" + detail_label + "</span>");
+				$("#pubKey-label").html("<span style="color:black;">public key</span>"); 
+				$("#privKey-label").html("<span style="color:black;">private key</span>"); 
+				socket.emit("submit-form", issue, location, description, detail, pubKeyString, privKeyString)
+				socket.on("submit-form-msg", function(msg){
+					$("#submit-form-msg").html(msg)
+				})
+			}
+		})
+	}
+	</script>
+
+{{end}}

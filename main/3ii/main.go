@@ -44,7 +44,7 @@ func main() {
 	}
 
 	// Create reactors for network
-	depts := app_.CreateDeptReactor()
+	issues := app_.CreateIssueReactor()
 	admins := app_.CreateAdminReactor()
 
 	// Start the listener
@@ -60,52 +60,53 @@ func main() {
 		Version: "311.311.311",
 	})
 	network.SetNodePrivKey(crypto.GenPrivKeyEd25519())
-	network.AddReactor("depts", depts)   //feed
-	network.AddReactor("admins", admins) //messages
+	network.AddReactor("issues", issues)
+	network.AddReactor("admins", admins)
 	l := p2p.NewDefaultListener("tcp", *networkPtr, false)
 	network.AddListener(l)
 	network.Start()
 
 	web.RegisterTemplates(
-		"create_account.html",
-		"create_admin.html",
-		"remove_account.html",
-		"submit_form.html",
-		"resolve_form.html",
-		"find_form.html",
-		"search_forms.html",
-		"connect.html",
+		"account.html",
+		"forms.html",
+		"network.html",
 	)
 
 	web.CreatePages(
-		"create_account",
-		"create_admin",
-		"remove_account",
-		"submit_form",
-		"resolve_form",
-		"find_form",
-		"search_forms",
-		"connect",
+		"account",
+		"forms",
+		"network",
 	)
 
-	// Create action listener
-	action_listener, err := actions.CreateActionListener()
-	if err != nil {
-		Exit("action listener: " + err.Error())
-	}
-
-	action_listener.Run(app_, network, *peerPtr)
+	// Create action manager
+	am := actions.CreateActionManager(app_, network, *peerPtr)
 
 	js := web.JustFiles{http.Dir("static/")}
-	http.Handle("/", action_listener)
-	http.HandleFunc("/create_account", web.CustomHandler("create_account.html"))
-	http.HandleFunc("/create_admin", web.CustomHandler("create_admin.html"))
-	http.HandleFunc("/remove_account", web.CustomHandler("remove_account.html"))
-	http.HandleFunc("/submit_form", web.CustomHandler("submit_form.html"))
-	http.HandleFunc("/resolve_form", web.CustomHandler("resolve_form.html"))
-	http.HandleFunc("/find_form", web.CustomHandler("find_form.html"))
-	http.HandleFunc("/search_forms", web.CustomHandler("search_forms.html"))
-	http.HandleFunc("/connect", web.CustomHandler("connect.html"))
+
+	http.HandleFunc("/account", web.TemplateHandler("account.html"))
+	http.HandleFunc("/connect_accout", am.ConnectAccount)
+	http.HandleFunc("/create_account", am.CreateAccount)
+	http.HandleFunc("/remove_account", am.RemoveAccount)
+
+	http.HandleFunc("/get_issues", am.GetIssues)
+
+	http.HandleFunc("/forms", web.TemplateHandler("forms.html"))
+	http.HandleFunc("/query_form", am.QueryForm)
+	http.HandleFunc("/search_forms", am.SearchForms)
+
+	http.HandleFunc("/network", web.TemplateHandler("web.html"))
+
+	/*
+		    http.Handle("/", action_listener)
+			http.HandleFunc("/create_admin", web.TemplateHandler("create_admin.html"))
+			http.HandleFunc("/remove_account", web.TemplateHandler("remove_account.html"))
+			http.HandleFunc("/submit_form", web.TemplateHandler("submit_form.html"))
+			http.HandleFunc("/resolve_form", web.TemplateHandler("resolve_form.html"))
+			http.HandleFunc("/find_form", web.TemplateHandler("find_form.html"))
+			http.HandleFunc("/search_forms", web.TemplateHandler("search_forms.html"))
+			http.HandleFunc("/connect", web.TemplateHandler("connect.html"))
+	*/
+
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(js)))
 	http.ListenAndServe(":8888", nil)
 
@@ -158,6 +159,14 @@ func loadGenesis(filePath string) (kvz []KeyValue) {
 }
 
 /*
+
+// Create action listener
+action_listener, err := actions.CreateActionListener()
+if err != nil {
+	Exit("action listener: " + err.Error())
+}
+
+action_listener.Run(app_, network, *peerPtr)
 
 func writeToGenesis(key, value interface{}, filePath string) error {
 	buf, n, err := new(bytes.Buffer), int(0), error(nil)

@@ -1,7 +1,7 @@
 [
 	"base/chainID", "comit",
-	"base/dept", "infrastructure",
-	"base/dept", "sanitation",
+	"base/issue", "citizen complaint",
+	"base/issue", "constituent concern",
 	"base/admin", {
 		"pub_key": [1, "E93790067FA5106F71F91635FC388348C1A864E3C14ED35DAB0C754356425334"],
 		"permission": 2

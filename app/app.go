@@ -20,8 +20,8 @@ const (
 	queryByKey   byte = 2
 	queryByIndex byte = 3
 
-	deptChID  byte = 10
-	adminChID byte = 20
+	issueID byte = 10
+	adminID byte = 20
 )
 
 type App struct {
@@ -29,13 +29,13 @@ type App struct {
 	state      *sm.State
 	cacheState *sm.State
 
-	depts     *ntwk.MyReactor
-	deptChIDs map[string]byte
-	deptChID  byte
+	issues   *ntwk.MyReactor
+	issueIDs map[string]byte
+	issueID  byte
 
-	admins     *ntwk.MyReactor
-	adminChIDs map[string]byte
-	adminChID  byte
+	admins   *ntwk.MyReactor
+	adminIDs map[string]byte
+	adminID  byte
 }
 
 func NewApp(cli *Client) *App {
@@ -45,11 +45,11 @@ func NewApp(cli *Client) *App {
 		state:      state,
 		cacheState: nil,
 
-		deptChIDs: make(map[string]byte),
-		deptChID:  deptChID,
+		issueIDs: make(map[string]byte),
+		issueID:  issueID,
 
-		adminChIDs: make(map[string]byte),
-		adminChID:  adminChID,
+		adminIDs: make(map[string]byte),
+		adminID:  adminID,
 	}
 }
 
@@ -133,40 +133,50 @@ func (app *App) IterateNext(fun func(data []byte) bool, in, out chan []byte) {
 	close(out)
 }
 
-func (app *App) AddDept(dept string) {
-	app.deptChIDs[dept] = app.deptChID
-	app.deptChID++
+func (app *App) Issues() []string {
+	issues := make([]string, len(app.issueIDs))
+	idx := 0
+	for issue, _ := range app.issueIDs {
+		issues[idx] = issue
+		idx++
+	}
+	return issues
 }
 
-func (app *App) DeptChIDs() map[string]byte {
-	return app.deptChIDs
+func (app *App) AddIssue(issue string) {
+	app.issueIDs[issue] = app.issueID
+	app.issueID++
 }
 
-func (app *App) DeptChID(dept string) byte {
-	return app.deptChIDs[dept]
+func (app *App) IssueIDs() map[string]byte {
+	return app.issueIDs
 }
 
-func (app *App) CreateDeptReactor() *ntwk.MyReactor {
-	chDescs := ntwk.CreateChDescs(app.deptChIDs)
-	app.depts = ntwk.NewReactor(chDescs, true)
-	return app.depts
+func (app *App) IssueID(issue string) byte {
+	return app.issueIDs[issue]
+}
+
+func (app *App) CreateIssueReactor() *ntwk.MyReactor {
+	chDescs := ntwk.CreateChDescs(app.issueIDs)
+	app.issues = ntwk.NewReactor(chDescs, true)
+	return app.issues
 }
 
 func (app *App) AddAdmin(pubKeyString string) {
-	app.adminChIDs[pubKeyString] = app.adminChID
-	app.adminChID++
+	app.adminIDs[pubKeyString] = app.adminID
+	app.adminID++
 }
 
-func (app *App) AdminChIDs() map[string]byte {
-	return app.adminChIDs
+func (app *App) AdminIDs() map[string]byte {
+	return app.adminIDs
 }
 
-func (app *App) AdminChID(pubKeyString string) byte {
-	return app.adminChIDs[pubKeyString]
+func (app *App) AdminID(pubKeyString string) byte {
+	return app.adminIDs[pubKeyString]
 }
 
 func (app *App) CreateAdminReactor() *ntwk.MyReactor {
-	chDescs := ntwk.CreateChDescs(app.adminChIDs)
+	chDescs := ntwk.CreateChDescs(app.adminIDs)
 	app.admins = ntwk.NewReactor(chDescs, true)
 	return app.admins
 }
@@ -183,10 +193,10 @@ func (app *App) SetOption(key string, value string) (log string) {
 	case "chainID":
 		app.state.SetChainID(value)
 		return "Success"
-	case "dept":
-		app.AddDept(value)
+	case "issue": //--> issues
+		app.AddIssue(value)
 		return "Success"
-	case "admin":
+	case "admin": //--> admins
 		var err error
 		var acc *types.Account
 		wire.ReadJSONPtr(&acc, []byte(value), &err)

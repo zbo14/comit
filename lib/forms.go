@@ -10,15 +10,18 @@ import (
 )
 
 const (
-	line = "<strong style='opacity:0.8;'>%v</strong> <small>%v</small>" + "<br>"
+	ErrMakeForm            = 100
+	ErrFindForm            = 101
+	ErrFormAlreadyResolved = 102
+	field                  = "<strong style='opacity:0.8;'>%v</strong> <small>%v</small>" + "<br>"
 )
 
 type Form struct {
 	Posted      string
-	Service     string
-	Address     string
+	Issue       string
+	Location    string
 	Description string
-	Detail      string
+	// Detail      string
 
 	//==============//
 
@@ -50,46 +53,47 @@ func setPosted(timestr string) Item {
 	}
 }
 
-func setService(str string) Item {
+func setIssue(str string) Item {
 	return func(form *Form) error {
-		form.Service = SERVICE.ReadField(str, "service")
+		form.Issue = ReadField(str, "issue")
 		return nil
 	}
 }
 
-func setAddress(str string) Item {
+func setLocation(str string) Item {
 	return func(form *Form) error {
-		form.Address = SERVICE.ReadField(str, "address")
+		form.Location = ReadField(str, "location")
 		return nil
 	}
 }
 
 func setDescription(str string) Item {
 	return func(form *Form) error {
-		form.Description = SERVICE.ReadField(str, "description")
+		form.Description = ReadField(str, "description")
 		return nil
 	}
 }
 
+/*
 func setDetail(str string) Item {
 	return func(form *Form) error {
-		service := form.Service
-		if len(service) > 0 {
-			form.Detail = SERVICE.ReadDetail(str, service)
+		issue := form.Issue
+		if len(issue) > 0 {
+			form.Detail = ReadDetail(str, issue)
 			return nil
 		}
-		return errors.New("cannot set form detail without service")
+		return errors.New("cannot set form detail without issue")
 	}
 }
+*/
 
 func MakeForm(str string) (*Form, error) {
 	timestr := time.Now().UTC().String()
 	form, err := NewForm(
 		setPosted(timestr),
-		setService(str),
-		setAddress(str),
-		setDescription(str),
-		setDetail(str))
+		setIssue(str),
+		setLocation(str),
+		setDescription(str))
 	if err != nil {
 		return nil, err
 	}
@@ -113,7 +117,7 @@ func XOR(bytes []byte, items ...string) []byte {
 func (form *Form) ID() []byte {
 	bytes := make([]byte, 16)
 	daystr := ToTheDay(form.Posted)
-	bytes = XOR(bytes, daystr, form.Service) //form.Address
+	bytes = XOR(bytes, daystr, form.Issue) //form.Location
 	return bytes
 }
 
@@ -126,23 +130,25 @@ func (form *Form) Summary() string {
 			form.ResolvedBy)
 	}
 	posted := ToTheMinute(form.Posted)
-	sd := SERVICE.ServiceDetail(form.Service)
-	detail := "no options"
-	if sd != nil {
-		detail = sd.Detail
-	}
+	/*
+		sd := IssueDetail(form.Issue)
+		detail := "no options"
+		if sd != nil {
+			detail = sd.Detail
+		}
+	*/
 	var summary bytes.Buffer
-	summary.WriteString("<li>" + fmt.Sprintf(line, "posted", posted))
-	summary.WriteString(fmt.Sprintf(line, "service", form.Service))
-	summary.WriteString(fmt.Sprintf(line, "address", form.Address))
-	summary.WriteString(fmt.Sprintf(line, "description", form.Description))
-	summary.WriteString(fmt.Sprintf(line, detail, form.Detail))
-	summary.WriteString(fmt.Sprintf(line, "status", status) + "<br></li>")
+	summary.WriteString("<li>" + fmt.Sprintf(field, "posted", posted))
+	summary.WriteString(fmt.Sprintf(field, "issue", form.Issue))
+	summary.WriteString(fmt.Sprintf(field, "location", form.Location))
+	summary.WriteString(fmt.Sprintf(field, "description", form.Description))
+	// summary.WriteString(fmt.Sprintf(field, detail, form.Detail))
+	summary.WriteString(fmt.Sprintf(field, "status", status) + "<br></li>")
 	return summary.String()
 }
 
 func MatchForm(str string, form *Form) bool {
-	before := SERVICE.ReadField(str, "before")
+	before := ReadField(str, "before")
 	if len(before) > 0 {
 		postedDate := ParseTimeString(form.Posted)
 		beforeDate := ParseTimeString(before)
@@ -150,7 +156,7 @@ func MatchForm(str string, form *Form) bool {
 			return false
 		}
 	}
-	after := SERVICE.ReadField(str, "after")
+	after := ReadField(str, "after")
 	if len(after) > 0 {
 		postedDate := ParseTimeString(form.Posted)
 		afterDate := ParseTimeString(after)
@@ -158,19 +164,19 @@ func MatchForm(str string, form *Form) bool {
 			return false
 		}
 	}
-	service := SERVICE.ReadField(str, "service")
-	if len(service) > 0 {
-		if !(service == form.Service) {
+	issue := ReadField(str, "issue")
+	if len(issue) > 0 {
+		if !(issue == form.Issue) {
 			return false
 		}
 	}
-	address := SERVICE.ReadField(str, "address")
-	if len(address) > 0 {
-		if !SubstringMatch(address, form.Address) {
+	location := ReadField(str, "location")
+	if len(location) > 0 {
+		if !SubstringMatch(location, form.Location) {
 			return false
 		}
 	}
-	status := SERVICE.ReadField(str, "status")
+	status := ReadField(str, "status")
 	if len(status) > 0 {
 		if !(status == form.Status) {
 			return false
@@ -194,11 +200,3 @@ func (form *Form) Resolve(timestr, pubKeyString string) error {
 	form.ResolvedBy = pubKeyString
 	return nil
 }
-
-// Errors
-
-const (
-	ErrMakeForm            = 311
-	ErrFindForm            = 3111
-	ErrFormAlreadyResolved = 31111
-)

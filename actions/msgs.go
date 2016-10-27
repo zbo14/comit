@@ -1,13 +1,13 @@
 package actions
 
 const (
-	invalid_hex = "<span style='color:red;'>Invalid hex string: <small>%v</small></span>"
+	invalid_hex = "<span style='color:red;'>Invalid hex string: <small>%X</small></span>"
 
-	create_account_success = "<strong style='opacity:0.8;'>public key</strong> <small>%v</small><br><strong style='opacity:0.8;'>private key</strong> <small>%v</small><br><br><small>Keep your private key, well.. private!</small>"
+	create_account_success = "<strong style='opacity:0.8;'>public key</strong> <small>%X</small><br><strong style='opacity:0.8;'>private key</strong> <small>%X</small>"
 	create_account_failure = "<span style='color:red;'>Could not create account</span>"
 
 	remove_account_failure = "<span style='color:red;'>Could not remove account<br><strong>public key</strong> <small>%v</small>"
-	remove_account_success = "Removed account<br><strong>public key</strong> <small>%v</small>"
+	remove_account_success = "Removed account<br><strong>public key</strong> <small>%X</small>"
 
 	create_admin_failure = "<span style='color:red;'>Failed to create admin</span>"
 	create_admin_success = ""
@@ -28,7 +28,8 @@ const (
 
 	search_forms_failure = "<span style='color:red;'>Failed to find forms</span>"
 
-	connect_failure = "<span style='color:red;'>Failed to connect to network</span>"
+	already_connected = "<span style='color:red;'>You are already connected to the network</span>"
+	connect_failure   = "<span style='color:red;'>Failed to connect to network</span>"
 
 	find_admin_failure   = "<span style='color:red;'>Could not find admin with public key <small>%v</small></span>"
 	send_message_failure = "<span style='color:red;'>Failed to send message to <small>%v</small></span>"
