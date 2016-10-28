@@ -9,6 +9,7 @@ import (
 	"github.com/tendermint/go-p2p"
 	wire "github.com/tendermint/go-wire"
 	"github.com/zballs/comit/app"
+	"github.com/zballs/comit/lib"
 	ntwk "github.com/zballs/comit/network"
 	"github.com/zballs/comit/types"
 	. "github.com/zballs/comit/util"
@@ -51,7 +52,7 @@ func (am *ActionManager) GetIssues(w http.ResponseWriter, req *http.Request) {
 	}
 
 	conn.WriteMessage(websocket.TextMessage, buf.Bytes())
-	conn.Close()
+	// conn.Close()
 }
 
 // Create Account
@@ -74,7 +75,7 @@ func (am *ActionManager) CreateAccount(w http.ResponseWriter, req *http.Request)
 	tx.Data = secret
 
 	// Set Sequence, Account, Signature
-	pubKey, privKey := CreateKeys(tx.Data) // create keys now
+	pubKey, privKey := CreateKeys(tx.Data) // create keyBytess now
 	tx.SetSequence(0)
 	tx.SetAccount(pubKey)
 	tx.SetSignature(privKey, am.app.GetChainID())
@@ -275,4 +276,185 @@ func (am *ActionManager) ConnectAccount(w http.ResponseWriter, req *http.Request
 			conn.Close()
 		}
 	}
+}
+
+func (am *ActionManager) SubmitForm(w http.ResponseWriter, req *http.Request) {
+
+	conn, err := upgrader.Upgrade(w, req, nil)
+	if err != nil {
+		log.Panic(err)
+	}
+
+	// Create tx
+	var tx types.Tx
+	tx.Type = types.SubmitTx
+
+	// Form information
+	_, issueBytes, err := conn.ReadMessage()
+	if err != nil {
+		log.Panic(err)
+	}
+	issue := string(issueBytes)
+	if !am.app.IsIssue(issue) {
+		log.Panic(err) // for now
+	}
+	_, locationBytes, err := conn.ReadMessage()
+	if err != nil {
+		log.Panic(err)
+	}
+	location := string(locationBytes)
+	_, descriptionBytes, err := conn.ReadMessage()
+	if err != nil {
+		log.Panic(err)
+	}
+	description := string(descriptionBytes)
+
+	// TODO: field validation
+	form, err := lib.MakeForm(issue, location, description)
+	if err != nil {
+		log.Panic(err) //for now
+	}
+	formBuf, n, err := new(bytes.Buffer), int(0), error(nil)
+	wire.WriteBinary(*form, formBuf, &n, &err)
+	tx.Data = formBuf.Bytes()
+	log.Println(tx.Data)
+
+	// PubKey
+	_, rawBytes, err := conn.ReadMessage()
+	if err != nil {
+		log.Panic(err)
+	}
+	pubKeyBytes := make([]byte, 32)
+	n, err = hex.Decode(pubKeyBytes, rawBytes)
+	if err != nil {
+		msg := Fmt(invalid_hex, pubKeyBytes)
+		conn.WriteMessage(websocket.TextMessage, []byte(msg))
+		conn.Close()
+		return
+	}
+	pubKeyBytes = pubKeyBytes[:n]
+	var pubKey crypto.PubKeyEd25519
+	copy(pubKey[:], pubKeyBytes[:])
+
+	// PrivKey
+	_, rawBytes, err = conn.ReadMessage()
+	if err != nil {
+		log.Panic(err)
+	}
+	privKeyBytes := make([]byte, 64)
+	n, err = hex.Decode(privKeyBytes, rawBytes)
+	if err != nil {
+		msg := Fmt(invalid_hex, privKeyBytes)
+		conn.WriteMessage(websocket.TextMessage, []byte(msg))
+		conn.Close()
+		return
+	}
+	privKeyBytes = privKeyBytes[:n]
+	var privKey crypto.PrivKeyEd25519
+	copy(privKey[:], privKeyBytes[:])
+
+	// Set Sequence, Account, Signature
+	addr := pubKey.Address()
+	seq, err := am.app.GetSequence(addr)
+	if err != nil {
+		log.Println(err.Error()) //for now
+	}
+	tx.SetSequence(seq)
+	tx.SetAccount(pubKey)
+	tx.SetSignature(privKey, am.app.GetChainID())
+
+	// TxBytes in AppendTx
+	txBuf := new(bytes.Buffer)
+	wire.WriteBinary(tx, txBuf, &n, &err)
+	res := am.app.AppendTx(txBuf.Bytes())
+
+	if res.IsErr() {
+		// log.Println(res.Error())
+		conn.WriteMessage(websocket.TextMessage, []byte(submit_form_failure))
+		conn.Close()
+		return
+	}
+
+	msg := Fmt(submit_form_success, res.Data)
+	// log.Printf("SUCCESS submitted form with ID: %X\n", res.Data)
+	conn.WriteMessage(websocket.TextMessage, []byte(msg))
+	conn.Close()
+	/* FEED UPDATE
+	// Check if already connected
+		log.Println(am.network.Peers().List())
+		pubKeyString := BytesToHexString(pubKeyBytes)
+		peer := am.network.Peers().Get(pubKeyString)
+		if peer != nil {
+			log.Println("Peer already connected")
+			conn.WriteMessage(websocket.TextMessage, []byte(already_connected))
+			conn.Close()
+			return
+		}
+		if network != nil {
+			peer := network.Peers().Get(pubKeyString)
+			if peer == nil {
+				log.Panic("Error: could not find peer")
+			}
+			res = app_.QueryByKey(res.Data)
+			if res.IsErr() {
+				log.Panic(err)
+			}
+			var form lib.Form
+			err = wire.ReadBinaryBytes(res.Data, &form)
+			if err != nil {
+				log.Panic(err)
+			}
+			dept := lib.SERVICE.ServiceDept(form.Service)
+			chID := app_.DeptChID(dept)
+			peer.Send(chID, res.Data)
+		}
+	*/
+}
+
+func (am *ActionManager) FindForm(w http.ResponseWriter, req *http.Request) {
+
+	conn, err := upgrader.Upgrade(w, req, nil)
+	if err != nil {
+		log.Panic(err)
+	}
+
+	// Form ID
+	_, rawBytes, err := conn.ReadMessage()
+	if err != nil {
+		log.Panic(err)
+	}
+	keyBytes := make([]byte, 16)
+	n, err := hex.Decode(keyBytes, rawBytes)
+	if err != nil {
+		msg := Fmt(invalid_hex, keyBytes)
+		conn.WriteMessage(websocket.TextMessage, []byte(msg))
+		conn.Close()
+	}
+	keyBytes = keyBytes[:n]
+	buf, n, err := new(bytes.Buffer), int(0), error(nil)
+	wire.WriteByteSlice(keyBytes, buf, &n, &err)
+	key := buf.Bytes()
+
+	// Query
+	res := am.app.QueryByKey(key)
+
+	if res.IsErr() {
+		log.Println(res.Error())
+		msg := Fmt(find_form_failure, keyBytes)
+		conn.WriteMessage(websocket.TextMessage, []byte(msg))
+		conn.Close()
+	}
+	var form lib.Form
+	value := res.Data
+	err = wire.ReadBinaryBytes(value, &form)
+	if err != nil {
+		msg := Fmt(decode_form_failure, keyBytes)
+		conn.WriteMessage(websocket.TextMessage, []byte(msg))
+		conn.Close()
+		log.Panic(err)
+	}
+	msg := (&form).Summary()
+	conn.WriteMessage(websocket.TextMessage, []byte(msg))
+	conn.Close()
+	log.Printf("SUCCESS found form with ID: %X", keyBytes)
 }

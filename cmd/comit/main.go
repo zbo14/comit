@@ -91,21 +91,11 @@ func main() {
 	http.HandleFunc("/get_issues", am.GetIssues)
 
 	http.HandleFunc("/forms", web.TemplateHandler("forms.html"))
-	http.HandleFunc("/query_form", am.QueryForm)
-	http.HandleFunc("/search_forms", am.SearchForms)
+	http.HandleFunc("/submit_form", am.SubmitForm)
+	http.HandleFunc("/find_form", am.FindForm)
+	// http.HandleFunc("/search_forms", am.SearchForms)
 
 	http.HandleFunc("/network", web.TemplateHandler("web.html"))
-
-	/*
-		    http.Handle("/", action_listener)
-			http.HandleFunc("/create_admin", web.TemplateHandler("create_admin.html"))
-			http.HandleFunc("/remove_account", web.TemplateHandler("remove_account.html"))
-			http.HandleFunc("/submit_form", web.TemplateHandler("submit_form.html"))
-			http.HandleFunc("/resolve_form", web.TemplateHandler("resolve_form.html"))
-			http.HandleFunc("/find_form", web.TemplateHandler("find_form.html"))
-			http.HandleFunc("/search_forms", web.TemplateHandler("search_forms.html"))
-			http.HandleFunc("/connect", web.TemplateHandler("connect.html"))
-	*/
 
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(js)))
 	http.ListenAndServe(":8888", nil)
@@ -165,6 +155,15 @@ action_listener, err := actions.CreateActionListener()
 if err != nil {
 	Exit("action listener: " + err.Error())
 }
+
+http.Handle("/", action_listener)
+http.HandleFunc("/create_admin", web.TemplateHandler("create_admin.html"))
+http.HandleFunc("/remove_account", web.TemplateHandler("remove_account.html"))
+http.HandleFunc("/submit_form", web.TemplateHandler("submit_form.html"))
+http.HandleFunc("/resolve_form", web.TemplateHandler("resolve_form.html"))
+http.HandleFunc("/find_form", web.TemplateHandler("find_form.html"))
+http.HandleFunc("/search_forms", web.TemplateHandler("search_forms.html"))
+http.HandleFunc("/connect", web.TemplateHandler("connect.html"))
 
 action_listener.Run(app_, network, *peerPtr)
 

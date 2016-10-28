@@ -156,6 +156,10 @@ func (app *App) IssueID(issue string) byte {
 	return app.issueIDs[issue]
 }
 
+func (app *App) IsIssue(issue string) bool {
+	return app.issueIDs[issue] > 0x0
+}
+
 func (app *App) CreateIssueReactor() *ntwk.MyReactor {
 	chDescs := ntwk.CreateChDescs(app.issueIDs)
 	app.issues = ntwk.NewReactor(chDescs, true)

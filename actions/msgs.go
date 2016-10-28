@@ -3,7 +3,7 @@ package actions
 const (
 	invalid_hex = "<span style='color:red;'>Invalid hex string: <small>%X</small></span>"
 
-	create_account_success = "<strong style='opacity:0.8;'>public key</strong> <small>%X</small><br><strong style='opacity:0.8;'>private key</strong> <small>%X</small>"
+	create_account_success = "<strong style='opacity:0.8;'>public key</strong> <really-small>%X</really-small><br><strong style='opacity:0.8;'>private key</strong> <really-small>%X</really-small>"
 	create_account_failure = "<span style='color:red;'>Could not create account</span>"
 
 	remove_account_failure = "<span style='color:red;'>Could not remove account<br><strong>public key</strong> <small>%v</small>"
@@ -16,11 +16,11 @@ const (
 	remove_admin_success = "Removed admin<br><strong>Public Key</strong> <small>%v</small><br><strong>Passphrase</strong> <small>%v</small>"
 
 	submit_form_failure = "<span style='color:red;'>Failed to submit form</span>"
-	submit_form_success = "<strong>form ID</strong> <small>%v</small>"
+	submit_form_success = "<strong>Submitted form with ID</strong> <small>%X</small>"
 
 	form_already_exists = "<span style='color:red;'>Form already exists</span>"
 
-	find_form_failure   = "<span style='color:red;'>Failed to find<br><strong>form ID</strong> <small>%v</small></span>"
+	find_form_failure   = "<span style='color:red;'>Failed to find<br><strong>form ID</strong> <small>%X</small></span>"
 	decode_form_failure = "<span style='color:red;'>Failed to decode<br><strong>form ID</strong> <small>%v</small></span>"
 
 	resolve_form_failure = "<span style='color:red;'>Failed to resolve<br><strong>form ID</strong> <small>%v</small></span>"

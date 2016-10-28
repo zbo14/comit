@@ -135,25 +135,25 @@ func RunRemoveAccountTx(state *State, ctx types.CallContext, data []byte) tmsp.R
 }
 
 func RunSubmitTx(state *State, ctx types.CallContext, data []byte) (res tmsp.Result) {
-	form, err := lib.MakeForm(string(data))
-	service := form.Service
+	var form lib.Form
+	err := wire.ReadBinaryBytes(data, &form)
 	if err != nil {
 		return tmsp.NewResult(
-			lib.ErrMakeForm, nil, Fmt("Error could not make form with data: %v", data))
+			lib.ErrDecodeForm, nil, Fmt("Error: could not decode form data: %v", data))
 	}
-	formID_bytes := form.ID()
-	buf1, buf2, n, err := new(bytes.Buffer), new(bytes.Buffer), int(0), error(nil)
-	wire.WriteByteSlice(formID_bytes, buf1, &n, &err)
-	wire.WriteBinary(*form, buf2, &n, &err)
-	state.Set(buf1.Bytes(), buf2.Bytes())
-	err = state.AddToFilter(buf1.Bytes(), service)
+	issue := form.Issue
+	formID := (&form).ID()
+	buf, n, err := new(bytes.Buffer), int(0), error(nil)
+	wire.WriteByteSlice(formID, buf, &n, &err)
+	state.Set(buf.Bytes(), data)
+	err = state.AddToFilter(buf.Bytes(), issue)
 	if err != nil {
 		// OK, false positive
 		// print for now
 		fmt.Println(err.Error())
 	}
-	fmt.Printf("Added form to %s filter\n", service)
-	return tmsp.NewResultOK(formID_bytes, "")
+	fmt.Printf("Added form to %s filter\n", issue)
+	return tmsp.NewResultOK(formID, "")
 }
 
 func RunResolveTx(state *State, ctx types.CallContext, data []byte) (res tmsp.Result) {
@@ -165,15 +165,15 @@ func RunResolveTx(state *State, ctx types.CallContext, data []byte) (res tmsp.Re
 		return tmsp.NewResult(
 			lib.ErrFindForm, nil, Fmt("Error cannot find form with ID: %v", formID))
 	}
-	var form lib.Form
-	err = wire.ReadBinaryBytes(value, &form)
+	var form *lib.Form
+	err = wire.ReadBinaryBytes(value, form)
 	if err != nil {
 		return tmsp.ErrEncodingError.SetLog(
 			Fmt("Error parsing form bytes: %v", err.Error()))
 	}
 	timestr := TimeString()
 	pubKeyString := BytesToHexString(ctx.Caller)
-	err = (&form).Resolve(timestr, pubKeyString)
+	err = form.Resolve(timestr, pubKeyString)
 	if err != nil {
 		return tmsp.NewResult(
 			lib.ErrFormAlreadyResolved, nil, Fmt("Error already resolved form with ID: %v", formID))

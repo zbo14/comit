@@ -9,33 +9,33 @@ import (
 	"time"
 )
 
+var Fmt = fmt.Sprintf
+
 const (
-	ErrMakeForm            = 100
+	ErrDecodeForm          = 100
 	ErrFindForm            = 101
 	ErrFormAlreadyResolved = 102
-	field                  = "<strong style='opacity:0.8;'>%v</strong> <small>%v</small>" + "<br>"
+	field                  = "<strong style='opacity:0.8;'>%s</strong> <small>%s</small><br>"
 )
 
 type Form struct {
-	Posted      string
+	SubmittedAt string
 	Issue       string
 	Location    string
 	Description string
-	// Detail      string
 
 	//==============//
 
 	Status     string
 	ResolvedBy string
 	ResolvedAt string
-	// ResponseTime float64 `wire:"unsafe"`
 }
 
 // Functional Options
 
 type Item func(*Form) error
 
-func NewForm(items ...Item) (*Form, error) {
+func newForm(items ...Item) (*Form, error) {
 	form := &Form{}
 	for _, item := range items {
 		err := item(form)
@@ -46,59 +46,61 @@ func NewForm(items ...Item) (*Form, error) {
 	return form, nil
 }
 
-func setPosted(timestr string) Item {
+func setSubmittedAt(submittedAt string) Item {
 	return func(form *Form) error {
-		form.Posted = timestr
+		form.SubmittedAt = submittedAt
 		return nil
 	}
 }
 
-func setIssue(str string) Item {
+func setIssue(issue string) Item {
 	return func(form *Form) error {
-		form.Issue = ReadField(str, "issue")
+		form.Issue = issue
 		return nil
 	}
 }
 
-func setLocation(str string) Item {
+func setLocation(location string) Item {
 	return func(form *Form) error {
-		form.Location = ReadField(str, "location")
+		form.Location = location
 		return nil
 	}
 }
 
-func setDescription(str string) Item {
+func setDescription(description string) Item {
 	return func(form *Form) error {
-		form.Description = ReadField(str, "description")
+		// TODO: field validation
+		form.Description = description
 		return nil
 	}
 }
 
-/*
-func setDetail(str string) Item {
-	return func(form *Form) error {
-		issue := form.Issue
-		if len(issue) > 0 {
-			form.Detail = ReadDetail(str, issue)
-			return nil
-		}
-		return errors.New("cannot set form detail without issue")
-	}
-}
-*/
-
-func MakeForm(str string) (*Form, error) {
-	timestr := time.Now().UTC().String()
-	form, err := NewForm(
-		setPosted(timestr),
-		setIssue(str),
-		setLocation(str),
-		setDescription(str))
+func MakeForm(issue, location, description string) (*Form, error) {
+	submittedAt := time.Now().String()
+	form, err := newForm(
+		setSubmittedAt(submittedAt),
+		setIssue(issue),
+		setLocation(location),
+		setDescription(description))
 	if err != nil {
 		return nil, err
 	}
 	form.Status = "unresolved"
 	return form, nil
+}
+
+func (form *Form) Resolved() bool {
+	return form.Status == "resolved"
+}
+
+func (form *Form) Resolve(timestr, pubKeyString string) error {
+	if form.Resolved() {
+		return errors.New("form already resolved")
+	}
+	form.Status = "resolved"
+	form.ResolvedAt = timestr
+	form.ResolvedBy = pubKeyString
+	return nil
 }
 
 func XOR(bytes []byte, items ...string) []byte {
@@ -116,7 +118,7 @@ func XOR(bytes []byte, items ...string) []byte {
 
 func (form *Form) ID() []byte {
 	bytes := make([]byte, 16)
-	daystr := ToTheDay(form.Posted)
+	daystr := ToTheDay(form.SubmittedAt)
 	bytes = XOR(bytes, daystr, form.Issue) //form.Location
 	return bytes
 }
@@ -124,43 +126,30 @@ func (form *Form) ID() []byte {
 func (form *Form) Summary() string {
 	status := "unresolved"
 	if form.Resolved() {
-		status = fmt.Sprintf(
+		status = Fmt(
 			"resolved at %v by %v",
 			form.ResolvedAt,
 			form.ResolvedBy)
 	}
-	posted := ToTheMinute(form.Posted)
-	/*
-		sd := IssueDetail(form.Issue)
-		detail := "no options"
-		if sd != nil {
-			detail = sd.Detail
-		}
-	*/
+	submittedAt := ToTheMinute(form.SubmittedAt)
 	var summary bytes.Buffer
-	summary.WriteString("<li>" + fmt.Sprintf(field, "posted", posted))
-	summary.WriteString(fmt.Sprintf(field, "issue", form.Issue))
-	summary.WriteString(fmt.Sprintf(field, "location", form.Location))
-	summary.WriteString(fmt.Sprintf(field, "description", form.Description))
-	// summary.WriteString(fmt.Sprintf(field, detail, form.Detail))
-	summary.WriteString(fmt.Sprintf(field, "status", status) + "<br></li>")
+	summary.WriteString(Fmt(field, "submitted", submittedAt))
+	summary.WriteString(Fmt(field, "issue", form.Issue))
+	summary.WriteString(Fmt(field, "location", form.Location))
+	summary.WriteString(Fmt(field, "description", form.Description))
+	summary.WriteString(Fmt(field, "status", status))
 	return summary.String()
 }
 
+/*
 func MatchForm(str string, form *Form) bool {
-	before := ReadField(str, "before")
-	if len(before) > 0 {
-		postedDate := ParseTimeString(form.Posted)
-		beforeDate := ParseTimeString(before)
-		if !(postedDate.Before(beforeDate)) {
-			return false
-		}
-	}
 	after := ReadField(str, "after")
-	if len(after) > 0 {
-		postedDate := ParseTimeString(form.Posted)
+	before := ReadField(str, "before")
+	if len(before) > 0 && len(after) > 0 {
+		submittedOn := ParseTimeString(form.SubmittedAt)
 		afterDate := ParseTimeString(after)
-		if !(postedDate.After(afterDate)) {
+		beforeDate := ParseTimeString(before)
+		if !(submittedOn.After(afterDate)) || !(submittedOn.Before(beforeDate)) {
 			return false
 		}
 	}
@@ -184,19 +173,4 @@ func MatchForm(str string, form *Form) bool {
 	}
 	return true
 }
-
-//=========================================//
-
-func (form *Form) Resolved() bool {
-	return form.Status == "resolved"
-}
-
-func (form *Form) Resolve(timestr, pubKeyString string) error {
-	if form.Resolved() {
-		return errors.New("form already resolved")
-	}
-	form.Status = "resolved"
-	form.ResolvedAt = timestr
-	form.ResolvedBy = pubKeyString
-	return nil
-}
+*/

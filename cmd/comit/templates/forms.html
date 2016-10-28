@@ -3,10 +3,11 @@
 {{end}}
 
 {{define "body"}}
-	<div class="container">
+	<div class="container col-md-4">
+		<h5 class="my-header">submit a form</h5>
+		<br><br>
 		<h5 class="my-header" id="issue-label">issue</h5>
-		<select id="issue">
-		</select>  
+		<select id="issues"></select>  
 		<br><br>
 		<input type="text" id="location" class="my-input" placeholder="location" />
 		<br><br>
@@ -18,12 +19,37 @@
 		<br><br>
 		<button type="button" id="submit" class="my-button">submit</button>
 		<br><br>
-		<p id="submit-msg"></p>
+		<p id="submit-msg" style="display: none;"></p>
+	</div>
+	<div class="container col-md-4">
+		<h5 class="my-header">find a form</h5>
+		<br><br>
+		<input type="text" id="formID" class="my-input" placeholder="form ID" />
+		<br><br>
+		<button type="button" id="find" class="my-button">find</button>
+		<br><br>
+		<p id="find-msg" style="display: none;"></p>
 	</div>
 	<script type="text/javascript" charset="utf-8">
 	window.onload = function() {
 
-		var wsSubmit = new WebSocket("ws://localhost:8888/submit_form")
+		// Get issues 
+
+		var wsIssues = new WebSocket("ws://localhost:8888/get_issues");
+			
+		wsIssues.onmessage = function(msg) {
+			console.log(msg.data);
+			$("#issues").html(msg.data);
+		}
+
+		wsIssues.onclose = function() {
+			console.log("GET ISSUES socket closed");
+		}
+
+		// Submit form
+
+		var wsSubmit = new WebSocket("ws://localhost:8888/submit_form");
+		
 		var valid_entry = true;
 		var issue = "";
 		var location = "";
@@ -31,48 +57,77 @@
 		var pubKey = "";
 		var privKey = "";
 
-
 		$("#submit").bind("click", function() {
-			valid_entry = true
-			issue = $("#issue").val();
+			valid_entry = true;
+			issue = $("#issues").val();
 			if (issue.length == 0) {
-				$("#issue-label").html("<span style="color:red;">select issue</span>"); 
+				$("#issue-label").html("<span style='color:red;''>select issue</span>"); 
 				valid_entry = false;
-			}
+			};
 			location = $("#location").val();
 			if (location.length == 0) {
-				$("#location-label").html("<span style="color:red;">enter location</span>"); 
+				$("#location").attr("placeholder", "enter location"); 
 				valid_entry = false;
-			}
+			};
 			description = $("#description").val();
 			if (description.length == 0) {
-				$("#description-label").html("<span style="color:red;">enter description</span>"); 
+				$("#description").attr("placeholder", "enter description"); 
 				valid_entry = false;
-			}
-			pubKeyString = $("#pubKey").val();
-			if (pubKeyString.length == 0) {
-				$("#pubKey-label").html("<span style="color:red;">enter public key</span>"); 
+			};
+			pubKey = $("#pubKey").val();
+			if (pubKey.length == 0) {
+				$("#pubKey").attr("placeholder", "enter public key"); 
 				valid_entry = false;
-			}
-			privKeyString = $("#privKey").val();
-			if (privKeyString.length == 0) {
-				$("#privKey-label").html("<span style="color:red;">enter private key</span>"); 
+			};
+			privKey = $("#privKey").val();
+			if (privKey.length == 0) {
+				$("#privKey").attr("placeholder", "enter private key"); 
 				valid_entry = false;
-			}
-
+			};
 			if (valid_entry) {
-				$("#issue-label").html("<span style="color:black;">issue</span>"); 
-				$("#location-label").html("<span style="color:black;">location</span>"); 
-				$("#description-label").html("<span style="color:black;">description</span>");
-				$("#detail-label").html("<span style="color:black;">" + detail_label + "</span>");
-				$("#pubKey-label").html("<span style="color:black;">public key</span>"); 
-				$("#privKey-label").html("<span style="color:black;">private key</span>"); 
-				socket.emit("submit-form", issue, location, description, detail, pubKeyString, privKeyString)
-				socket.on("submit-form-msg", function(msg){
-					$("#submit-form-msg").html(msg)
-				})
-			}
-		})
+				$("#issue-label").html("<span style='color:black;''>issue</span>"); 
+				wsSubmit.send(issue);
+				wsSubmit.send(location);
+				wsSubmit.send(description);
+				wsSubmit.send(pubKey);
+				wsSubmit.send(privKey);
+			};
+		});
+
+		wsSubmit.onmessage = function(msg) {
+			$("#submit-msg").show(100, "linear").html(msg.data);
+		};
+
+		wsSubmit.onclose = function() {
+			console.log("SUBMIT FORM socket closed");
+		};
+
+		// Find form
+
+		var wsFind = new WebSocket("ws://localhost:8888/find_form");
+
+		var formID = "";
+
+		$("#find").bind("click", function() {
+			valid_entry = true;
+			formID = $("#formID").val();
+			if (formID.length == 0) {
+				$("#formID").attr("placeholder", "enter form ID");
+				valid_entry = false;
+			};
+			if (valid_entry) {
+				wsFind.send(formID);
+			};
+		});
+
+		wsFind.onmessage = function(msg) {
+			console.log(msg.data);
+			$("#find-msg").show(100, "linear").html(msg.data);
+		}
+
+		wsFind.onclose = function(msg) {
+			console.log("FIND FORM socket closed");
+		}
 	}
 	</script>
 
