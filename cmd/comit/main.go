@@ -43,6 +43,10 @@ func main() {
 		}
 	}
 
+	// State filters
+	filters := append(app_.Issues(), []string{"resolved", "unresolved"}...)
+	app_.SetFilters(filters)
+
 	// Create reactors for network
 	issues := app_.CreateIssueReactor()
 	admins := app_.CreateAdminReactor()
@@ -93,7 +97,7 @@ func main() {
 	http.HandleFunc("/forms", web.TemplateHandler("forms.html"))
 	http.HandleFunc("/submit_form", am.SubmitForm)
 	http.HandleFunc("/find_form", am.FindForm)
-	// http.HandleFunc("/search_forms", am.SearchForms)
+	http.HandleFunc("/search_forms", am.SearchForms)
 
 	http.HandleFunc("/network", web.TemplateHandler("web.html"))
 

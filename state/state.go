@@ -25,14 +25,6 @@ func NewState(store types.Store) *State {
 		chainID: "",
 		store:   store,
 	}
-	s.SetBloomFilters(
-		"resolved",
-		"street light out",
-		"pothole in street",
-		"rodent baiting/rat complaint",
-		"tree trim",
-		"garbage cart black maintenance/replacement",
-	)
 	return s
 }
 
@@ -47,7 +39,7 @@ func (s *State) GetChainID() string {
 	return s.chainID
 }
 
-func (s *State) SetBloomFilters(filters ...string) {
+func (s *State) SetBloomFilters(filters []string) {
 	blooms := make(map[string]*types.BloomFilter)
 	for _, f := range filters {
 		blooms[f] = types.MakeBloomFilter(members)

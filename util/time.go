@@ -16,14 +16,36 @@ func ParseTimeString(timestr string) time.Time {
 	hr, _ := strconv.Atoi(timestr[11:13])
 	min, _ := strconv.Atoi(timestr[14:16])
 	sec, _ := strconv.Atoi(timestr[17:19])
-	return time.Date(yr, time.Month(mo), d, hr, min, sec, 0, time.UTC)
+	return time.Date(yr, time.Month(mo), d, hr, min, sec, 0, time.Local)
+}
+
+var months = map[string]int{
+	"Jan": 1,
+	"Feb": 2,
+	"Mar": 3,
+	"Apr": 4,
+	"May": 5,
+	"Jun": 6,
+	"Jul": 7,
+	"Aug": 8,
+	"Sep": 9,
+	"Oct": 10,
+	"Nov": 11,
+	"Dec": 12,
+}
+
+func ParseMomentString(momentstr string) time.Time {
+	yr, _ := strconv.Atoi(momentstr[11:15])
+	mo, _ := months[momentstr[4:7]]
+	d, _ := strconv.Atoi(momentstr[8:10])
+	return time.Date(yr, time.Month(mo), d, 0, 0, 0, 0, time.Local)
 }
 
 func ParseDateString(datestr string) time.Time {
 	yr, _ := strconv.Atoi(datestr[:4])
 	mo, _ := strconv.Atoi(datestr[5:7])
 	d, _ := strconv.Atoi(datestr[8:10])
-	return time.Date(yr, time.Month(mo), d, 0, 0, 0, 0, time.UTC)
+	return time.Date(yr, time.Month(mo), d, 0, 0, 0, 0, time.Local)
 }
 
 func DurationTimeStrings(timestr1, timestr2 string) time.Duration {

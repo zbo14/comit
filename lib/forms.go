@@ -76,7 +76,7 @@ func setDescription(description string) Item {
 }
 
 func MakeForm(issue, location, description string) (*Form, error) {
-	submittedAt := time.Now().String()
+	submittedAt := time.Now().Local().String()
 	form, err := newForm(
 		setSubmittedAt(submittedAt),
 		setIssue(issue),

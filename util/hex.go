@@ -5,7 +5,7 @@ import (
 	"fmt"
 )
 
-// Hex string (for map indexing)
+// Hex string
 
 func BytesToHexString(bytes []byte) string {
 	return fmt.Sprintf("%X", bytes)

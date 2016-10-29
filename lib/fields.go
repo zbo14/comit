@@ -7,4 +7,4 @@ var regexPatterns = map[string]string{
 	"obscenities": ``,
 }
 
-func ValidateField(field, content string) bool {}
+func ValidateField(field, content string) bool { return true }

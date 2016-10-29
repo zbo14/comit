@@ -61,7 +61,6 @@ func ExecTx(state *State, tx types.Tx, isCheckTx bool) (res tmsp.Result) {
 			return tmsp.ErrUnauthorized
 		}
 		state.SetAccount(tx.Input.Address, inAcc)
-		// fmt.Println(*inAcc)
 		return tmsp.OK
 	}
 
@@ -148,7 +147,13 @@ func RunSubmitTx(state *State, ctx types.CallContext, data []byte) (res tmsp.Res
 	state.Set(buf.Bytes(), data)
 	err = state.AddToFilter(buf.Bytes(), issue)
 	if err != nil {
-		// OK, false positive
+		// False positive
+		// print for now
+		fmt.Println(err.Error())
+	}
+	err = state.AddToFilter(buf.Bytes(), "unresolved")
+	if err != nil {
+		// False positive
 		// print for now
 		fmt.Println(err.Error())
 	}

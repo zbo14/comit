@@ -47,6 +47,7 @@ func (am *ActionManager) GetIssues(w http.ResponseWriter, req *http.Request) {
 
 	issues := am.app.Issues()
 	var buf bytes.Buffer
+	buf.WriteString(Fmt(select_option, "", "select issue"))
 	for _, issue := range issues {
 		buf.WriteString(Fmt(select_option, issue, issue))
 	}
@@ -317,7 +318,6 @@ func (am *ActionManager) SubmitForm(w http.ResponseWriter, req *http.Request) {
 	formBuf, n, err := new(bytes.Buffer), int(0), error(nil)
 	wire.WriteBinary(*form, formBuf, &n, &err)
 	tx.Data = formBuf.Bytes()
-	log.Println(tx.Data)
 
 	// PubKey
 	_, rawBytes, err := conn.ReadMessage()
@@ -457,4 +457,95 @@ func (am *ActionManager) FindForm(w http.ResponseWriter, req *http.Request) {
 	conn.WriteMessage(websocket.TextMessage, []byte(msg))
 	conn.Close()
 	log.Printf("SUCCESS found form with ID: %X", keyBytes)
+}
+
+func (am *ActionManager) SearchForms(w http.ResponseWriter, req *http.Request) {
+
+	conn, err := upgrader.Upgrade(w, req, nil)
+	if err != nil {
+		log.Panic(err)
+	}
+
+	_, afterBytes, err := conn.ReadMessage()
+	if err != nil {
+		log.Panic(err)
+	}
+	after := string(afterBytes)
+	afterDate := ParseMomentString(after)
+	log.Println(afterDate.String())
+
+	_, beforeBytes, err := conn.ReadMessage()
+	if err != nil {
+		log.Panic(err)
+	}
+	before := string(beforeBytes)
+	beforeDate := ParseMomentString(before)
+	log.Println(beforeDate.String())
+
+	var filters []string
+
+	_, issueBytes, err := conn.ReadMessage()
+	if err != nil {
+		log.Panic(err)
+	}
+	issue := string(issueBytes)
+	if len(issue) > 0 {
+		filters = append(filters, issue)
+	}
+
+	// TODO: add location
+
+	_, statusBytes, err := conn.ReadMessage()
+	if err != nil {
+		log.Panic(err)
+	}
+	status := string(statusBytes)
+	if len(status) > 0 {
+		filters = append(filters, status)
+	}
+
+	fun1 := am.app.FilterFunc(filters)
+
+	fun2 := func(data []byte) bool {
+		key, _, _ := wire.GetByteSlice(data)
+		datestr := string(lib.XOR(key, issue))
+		date := ParseDateString(datestr)
+		log.Println(date.After(afterDate))
+		log.Println(date.Before(beforeDate))
+		if !date.After(afterDate) || !date.Before(beforeDate) {
+			return false
+		}
+		return true
+	}
+
+	in := make(chan []byte)
+	out := make(chan []byte)
+	// errs := make(chan error)
+
+	go am.app.Iterate(fun1, in) //errs
+	go am.app.IterateNext(fun2, in, out)
+
+	var form lib.Form
+
+	for {
+		key, more := <-out
+		if more {
+			res := am.app.QueryByKey(key)
+			if res.IsErr() {
+				log.Println(res.Error())
+				continue
+			}
+			err := wire.ReadBinaryBytes(res.Data, &form)
+			if err != nil {
+				log.Println(err.Error())
+				continue
+			}
+			msg := (&form).Summary()
+			conn.WriteMessage(websocket.TextMessage, []byte(msg))
+		} else {
+			break
+		}
+	}
+	log.Println("Search finished")
+	conn.Close()
 }

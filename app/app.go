@@ -76,6 +76,10 @@ func (app *App) FilterFunc(filters []string) func(data []byte) bool {
 	return app.state.FilterFunc(filters)
 }
 
+func (app *App) SetFilters(filters []string) {
+	app.state.SetBloomFilters(filters)
+}
+
 func (app *App) QueryByKey(key []byte) tmsp.Result {
 	query := make([]byte, wire.ByteSliceSize(key)+1)
 	buf := query
@@ -122,8 +126,8 @@ func (app *App) IterateNext(fun func(data []byte) bool, in, out chan []byte) {
 	for {
 		data, more := <-in
 		if more {
-			fmt.Printf("%X\n", data)
 			if fun(data) {
+				fmt.Printf("%X\n", data)
 				out <- data
 			}
 		} else {
@@ -220,7 +224,7 @@ func (app *App) AppendTx(txBytes []byte) tmsp.Result {
 		return tmsp.ErrBaseEncodingError.AppendLog("Tx size exceeds maximum")
 	}
 	// Decode Tx
-	var tx = types.Tx{}
+	var tx types.Tx
 	err := wire.ReadBinaryBytes(txBytes, &tx)
 	if err != nil {
 		return tmsp.ErrBaseEncodingError.AppendLog("Error decoding tx: " + err.Error())

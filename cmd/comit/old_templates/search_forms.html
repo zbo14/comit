@@ -3,83 +3,77 @@
 {{end}}
 
 {{define "body"}}
-	<div class="container">
-		<div class='col-sm-6'>
-			<h5 class="my-header">before</h5>
-	        <div class="form-group">
-	            <div class='input-group date' id='before'>
-	                <input type='text' class="form-control" />
-	                <span class="input-group-addon">
-	                    <span class="glyphicon glyphicon-calendar"></span>
-	                </span>
-	            </div>
-	        </div>
-	        <script type="text/javascript">
-	            $(function () {
-	                $('#before').datetimepicker();
-	            });
-	        </script>
-			<br><br>
-			<h5 class="my-header">after</h5>
-	            <div class="form-group">
-	            <div class='input-group date' id='after'>
-	                <input type='text' class="form-control" />
-	                <span class="input-group-addon">
-	                    <span class="glyphicon glyphicon-calendar"></span>
-	                </span>
-	            </div>
-	        </div>
-	        <script type="text/javascript">
-	            $(function () {
-	                $('#after').datetimepicker();
-	            });
-	        </script>
-			<br><br>
-			<h5 class="my-header">service</h5>
-			<select id="service">
-				<option value="">--</option>
-				<option value="street light out">street light out</option>
-				<option value="pothole in street">pothole in street</option>
-				<option value="rodent baiting/rat complaint">rodent baiting/rat complaint</option>
-				<option value="tree trim">tree trim</option>
-				<option value="garbage cart black maintenance/replacement">garbage cart black maintenance/replacement</option>
-			</select> 
-			<br><br>
-			<!-- TODO: change to location
-			<h5 class="my-header">address</h5>
-			<input id="address" class="my-input"></input>
-			<br><br>
-			-->
-			<h5 class="my-header">status</h5>
-			<select id="status">
-				<option value="">--</option>
-				<option value="unresolved">unresolved</option>
-				<option value="resolved">resolved</option>
-			</select>
-			<br><br>
-			<button type="button" id="search" class="my-button">search</button>
-			<br><br>
-		</div>
-		<div class="col-sm-6">
-			<ul id="forms"></ul>
-		</div>
+	<div class="container col-md-6">
+		<h5 class="my-header">after</h5>
+            <div class="form-group">
+            <div class="input-group date" id="after">
+                <input type="text" class="form-control" />
+                <span class="input-group-addon">
+                    <span class="glyphicon glyphicon-calendar"></span>
+                </span>
+            </div>
+        </div>
+        <script type="text/javascript">
+            $(function () {
+                $("#after").datetimepicker();
+            });
+        </script>
+		<br><br>
+		<h5 class="my-header">before</h5>
+        <div class="form-group">
+            <div class="input-group date" id="before">
+                <input type="text" class="form-control" />
+                <span class="input-group-addon">
+                    <span class="glyphicon glyphicon-calendar"></span>
+                </span>
+            </div>
+        </div>
+        <script type="text/javascript">
+            $(function () {
+                $("#before").datetimepicker();
+            });
+        </script>
+		<br><br>
+		<h5 class="my-header">issue</h5>
+		<select id="issues"></select> 
+		<br><br>
+		<h5 class="my-header">status</h5>
+		<select id="status">
+			<option value="">--</option>
+			<option value="unresolved">unresolved</option>
+			<option value="resolved">resolved</option>
+		</select>
+		<br><br>
+		<button type="button" id="search" class="my-button">search</button>
+		<br><br>
+	</div>
+	<div class="col-md-6">
+		<ul id="forms"></ul>
 	</div>
 	<script type="text/javascript" charset="utf-8">
-	$(function() {
-		var socket = io();
-		$('#search').bind('click', function() {
-			var before = $('#before').data("DateTimePicker").viewDate();
-			var after = $('#after').data("DateTimePicker").viewDate();
-			var service = $('#service').val();
-			// var location =
-			var status = $('#status').val();
-			socket.emit('search-forms', before, after, service, status) //location
-			socket.on('search-forms-msg', function(msg){
-				// console.log(msg);
-				$('#forms').append(msg);
-			})
-		})
-	})
+	window.onload = function() {
+		var wsSearch = new WebSocket("ws://localhost:8888/sarch_forms")
+
+		var issue = "";
+		var status = "";
+
+		$("#search").bind("click", function() {
+			issue = $("#issue").val();
+			if (issue.length > 0) {
+				var after = $("#after").data("DateTimePicker").viewDate();
+				var before = $("#before").data("DateTimePicker").viewDate();
+				status = $("#status").val();
+				wsSearch.send(after);
+				wsSearch.send(before);
+				wsSearch.send(issue);
+				wsSearch.send(status);
+			};
+		});
+
+		wsSearch.onmessage = function(msg) {
+			
+		}
+	}
 	</script>
 
 {{end}}
