@@ -13,7 +13,7 @@
 
 .my-input:hover {
   transition: 0.3s;
-  box-shadow: -2px 0px 0.2px orangered;
+  box-shadow: -2px 0px 0.2px #20BF9F;
 }
 
 .my-textarea {
@@ -24,7 +24,7 @@
 
 .my-textarea:hover {
   transition: 0.3s;
-  box-shadow: -2px 0px 0.2px orangered;
+  box-shadow: -2px 0px 0.2px #20BF9F;
 }
 
 .my-button {
@@ -45,7 +45,7 @@
 }
 
 really-small {
-  font-size: 0.2em;
+  font-size: 0.6em;
   opacity: 0.9;
 }
 

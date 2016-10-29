@@ -21,7 +21,7 @@ func main() {
 	addrPtr := flag.String("addr", "tcp://0.0.0.0:46658", "Listen address")
 	cliPtr := flag.String("cli", "local", "Client address, or 'local' for embedded")
 	networkPtr := flag.String("network", "127.0.0.1:3111", "Feeds address")
-	peerPtr := flag.String("peer", "127.0.0.1:3112", "Peer address")
+	// peerPtr := flag.String("peer", "127.0.0.1:3112", "Peer address")
 	genFilePath := flag.String("genesis", "genesis.json", "Genesis file, if any")
 	flag.Parse()
 
@@ -83,12 +83,12 @@ func main() {
 	)
 
 	// Create action manager
-	am := actions.CreateActionManager(app_, network, *peerPtr)
+	am := actions.CreateActionManager(app_, network)
 
 	js := web.JustFiles{http.Dir("static/")}
 
 	http.HandleFunc("/account", web.TemplateHandler("account.html"))
-	http.HandleFunc("/connect_accout", am.ConnectAccount)
+	http.HandleFunc("/connect_account", am.ConnectAccount)
 	http.HandleFunc("/create_account", am.CreateAccount)
 	http.HandleFunc("/remove_account", am.RemoveAccount)
 
@@ -99,7 +99,8 @@ func main() {
 	http.HandleFunc("/find_form", am.FindForm)
 	http.HandleFunc("/search_forms", am.SearchForms)
 
-	http.HandleFunc("/network", web.TemplateHandler("web.html"))
+	http.HandleFunc("/network", web.TemplateHandler("network.html"))
+	http.HandleFunc("/update_feed", am.UpdateFeed)
 
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(js)))
 	http.ListenAndServe(":8888", nil)

@@ -152,7 +152,7 @@ func (mr *MyReactor) GetLatestMsg(chID byte) PeerMessage {
 	msgs := mr.getMsgs(chID)
 	if len(msgs) == 0 {
 		wg := mr.wgs[chID]
-		// fmt.Println("waiting for message...")
+		fmt.Println("waiting for message...")
 		wg.Wait()
 		delete(mr.wgs, chID)
 		msgs = mr.getMsgs(chID)

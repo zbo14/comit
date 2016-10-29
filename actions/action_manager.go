@@ -11,23 +11,25 @@ import (
 	"github.com/zballs/comit/app"
 	"github.com/zballs/comit/lib"
 	ntwk "github.com/zballs/comit/network"
+	sm "github.com/zballs/comit/state"
 	"github.com/zballs/comit/types"
 	. "github.com/zballs/comit/util"
 	"log"
+	// "runtime"
 	"net/http"
+	"strings"
+	"time"
 )
 
 type ActionManager struct {
-	app      *app.App
-	network  *p2p.Switch
-	peerAddr string
+	app     *app.App
+	network *p2p.Switch
 }
 
-func CreateActionManager(app_ *app.App, network *p2p.Switch, peerAddr string) *ActionManager {
+func CreateActionManager(app_ *app.App, network *p2p.Switch) *ActionManager {
 	return &ActionManager{
-		app:      app_,
-		network:  network,
-		peerAddr: peerAddr,
+		app:     app_,
+		network: network,
 	}
 }
 
@@ -179,6 +181,7 @@ func (am *ActionManager) ConnectAccount(w http.ResponseWriter, req *http.Request
 	// Create Tx
 	var tx types.Tx
 	tx.Type = types.RemoveAccountTx
+	tx.Data = []byte{sm.ConnectAccount}
 
 	// PubKey
 	_, rawBytes, err := conn.ReadMessage()
@@ -253,18 +256,22 @@ func (am *ActionManager) ConnectAccount(w http.ResponseWriter, req *http.Request
 		peer_sw.SetNodePrivKey(privKey)
 
 		// Add reactors
-		feeds := am.network.Reactor("feeds").(*ntwk.MyReactor)
-		peer_sw.AddReactor("feeds", feeds)
-		messages := am.network.Reactor("messages").(*ntwk.MyReactor)
-		peer_sw.AddReactor("messages", messages)
+		issues := am.network.Reactor("issues").(*ntwk.MyReactor)
+		peer_sw.AddReactor("issues", issues)
+		admins := am.network.Reactor("admins").(*ntwk.MyReactor)
+		peer_sw.AddReactor("admins", admins)
+
+		peerAddr := req.RemoteAddr
+
+		log.Println(peerAddr)
 
 		// Add listener
-		l := p2p.NewDefaultListener("tcp", am.peerAddr, false)
+		l := p2p.NewDefaultListener("tcp", peerAddr, false)
 		peer_sw.AddListener(l)
 		peer_sw.Start()
 
 		// Add peer to network
-		addr := p2p.NewNetAddressString(am.peerAddr)
+		addr := p2p.NewNetAddressString(peerAddr)
 		_, err := am.network.DialPeerWithAddress(addr)
 
 		if err != nil {
@@ -378,37 +385,33 @@ func (am *ActionManager) SubmitForm(w http.ResponseWriter, req *http.Request) {
 	msg := Fmt(submit_form_success, res.Data)
 	// log.Printf("SUCCESS submitted form with ID: %X\n", res.Data)
 	conn.WriteMessage(websocket.TextMessage, []byte(msg))
-	conn.Close()
-	/* FEED UPDATE
-	// Check if already connected
-		log.Println(am.network.Peers().List())
-		pubKeyString := BytesToHexString(pubKeyBytes)
-		peer := am.network.Peers().Get(pubKeyString)
-		if peer != nil {
-			log.Println("Peer already connected")
-			conn.WriteMessage(websocket.TextMessage, []byte(already_connected))
-			conn.Close()
-			return
-		}
-		if network != nil {
-			peer := network.Peers().Get(pubKeyString)
-			if peer == nil {
-				log.Panic("Error: could not find peer")
-			}
-			res = app_.QueryByKey(res.Data)
-			if res.IsErr() {
-				log.Panic(err)
-			}
-			var form lib.Form
-			err = wire.ReadBinaryBytes(res.Data, &form)
-			if err != nil {
-				log.Panic(err)
-			}
-			dept := lib.SERVICE.ServiceDept(form.Service)
-			chID := app_.DeptChID(dept)
-			peer.Send(chID, res.Data)
-		}
-	*/
+
+	// Check peer
+	pubKeyString := BytesToHexString(pubKeyBytes)
+	peer := am.network.Peers().Get(pubKeyString)
+	if peer == nil {
+		log.Println("Could not find peer")
+		conn.Close()
+		return
+	}
+	if !peer.IsRunning() {
+		log.Println("Peer is not running")
+		conn.Close()
+		return
+	}
+	buf, n, err := new(bytes.Buffer), int(0), error(nil)
+	wire.WriteByteSlice(res.Data, buf, &n, &err)
+	key := buf.Bytes()
+	res = am.app.QueryByKey(key)
+	if res.IsErr() {
+		log.Panic(err)
+	}
+	err = wire.ReadBinaryBytes(res.Data, form)
+	if err != nil {
+		log.Panic(err)
+	}
+	chID := am.app.IssueID(form.Issue)
+	peer.Send(chID, res.Data)
 }
 
 func (am *ActionManager) FindForm(w http.ResponseWriter, req *http.Request) {
@@ -548,4 +551,53 @@ func (am *ActionManager) SearchForms(w http.ResponseWriter, req *http.Request) {
 	}
 	log.Println("Search finished")
 	conn.Close()
+}
+
+func (am *ActionManager) UpdateFeed(w http.ResponseWriter, req *http.Request) {
+
+	conn, err := upgrader.Upgrade(w, req, nil)
+	if err != nil {
+		log.Panic(err)
+	}
+
+	_, issueBytes, err := conn.ReadMessage()
+	if err != nil {
+		log.Panic(err)
+	}
+	issues := strings.Split(string(issueBytes), `,`)
+	log.Println(issues)
+	reactor := am.network.Reactor("issues").(*ntwk.MyReactor)
+
+	for _, issue := range issues {
+		chID := am.app.IssueID(issue)
+		log.Printf("ISSUE %v, CH %d\n", issue, chID)
+		go func(issue string, chID byte) {
+			idx := -1
+		FOR_LOOP:
+			for {
+				log.Println("Updating feed...")
+				peerMsg := reactor.GetLatestMsg(chID)
+				if peerMsg.Counter == idx {
+					time.Sleep(time.Second * 10)
+					// runtime.Gosched
+					continue FOR_LOOP
+				}
+				idx = peerMsg.Counter
+				var form lib.Form
+				err := wire.ReadBinaryBytes(peerMsg.Bytes[2:], &form)
+				if err != nil {
+					log.Println(err.Error())
+					continue FOR_LOOP
+				}
+				log.Printf("%s update\n", issue)
+				msg := (&form).Summary()
+				conn.WriteMessage(websocket.TextMessage, []byte(msg))
+			}
+		}(issue, chID)
+	}
+
+	// Wait
+	TrapSignal(func() {
+		// Cleanup
+	})
 }

@@ -59,8 +59,9 @@
 			})
 
 			wsConnect.onmessage = function (msg) {
+				console.log(msg.data);
 				if (msg.data == "connected") {
-					window.location.replace("localhost:88888/network")
+					window.location = "http://localhost:8888/network";
 				} else {
 					$("#connect-msg").show(100, "linear").html(msg.data);
 				}
@@ -90,9 +91,10 @@
 				console.log("CREATE ACCOUNT socket closed");
 			};
 
-			var wsRemove = new WebSocket("ws://localhost:8888/remove_account");
+			/*
 
 			$("#remove").bind("click", function(){
+				var wsRemove = new WebSocket("ws://localhost:8888/remove_account");
 				var valid_entry = true;
 				var pubKey = $("#pubKey").val();
 				if (pubKey.length == 0) {
@@ -116,6 +118,8 @@
 			wsRemove.onclose = function() {
 				console.log("REMOVE ACCOUNT socket closed");
 			};
+
+			*/
 		}
 
 	</script>
