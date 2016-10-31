@@ -1,6 +1,6 @@
-# Comit
+# comit
 
-Comit provides an interface through which constituents
+comit provides an interface through which constituents
 	
 - submit issue forms, on or off the network
 - find an issue form by ID 
@@ -32,13 +32,13 @@ To create a new account, remove an existing account, or connect to the network, 
 - click `create` to receive your public and private key
 
 ### Remove an account 
-- enter your public and private keys in hexademical form
-- click `remove` to receive confirmation of removal or failure message 
+- enter your public and private keys in hexadecimal form
+- click `remove` to receive confirmation of account removal or failure message 
 
 ### Connect to network 
 - enter your public and private keys in hexadecimal form
-- click `connect` to receive confirmation of connection or failure message
-- If connection is successful, you will be redirected to the network endpoint
+- click `connect` to connect to network
+- You will be redirected to the network endpoint or receive failure message
 
 ## Network 
 
@@ -52,7 +52,7 @@ To view real-time submissions on the feeds or send a message to an admin, connec
 
 ### Send a message
 - enter a message into the textarea 
-- enter the public key of the recipient in hexadecimal form 
+- enter the public key of the recipient in hexadecimal form
 - click `send` to receive confirmation that message was sent or failure message
 
 ## Forms 
@@ -76,7 +76,7 @@ To submit, find, and search forms, go to the following endpoint in your web-brow
 - select an issue type 
 - select a location (optional)
 - enter a date range for submissions (optional)
-- click `search` to view matching forms or failure message
+- click `search` to view matching forms or receive failure message
  
 
 

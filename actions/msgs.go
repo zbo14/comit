@@ -1,7 +1,7 @@
 package actions
 
 const (
-	invalid_hex = "<span style='color:red;'>Invalid hex string: <small>%X</small></span>"
+	invalid_hex = "<span style='color:red;'>Invalid hex string</span>"
 
 	create_account_success = "<strong style='opacity:0.8;'>public key</strong> <really-small>%X</really-small><br><strong style='opacity:0.8;'>private key</strong> <really-small>%X</really-small>"
 	create_account_failure = "<span style='color:red;'>Could not create account</span>"
@@ -23,8 +23,8 @@ const (
 	find_form_failure   = "<span style='color:red;'>Failed to find<br><strong>form ID</strong> <small>%X</small></span>"
 	decode_form_failure = "<span style='color:red;'>Failed to decode<br><strong>form ID</strong> <small>%v</small></span>"
 
-	resolve_form_failure = "<span style='color:red;'>Failed to resolve<br><strong>form ID</strong> <small>%v</small></span>"
-	resolve_form_success = "Resolved<br><strong>Form ID</strong> <small>%v</small>"
+	resolve_form_failure = "<span style='color:red;'>Failed to resolve form with ID <small>%X</small></span>"
+	resolve_form_success = "Resolved form with ID <small>%X</small>"
 
 	search_forms_failure = "<span style='color:red;'>Failed to find forms</span>"
 

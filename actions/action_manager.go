@@ -58,6 +58,8 @@ func (am *ActionManager) GetIssues(w http.ResponseWriter, req *http.Request) {
 	// conn.Close()
 }
 
+//------------ CONSTITUENT ------------//
+
 // Create Account
 func (am *ActionManager) CreateAccount(w http.ResponseWriter, req *http.Request) {
 
@@ -118,8 +120,7 @@ func (am *ActionManager) RemoveAccount(w http.ResponseWriter, req *http.Request)
 	pubKeyBytes := make([]byte, 32)
 	n, err := hex.Decode(pubKeyBytes, rawBytes)
 	if err != nil {
-		msg := Fmt(invalid_hex, pubKeyBytes)
-		conn.WriteMessage(websocket.TextMessage, []byte(msg))
+		conn.WriteMessage(websocket.TextMessage, []byte(invalid_hex))
 		conn.Close()
 	}
 	pubKeyBytes = pubKeyBytes[:n]
@@ -134,8 +135,7 @@ func (am *ActionManager) RemoveAccount(w http.ResponseWriter, req *http.Request)
 	privKeyBytes := make([]byte, 64)
 	n, err = hex.Decode(privKeyBytes, rawBytes)
 	if err != nil {
-		msg := Fmt(invalid_hex, privKeyBytes)
-		conn.WriteMessage(websocket.TextMessage, []byte(msg))
+		conn.WriteMessage(websocket.TextMessage, []byte(invalid_hex))
 		conn.Close()
 	}
 	privKeyBytes = privKeyBytes[:n]
@@ -191,8 +191,7 @@ func (am *ActionManager) ConnectAccount(w http.ResponseWriter, req *http.Request
 	pubKeyBytes := make([]byte, 32)
 	n, err := hex.Decode(pubKeyBytes, rawBytes)
 	if err != nil {
-		msg := Fmt(invalid_hex, pubKeyBytes)
-		conn.WriteMessage(websocket.TextMessage, []byte(msg))
+		conn.WriteMessage(websocket.TextMessage, []byte(invalid_hex))
 		conn.Close()
 	}
 	pubKeyBytes = pubKeyBytes[:n]
@@ -218,8 +217,7 @@ func (am *ActionManager) ConnectAccount(w http.ResponseWriter, req *http.Request
 	privKeyBytes := make([]byte, 64)
 	n, err = hex.Decode(privKeyBytes, rawBytes)
 	if err != nil {
-		msg := Fmt(invalid_hex, privKeyBytes)
-		conn.WriteMessage(websocket.TextMessage, []byte(msg))
+		conn.WriteMessage(websocket.TextMessage, []byte(invalid_hex))
 		conn.Close()
 	}
 	privKeyBytes = privKeyBytes[:n]
@@ -334,8 +332,7 @@ func (am *ActionManager) SubmitForm(w http.ResponseWriter, req *http.Request) {
 	pubKeyBytes := make([]byte, 32)
 	n, err = hex.Decode(pubKeyBytes, rawBytes)
 	if err != nil {
-		msg := Fmt(invalid_hex, pubKeyBytes)
-		conn.WriteMessage(websocket.TextMessage, []byte(msg))
+		conn.WriteMessage(websocket.TextMessage, []byte(invalid_hex))
 		conn.Close()
 		return
 	}
@@ -351,8 +348,7 @@ func (am *ActionManager) SubmitForm(w http.ResponseWriter, req *http.Request) {
 	privKeyBytes := make([]byte, 64)
 	n, err = hex.Decode(privKeyBytes, rawBytes)
 	if err != nil {
-		msg := Fmt(invalid_hex, privKeyBytes)
-		conn.WriteMessage(websocket.TextMessage, []byte(msg))
+		conn.WriteMessage(websocket.TextMessage, []byte(invalid_hex))
 		conn.Close()
 		return
 	}
@@ -385,6 +381,7 @@ func (am *ActionManager) SubmitForm(w http.ResponseWriter, req *http.Request) {
 	msg := Fmt(submit_form_success, res.Data)
 	// log.Printf("SUCCESS submitted form with ID: %X\n", res.Data)
 	conn.WriteMessage(websocket.TextMessage, []byte(msg))
+	// conn.Close()
 
 	// Check peer
 	pubKeyString := BytesToHexString(pubKeyBytes)
@@ -429,8 +426,7 @@ func (am *ActionManager) FindForm(w http.ResponseWriter, req *http.Request) {
 	keyBytes := make([]byte, 16)
 	n, err := hex.Decode(keyBytes, rawBytes)
 	if err != nil {
-		msg := Fmt(invalid_hex, keyBytes)
-		conn.WriteMessage(websocket.TextMessage, []byte(msg))
+		conn.WriteMessage(websocket.TextMessage, []byte(invalid_hex))
 		conn.Close()
 	}
 	keyBytes = keyBytes[:n]
@@ -475,7 +471,6 @@ func (am *ActionManager) SearchForms(w http.ResponseWriter, req *http.Request) {
 	}
 	after := string(afterBytes)
 	afterDate := ParseMomentString(after)
-	log.Println(afterDate.String())
 
 	_, beforeBytes, err := conn.ReadMessage()
 	if err != nil {
@@ -483,7 +478,6 @@ func (am *ActionManager) SearchForms(w http.ResponseWriter, req *http.Request) {
 	}
 	before := string(beforeBytes)
 	beforeDate := ParseMomentString(before)
-	log.Println(beforeDate.String())
 
 	var filters []string
 
@@ -600,4 +594,122 @@ func (am *ActionManager) UpdateFeed(w http.ResponseWriter, req *http.Request) {
 	TrapSignal(func() {
 		// Cleanup
 	})
+}
+
+//------------ ADMIN ------------//
+
+func (am *ActionManager) ResolveForm(w http.ResponseWriter, req *http.Request) {
+
+	conn, err := upgrader.Upgrade(w, req, nil)
+	if err != nil {
+		log.Panic(err)
+	}
+
+	// Create Tx
+	var tx types.Tx
+	tx.Type = types.ResolveTx
+
+	// Form ID
+	_, rawBytes, err := conn.ReadMessage()
+	if err != nil {
+		log.Panic(err)
+	}
+	formID := make([]byte, 16)
+	n, err := hex.Decode(formID, rawBytes)
+	if err != nil {
+		conn.WriteMessage(websocket.TextMessage, []byte(invalid_hex))
+		conn.Close()
+		return
+	}
+
+	buf, n, err := new(bytes.Buffer), int(0), error(nil)
+	wire.WriteByteSlice(formID, buf, &n, &err)
+	tx.Data = buf.Bytes()
+
+	// PubKey
+	var pubKey crypto.PubKeyEd25519
+	_, rawBytes, err = conn.ReadMessage()
+	if err != nil {
+		log.Panic(err)
+	}
+	pubKeyBytes := make([]byte, 32)
+	n, err = hex.Decode(pubKeyBytes, rawBytes)
+	if err != nil {
+		conn.WriteMessage(websocket.TextMessage, []byte(invalid_hex))
+		conn.Close()
+		return
+	}
+	copy(pubKey[:], pubKeyBytes[:])
+
+	// Must be connected to resolve form
+	pubKeyString := BytesToHexString(pubKeyBytes)
+	peer := am.network.Peers().Get(pubKeyString)
+	if peer == nil {
+		log.Println("Could not find peer")
+		conn.Close()
+		return
+	}
+	if !peer.IsRunning() {
+		log.Println("Peer is not running")
+		conn.Close()
+		return
+	}
+
+	// PrivKey
+	var privKey crypto.PrivKeyEd25519
+	_, rawBytes, err = conn.ReadMessage()
+	if err != nil {
+		log.Panic(err)
+	}
+	privKeyBytes := make([]byte, 64)
+	n, err = hex.Decode(privKeyBytes, rawBytes)
+	if err != nil {
+		conn.WriteMessage(websocket.TextMessage, []byte(invalid_hex))
+		conn.Close()
+		return
+	}
+	copy(privKey[:], privKeyBytes[:])
+
+	// Set Sequence, Account, Signature
+	addr := pubKey.Address()
+	seq, err := am.app.GetSequence(addr)
+	if err != nil {
+		log.Panic(err)
+	}
+	tx.SetSequence(seq)
+	tx.SetAccount(pubKey)
+	tx.SetSignature(privKey, am.app.GetChainID())
+
+	// TxBytes in AppendTx request
+	txBuf, n, err := new(bytes.Buffer), int(0), error(nil)
+	wire.WriteBinary(tx, txBuf, &n, &err)
+	res := am.app.AppendTx(txBuf.Bytes())
+
+	if res.IsErr() {
+		log.Println(res.Error())
+		msg := Fmt(resolve_form_failure, formID)
+		conn.WriteMessage(websocket.TextMessage, []byte(msg))
+		conn.Close()
+		return
+	}
+
+	msg := Fmt(resolve_form_success, formID)
+	log.Printf("SUCCESS resolved form with ID: %X\n", formID)
+	conn.WriteMessage(websocket.TextMessage, []byte(msg))
+	conn.Close()
+
+	buf = new(bytes.Buffer)
+	wire.WriteByteSlice(formID, buf, &n, &err)
+	key := buf.Bytes()
+	res = am.app.QueryByKey(key)
+	if res.IsErr() {
+		log.Panic(err)
+	}
+	var form lib.Form
+	err = wire.ReadBinaryBytes(res.Data, form)
+	if err != nil {
+		log.Panic(err)
+	}
+	chID := am.app.IssueID(form.Issue)
+	peer.Send(chID, res.Data)
 }

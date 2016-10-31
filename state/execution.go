@@ -162,28 +162,29 @@ func RunSubmitTx(state *State, ctx types.CallContext, data []byte) (res tmsp.Res
 }
 
 func RunResolveTx(state *State, ctx types.CallContext, data []byte) (res tmsp.Result) {
-	formID := BytesToHexString(data)
-	buf, n, err := new(bytes.Buffer), int(0), error(nil)
-	wire.WriteByteSlice(data, buf, &n, &err)
-	value := state.Get(buf.Bytes())
+	formID, _, err := wire.GetByteSlice(data)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+	value := state.Get(data)
 	if len(value) == 0 {
 		return tmsp.NewResult(
-			lib.ErrFindForm, nil, Fmt("Error cannot find form with ID: %v", formID))
+			lib.ErrFindForm, nil, Fmt("Error cannot find form with ID: %X", formID))
 	}
-	var form *lib.Form
-	err = wire.ReadBinaryBytes(value, form)
+	var form lib.Form
+	err = wire.ReadBinaryBytes(value, &form)
 	if err != nil {
 		return tmsp.ErrEncodingError.SetLog(
 			Fmt("Error parsing form bytes: %v", err.Error()))
 	}
 	timestr := TimeString()
-	pubKeyString := BytesToHexString(ctx.Caller)
-	err = form.Resolve(timestr, pubKeyString)
+	addr := BytesToHexString(ctx.Caller)
+	err = (&form).Resolve(timestr, addr)
 	if err != nil {
 		return tmsp.NewResult(
 			lib.ErrFormAlreadyResolved, nil, Fmt("Error already resolved form with ID: %v", formID))
 	}
-	buf, n, err = new(bytes.Buffer), int(0), error(nil)
+	buf, n, err := new(bytes.Buffer), int(0), error(nil)
 	wire.WriteBinary(form, buf, &n, &err)
 	if err != nil {
 		return tmsp.ErrEncodingError.SetLog(
@@ -192,7 +193,7 @@ func RunResolveTx(state *State, ctx types.CallContext, data []byte) (res tmsp.Re
 	state.Set(data, buf.Bytes())
 	err = state.AddToFilter(data, "resolved")
 	if err != nil {
-		// OK, false positive
+		// False positive
 		// print for now
 		fmt.Println(err.Error())
 	}

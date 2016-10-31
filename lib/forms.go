@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	// "github.com/tendermint/go-wire"
 	. "github.com/zballs/comit/util"
 	"time"
 )
@@ -93,13 +92,13 @@ func (form *Form) Resolved() bool {
 	return form.Status == "resolved"
 }
 
-func (form *Form) Resolve(timestr, pubKeyString string) error {
+func (form *Form) Resolve(timestr, addr string) error {
 	if form.Resolved() {
 		return errors.New("form already resolved")
 	}
 	form.Status = "resolved"
 	form.ResolvedAt = timestr
-	form.ResolvedBy = pubKeyString
+	form.ResolvedBy = addr
 	return nil
 }
 
