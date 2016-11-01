@@ -19,9 +19,9 @@
 		</div>
 		<div class="container col-md-6">
 			<h5 class="my-header" id="remove-label">remove an existing admin</h5><br>
-			<input type="text" id="pubKey" class="my-input" placeholder="public key" />
+			<input type="text" id="remove-pubKey" class="my-input" placeholder="public key" />
 			<br><br>
-			<input type="password" id="privKey" class="my-input" placeholder="private key" />
+			<input type="password" id="remove-privKey" class="my-input" placeholder="private key" />
 			<br><br>
 			<button type="button" id="remove" class="my-button">remove </button>
 			<br><br>
@@ -69,18 +69,18 @@
 				console.log("CREATE ACCOUNT socket closed");
 			};
 
-			/*
+			var wsRemove = new WebSocket("ws://localhost:8888/remove_admin");
+
 			$("#remove").bind("click", function(){
-				var wsRemove = new WebSocket("ws://localhost:8888/remove_admin");
-				var valid_entry = true;
-				var pubKey = $("#pubKey").val();
+				valid_entry = true;
+				pubKey = $("#remove-pubKey").val();
 				if (pubKey.length == 0) {
-					$("#pubKey").attr("placeholder", "enter public key");
+					$("#remove-pubKey").attr("placeholder", "enter public key");
 					valid_entry = false;
 				};
-				var privKey = $("#privKey").val();
+				privKey = $("#remove-privKey").val();
 				if (privKey.length == 0) {
-					$("#privKey").attr("placeholder", "enter private key");
+					$("#remove-privKey").attr("placeholder", "enter private key");
 					valid_entry = false;
 				};
 				if (valid_entry) {
@@ -95,7 +95,6 @@
 			wsRemove.onclose = function() {
 				console.log("REMOVE ACCOUNT socket closed");
 			};
-			*/
 		}
 	</script>
 {{end}}

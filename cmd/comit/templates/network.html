@@ -99,7 +99,6 @@
 		var wsIssues = new WebSocket("ws://localhost:8888/get_issues");
 		
 		wsIssues.onmessage = function(msg) {
-			console.log(msg.data);
 			$("#feed-issues").html(msg.data);
 			$("#submit-issues").html(msg.data);
 		}
@@ -112,7 +111,7 @@
 
 		$("#update").bind("click", function() {
 			$("#feed").html("");
-			var issues = $("#issues").val();
+			var issues = $("#feed-issues").val();
 			if (issues.length > 0) {
 				wsFeed.send(issues);
 			}
@@ -127,9 +126,9 @@
 		}
 			
 		// Submit form
-
-		var wsSubmit = new WebSocket("ws://localhost:8888/submit_form");
 		
+		var wsSubmit = new WebSocket("ws://localhost:8888/submit_form");
+
 		var issue = "";
 		var location = "";
 		var description = "";
@@ -161,16 +160,16 @@
 					wsSubmit.send(pubKey);
 					wsSubmit.send(privKey);
 				};
+
+				wsSubmit.onmessage = function(msg) {
+					$("#submit-msg").show(100, "linear").html(msg.data);
+				};
+
+				wsSubmit.onclose = function() {
+					console.log("SUBMIT FORM socket closed");
+				};	
 			};
 		});
-
-		wsSubmit.onmessage = function(msg) {
-			$("#submit-msg").show(100, "linear").html(msg.data);
-		};
-
-		wsSubmit.onclose = function() {
-			console.log("SUBMIT FORM socket closed");
-		};	
 
 		// Resolve form 
 

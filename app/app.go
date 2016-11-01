@@ -240,7 +240,7 @@ func (app *App) AppendTx(txBytes []byte) tmsp.Result {
 		return res.PrependLog("Error in AppendTx")
 	}
 	// If RemoveAccountTx, remove account
-	if tx.Type == types.RemoveAccountTx {
+	if tx.Type == types.RemoveAccountTx || tx.Type == types.RemoveAdminTx {
 		key := res.Data
 		app.cli.Remove(key)
 	}

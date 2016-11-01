@@ -66,12 +66,22 @@ func ExecTx(state *State, tx types.Tx, isCheckTx bool) (res tmsp.Result) {
 	case types.CreateAccountTx:
 		res = RunCreateAccountTx(cacheState, ctx, tx.Data)
 	case types.RemoveAccountTx:
-		res = RunRemoveAccountTx(cacheState, ctx, tx.Data)
+		if inAcc.IsAdmin() {
+			res = tmsp.ErrUnauthorized
+		} else {
+			res = RunRemoveAccountTx(cacheState, ctx, tx.Data)
+		}
 	case types.CreateAdminTx:
 		if !inAcc.PermissionToCreateAdmin() {
 			res = tmsp.ErrUnauthorized
 		} else {
 			res = RunCreateAdminTx(cacheState, ctx, tx.Data)
+		}
+	case types.RemoveAdminTx:
+		if !inAcc.IsAdmin() {
+			res = tmsp.ErrUnauthorized
+		} else {
+			res = RunRemoveAdminTx(cacheState, ctx, tx.Data)
 		}
 	case types.SubmitTx:
 		res = RunSubmitTx(cacheState, ctx, tx.Data)
@@ -130,6 +140,12 @@ func RunCreateAdminTx(state *State, ctx types.CallContext, data []byte) tmsp.Res
 	wire.WriteByteSlice(pubKey[:], buf, &n, &err)
 	wire.WriteByteSlice(privKey[:], buf, &n, &err)
 	return tmsp.NewResultOK(buf.Bytes(), "")
+}
+
+func RunRemoveAdminTx(state *State, ctx types.CallContext, data []byte) tmsp.Result {
+	// Return key so we can remove in AppendTx
+	key := AccountKey(ctx.Caller)
+	return tmsp.NewResultOK(key, "")
 }
 
 func RunSubmitTx(state *State, ctx types.CallContext, data []byte) (res tmsp.Result) {

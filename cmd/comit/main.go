@@ -107,6 +107,7 @@ func main() {
 
 	http.HandleFunc("/admin", web.TemplateHandler("admin.html"))
 	http.HandleFunc("/create_admin", am.CreateAdmin)
+	http.HandleFunc("/remove_admin", am.RemoveAdmin)
 
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(js)))
 	http.ListenAndServe(":8888", nil)
