@@ -11,11 +11,6 @@ import (
 	. "github.com/zballs/comit/util"
 )
 
-const (
-	ConnectAccount byte = 0
-	ConnectAdmin   byte = 1
-)
-
 // If the tx is invalid, a TMSP error will be returned.
 func ExecTx(state *State, tx types.Tx, isCheckTx bool) (res tmsp.Result) {
 
@@ -56,10 +51,6 @@ func ExecTx(state *State, tx types.Tx, isCheckTx bool) (res tmsp.Result) {
 
 	// If CheckTx, we are done.
 	if isCheckTx {
-		// Well, not quite
-		if tx.Data[0] == ConnectAdmin && !inAcc.IsAdmin() {
-			return tmsp.ErrUnauthorized
-		}
 		state.SetAccount(tx.Input.Address, inAcc)
 		return tmsp.OK
 	}
@@ -76,6 +67,12 @@ func ExecTx(state *State, tx types.Tx, isCheckTx bool) (res tmsp.Result) {
 		res = RunCreateAccountTx(cacheState, ctx, tx.Data)
 	case types.RemoveAccountTx:
 		res = RunRemoveAccountTx(cacheState, ctx, tx.Data)
+	case types.CreateAdminTx:
+		if !inAcc.PermissionToCreateAdmin() {
+			res = tmsp.ErrUnauthorized
+		} else {
+			res = RunCreateAdminTx(cacheState, ctx, tx.Data)
+		}
 	case types.SubmitTx:
 		res = RunSubmitTx(cacheState, ctx, tx.Data)
 	case types.ResolveTx:
@@ -84,12 +81,6 @@ func ExecTx(state *State, tx types.Tx, isCheckTx bool) (res tmsp.Result) {
 			res = tmsp.ErrUnauthorized
 		} else {
 			res = RunResolveTx(cacheState, ctx, tx.Data)
-		}
-	case types.CreateAdminTx:
-		if !inAcc.PermissionToCreateAdmin() {
-			res = tmsp.ErrUnauthorized
-		} else {
-			res = RunCreateAdminTx(cacheState, ctx, tx.Data)
 		}
 	default:
 		res = tmsp.ErrUnknownRequest.SetLog(
@@ -112,33 +103,41 @@ func RunCreateAccountTx(state *State, ctx types.CallContext, data []byte) tmsp.R
 	return tmsp.OK
 }
 
-func RunCreateAdminTx(state *State, ctx types.CallContext, data []byte) tmsp.Result {
-
-	// Create keys
-	pubKey, privKey := CreateKeys(data)
-
-	// Create new admin
-	newAcc := types.NewAdmin(pubKey)
-	state.SetAccount(pubKey.Address(), newAcc)
-
-	// Return privKey
-	buf, n, err := new(bytes.Buffer), int(0), error(nil)
-	wire.WriteBinary(&privKey, buf, &n, &err)
-	return tmsp.NewResultOK(buf.Bytes(), "")
-}
-
 func RunRemoveAccountTx(state *State, ctx types.CallContext, data []byte) tmsp.Result {
 	// Return key so we can remove in AppendTx
 	key := AccountKey(ctx.Caller)
 	return tmsp.NewResultOK(key, "")
 }
 
+func RunCreateAdminTx(state *State, ctx types.CallContext, data []byte) tmsp.Result {
+
+	// Get secret
+	secret, _, err := wire.GetByteSlice(data)
+	if err != nil {
+		return tmsp.ErrEncodingError.SetLog(
+			Fmt("Error: could not get secret: %v", data))
+	}
+
+	// Create keys
+	pubKey, privKey := CreateKeys(secret)
+
+	// Create new admin
+	newAcc := types.NewAdmin(pubKey)
+	state.SetAccount(pubKey.Address(), newAcc)
+
+	// Return PubKeyBytes
+	buf, n, err := new(bytes.Buffer), int(0), error(nil)
+	wire.WriteByteSlice(pubKey[:], buf, &n, &err)
+	wire.WriteByteSlice(privKey[:], buf, &n, &err)
+	return tmsp.NewResultOK(buf.Bytes(), "")
+}
+
 func RunSubmitTx(state *State, ctx types.CallContext, data []byte) (res tmsp.Result) {
 	var form lib.Form
 	err := wire.ReadBinaryBytes(data, &form)
 	if err != nil {
-		return tmsp.NewResult(
-			lib.ErrDecodeForm, nil, Fmt("Error: could not decode form data: %v", data))
+		return tmsp.ErrEncodingError.SetLog(
+			Fmt("Error: could not decode form data: %v", data))
 	}
 	issue := form.Issue
 	formID := (&form).ID()
@@ -164,7 +163,8 @@ func RunSubmitTx(state *State, ctx types.CallContext, data []byte) (res tmsp.Res
 func RunResolveTx(state *State, ctx types.CallContext, data []byte) (res tmsp.Result) {
 	formID, _, err := wire.GetByteSlice(data)
 	if err != nil {
-		fmt.Println(err.Error())
+		return tmsp.NewResult(
+			lib.ErrDecodingFormID, nil, "")
 	}
 	value := state.Get(data)
 	if len(value) == 0 {

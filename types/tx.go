@@ -12,14 +12,14 @@ import (
 const (
 	CreateAccountTx = 0x01
 	RemoveAccountTx = 0x02
-	SubmitTx        = 0x03
-	ResolveTx       = 0x04
-	CreateAdminTx   = 0x05
-	RemoveAdminTx   = 0x06
+	CreateAdminTx   = 0x03
+	RemoveAdminTx   = 0x04
+	SubmitTx        = 0x05
+	ResolveTx       = 0x06
 
 	// Errors
-	ErrUnexpectedData       = 1311
-	ErrAccountAlreadyExists = 11311
+	ErrUnexpectedData       = 1000
+	ErrAccountAlreadyExists = 2000
 )
 
 type TxInput struct {

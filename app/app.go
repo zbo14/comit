@@ -189,6 +189,11 @@ func (app *App) CreateAdminReactor() *ntwk.MyReactor {
 	return app.admins
 }
 
+func (app *App) IsAdmin(addr []byte) bool {
+	acc := app.state.GetAccount(addr)
+	return acc.IsAdmin()
+}
+
 // TMSP requests
 
 func (app *App) Info() string {

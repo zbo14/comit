@@ -4,24 +4,6 @@
 
 {{define "body"}}
 	<div class="container col-md-4">
-		<h5 class="my-header">submit a form</h5>
-		<br><br>
-		<h5 class="my-header" id="submit-issue-label">issue</h5>
-		<select id="submit-issues"></select>  
-		<br><br>
-		<input type="text" id="location" class="my-input" placeholder="location" />
-		<br><br>
-		<textarea id="description" class="my-textarea" placeholder="description"></textarea>
-		<br><br>
-		<input type="text" id="pubKey" class="my-input" placeholder="public key" />
-		<br><br>
-		<input type="password" id="privKey" class="my-input" placeholder="private key" />
-		<br><br>
-		<button type="button" id="submit" class="my-button">submit</button>
-		<br><br>
-		<p id="submit-msg" style="display: none;"></p>
-	</div>
-	<div class="container col-md-4">
 		<h5 class="my-header">find a form</h5>
 		<br><br>
 		<input type="text" id="formID" class="my-input" placeholder="form ID" />
@@ -92,62 +74,6 @@
 		wsIssues.onclose = function() {
 			console.log("GET ISSUES socket closed");
 		}
-
-		// Submit form
-
-		var wsSubmit = new WebSocket("ws://localhost:8888/submit_form");
-		
-		var valid_entry = true;
-		var issue = "";
-		var location = "";
-		var description = "";
-		var pubKey = "";
-		var privKey = "";
-
-		$("#submit").bind("click", function() {
-			valid_entry = true;
-			issue = $("#submit-issues").val();
-			if (issue.length == 0) {
-				$("#submit-issue-label").html("<span style='color:red;''>select issue</span>"); 
-				valid_entry = false;
-			};
-			location = $("#location").val();
-			if (location.length == 0) {
-				$("#location").attr("placeholder", "enter location"); 
-				valid_entry = false;
-			};
-			description = $("#description").val();
-			if (description.length == 0) {
-				$("#description").attr("placeholder", "enter description"); 
-				valid_entry = false;
-			};
-			pubKey = $("#pubKey").val();
-			if (pubKey.length == 0) {
-				$("#pubKey").attr("placeholder", "enter public key"); 
-				valid_entry = false;
-			};
-			privKey = $("#privKey").val();
-			if (privKey.length == 0) {
-				$("#privKey").attr("placeholder", "enter private key"); 
-				valid_entry = false;
-			};
-			if (valid_entry) {
-				$("#submit-issue-label").html("<span style='color:black;''>issue</span>"); 
-				wsSubmit.send(issue);
-				wsSubmit.send(location);
-				wsSubmit.send(description);
-				wsSubmit.send(pubKey);
-				wsSubmit.send(privKey);
-			};
-		});
-
-		wsSubmit.onmessage = function(msg) {
-			$("#submit-msg").show(100, "linear").html(msg.data);
-		};
-
-		wsSubmit.onclose = function() {
-			// console.log("SUBMIT FORM socket closed");
-		};
 
 		// Find form
 

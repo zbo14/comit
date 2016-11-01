@@ -5,6 +5,11 @@ import (
 	"github.com/tendermint/go-crypto"
 )
 
+const (
+	adminPerm      = 1
+	superAdminPerm = 2
+)
+
 type Account struct {
 	PubKey     crypto.PubKey `json:"pub_key"`
 	Sequence   int           `json:"sequence"`
@@ -37,16 +42,22 @@ func (acc *Account) String() string {
 }
 
 func (acc *Account) IsAdmin() bool {
-	return acc.Permission >= 1
+	return acc.Permission >= adminPerm
+}
+
+func (acc *Account) IsSuperAdmin() bool {
+	return acc.Permission >= superAdminPerm
 }
 
 func (acc *Account) PermissionToResolve() bool {
-	return acc.Permission >= 1
+	return acc.IsAdmin()
 }
 
 func (acc *Account) PermissionToCreateAdmin() bool {
-	return acc.Permission >= 2
+	return acc.IsSuperAdmin()
 }
+
+//--------------------------------------------
 
 type PrivAccount struct {
 	crypto.PrivKey

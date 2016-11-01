@@ -3,37 +3,105 @@
 {{end}}
 
 {{define "body"}}
+	<div class="container" id="connect-container">
+		<h5 class="my-header" id="connect-label">connect to network</h5><br>
+		<input type="text" id="pubKey" class="my-input" placeholder="public key" />
+		<br><br>
+		<input type="password" id="privKey" class="my-input" placeholder="private key" />
+		<br><br>
+		<button type="button" id="connect" class="my-button">connect</button>
+		<br><br>
+		<p id="connect-msg" style="display: none;"></p>
+	</div>
 	<div class="container">
-		<div class="container col-md-6" id="feed-container">
+		<div class="container col-md-6" id="feed-container" style="display: none;">
 			<h5 class="my-header">choose feed</h5><br>
-			<select multiple id="issues"></select>
+			<select multiple id="feed-issues"></select>
 			<br><br>
 			<button type="button" id="update" class="my-button">update</button>
 			<br><br>
 			<div id="feed"></div>
 		</div>
-		<div class="container col-md-6" id="message-container">
-			<h5 class="my-header">send a message</h5><br>
-			<!-- TODO: add message fields -->
-			<input type="text" id="message" class="my-textarea" placeholder="message" />
+		<div class="container col-md-6" id="constituent-container" style="display: none;">
+			<h5 class="my-header">submit a form</h5>
 			<br><br>
-			<h5 class="my-header">recipient</h5>
-			<input type="text" id="admin-pubKey" class="my-input" placeholder="public key" />
+			<h5 class="my-header" id="submit-issue-label">issue</h5>
+			<select id="submit-issues"></select>  
 			<br><br>
-			<button type="button" id="send" class="my-button">send</button>
+			<input type="text" id="location" class="my-input" placeholder="location" />
 			<br><br>
-			<div id="message-msg" style="display: none;"></div>
+			<textarea id="description" class="my-textarea" placeholder="description"></textarea>
+			<br><br>
+			<button type="button" id="submit" class="my-button">submit</button>
+			<br><br>
+			<p id="submit-msg" style="display: none;"></p>
+		</div>
+		<div class="container col-md-6" id="admin-container" style="display: none;">
+			<h5 class="my-header">resolve a form</h5>
+			<br><br>
+			<input type="text" id="formID" class="my-input" placeholder="form ID" />
+			<br><br>
+			<button type="button" id="resolve" class="my-button">resolve</button>
+			<br><br>
+			<p id="resolve-msg" style="display: none;"></p>
 		</div>
 	</div>
-
 	<script type="text/javascript">
 	window.onload = function() {
+
+		var wsConnect = new WebSocket("ws://localhost:8888/connect");
+
+		var valid_entry = true;
+		var pubKey = "";
+		var privKey = "";
+
+		$("#connect").bind("click", function() {
+			valid_entry = true;
+			pubKey = $("#pubKey").val();
+			if (pubKey.length == 0) {
+				$("#pubKey").attr("placeholder", "enter public key");
+				valid_entry = false;
+			};
+			privKey = $("#privKey").val();
+			if (privKey.length == 0) {
+				$("#privKey").attr("placeholder", "enter private key");
+				valid_entry = false;
+			};
+			if (valid_entry) {
+				wsConnect.send(pubKey);
+				wsConnect.send(privKey);
+			};
+		})
+
+		var user = "";
+
+		wsConnect.onmessage = function (msg) {
+			console.log(msg.data);
+			if (msg.data == "connect-constituent") {
+				$("#connect-container").hide(100, "linear");
+				$("#feed-container").show(100, "linear");
+				$("#constituent-container").show(100, "linear");
+				user = "constituent";
+			} else if (msg.data == "connect-admin") {
+				$("#connect-container").hide(100, "linear");
+				$("#feed-container").show(100, "linear");
+				$("#admin-container").show(100, "linear");
+				user = "admin";
+			} else {
+				$("#connect-msg").show(100, "linear").html(msg.data);
+			};
+		};
+
+		wsConnect.onclose = function() {
+			console.log("CONNECT ACCOUNT socket closed");
+		};
 
 		var wsIssues = new WebSocket("ws://localhost:8888/get_issues");
 		
 		wsIssues.onmessage = function(msg) {
 			console.log(msg.data);
-			$("#issues").html(msg.data);
+			$("#feed-issues").html(msg.data);
+			$("#submit-issues").html(msg.data);
 		}
 
 		wsIssues.onclose = function() {
@@ -57,39 +125,79 @@
 		wsFeed.onclose = function() {
 			console.log("UPDATE FEED socket closed");
 		}
+			
+		// Submit form
 
-		/*
-		var wsMessage = new WebSocket("ws://localhost:8888/send_message");
-		var valid_entry = true;
-		var message = "";
-		var adminPubKey = "";
+		var wsSubmit = new WebSocket("ws://localhost:8888/submit_form");
+		
+		var issue = "";
+		var location = "";
+		var description = "";
 
-		$("#send").bind("click", function() {
-			valid_entry = true;
-			message = $("#message").val();
-			if (message.length == 0) {
-				$("#message").attr("placeholder", "enter message");
-				valid_entry = false;
-			}
-			adminPubKey = $("#admin-pubKey").val();
-			if (adminPubKey.length == 0) {
-				$("#admin-pubKey").attr("placeholder", "enter public key");
-				valid_entry = false;
-			}
-			if (valid_entry) {
-				wsMessage.send(message);
-				wsMessage.send(adminPubKey);
-			}
-		})
+		$("#submit").bind("click", function() {
+			if (user == "constituent") {
+				valid_entry = true;
+				issue = $("#submit-issues").val();
+				if (issue.length == 0) {
+					$("#submit-issue-label").html("<span style='color:red;''>select issue</span>"); 
+					valid_entry = false;
+				};
+				location = $("#location").val();
+				if (location.length == 0) {
+					$("#location").attr("placeholder", "enter location"); 
+					valid_entry = false;
+				};
+				description = $("#description").val();
+				if (description.length == 0) {
+					$("#description").attr("placeholder", "enter description"); 
+					valid_entry = false;
+				};
+				if (valid_entry) {
+					$("#submit-issue-label").html("<span style='color:black;''>issue</span>"); 
+					console.log("Submitting form...");
+					wsSubmit.send(issue);
+					wsSubmit.send(location);
+					wsSubmit.send(description);
+					wsSubmit.send(pubKey);
+					wsSubmit.send(privKey);
+				};
+			};
+		});
 
-		wsMessage.onmessage = function(msg) {
-			$("#message-msg").show(100, "linear").html(msg.data);
-		}
+		wsSubmit.onmessage = function(msg) {
+			$("#submit-msg").show(100, "linear").html(msg.data);
+		};
 
-		wsMessage.onclose = function() {
-			console.log("SEND MESSAGE socket closed");
-		}
-		*/
-	} 
+		wsSubmit.onclose = function() {
+			console.log("SUBMIT FORM socket closed");
+		};	
+
+		// Resolve form 
+
+		var wsResolve = new WebSocket ("ws://localhost:8888/resolve_form");
+
+		var formID = "";
+
+		$("#resolve").bind("click", function() {
+			if (user == "admin") {
+				formID = $("#formID").val();
+				if (formID.length == 0) {
+					$("#formID").attr("placeholder", "enter form ID");
+				} else {
+					wsResolve.send(formID);
+					wsResolve.send(pubKey);
+					wsResolve.send(privKey);
+				};
+			};
+		});
+
+		wsResolve.onmessage = function(msg) {
+			$("#resolve-msg").show(100, "linear").html(msg.data)
+		};
+
+		wsResolve.onclose = function() {
+			console.log("RESOLVE FORM socket closed");
+		};
+	}
 </script>
 {{end}}

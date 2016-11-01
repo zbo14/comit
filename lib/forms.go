@@ -14,6 +14,7 @@ const (
 	ErrDecodeForm          = 100
 	ErrFindForm            = 101
 	ErrFormAlreadyResolved = 102
+	ErrDecodingFormID      = 103
 	field                  = "<strong style='opacity:0.8;'>%s</strong> <small>%s</small><br>"
 )
 

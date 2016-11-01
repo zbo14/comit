@@ -10,7 +10,7 @@ const (
 	remove_account_success = "Removed account<br><strong>public key</strong> <small>%X</small>"
 
 	create_admin_failure = "<span style='color:red;'>Failed to create admin</span>"
-	create_admin_success = ""
+	create_admin_success = "Created admin<br><strong style='opacity:0.8;'>public key</strong> <really-small>%X</really-small><br><strong style='opacity:0.8;'>private key</strong> <really-small>%X</really-small>"
 
 	remove_admin_failure = "<span style='color:red;'>Could not remove admin<br><strong>Public Key</strong> <small>%v</small><br><strong>Passphrase</strong> <small>%v</small></span>"
 	remove_admin_success = "Removed admin<br><strong>Public Key</strong> <small>%v</small><br><strong>Passphrase</strong> <small>%v</small>"

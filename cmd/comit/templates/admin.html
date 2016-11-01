@@ -4,16 +4,21 @@
 
 {{define "body"}}
 	<div class="container">
+		
 		<div class="container col-md-6">
-			<h5 class="my-header" id="create-label">create a new account</h5><br>
-			<input type="password" id="secret" class="my-input" maxlength="32" placeholder="secret" />
+			<h5 class="my-header" id="create-label">create a new admin</h5><br>
+			<input type="password" id="secret" class="my-input" placeholder="secret" />
+			<br><br>
+			<input type="text" id="create-pubKey" class="my-input" placeholder="public key" />
+			<br><br>
+			<input type="password" id="create-privKey" class="my-input" placeholder="private key" />
 			<br><br>
 			<button type="button" id="create" class="my-button">create</button>
 			<br><br>
 			<p id="create-msg" style="display: none;"></p>
 		</div>
 		<div class="container col-md-6">
-			<h5 class="my-header" id="remove-label">remove an existing account</h5><br>
+			<h5 class="my-header" id="remove-label">remove an existing admin</h5><br>
 			<input type="text" id="pubKey" class="my-input" placeholder="public key" />
 			<br><br>
 			<input type="password" id="privKey" class="my-input" placeholder="private key" />
@@ -26,8 +31,11 @@
 	<script type="text/javascript">
 		window.onload = function() {
 
-			var wsCreate = new WebSocket("ws://localhost:8888/create_account");
+			var wsCreate = new WebSocket("ws://localhost:8888/create_admin");
 
+			var valid_entry = true;
+			var pubKey = "";
+			var privKey = "";
 			var secret = "";
 
 			$("#create").bind("click", function() {
@@ -37,8 +45,20 @@
 					$("#secret").attr("placeholder", "enter secret");
 					valid_entry = false;
 				};
+				pubKey = $("#create-pubKey").val();
+				if (pubKey.length == 0) {
+					$("#create-pubKey").attr("placeholder", "enter public key");
+					valid_entry = false;
+				};
+				privKey = $("#create-privKey").val();
+				if (privKey.length == 0) {
+					$("#create-privKey").attr("placeholder", "enter private key");
+					valid_entry = false;
+				};
 				if (valid_entry) {
 					wsCreate.send(secret);
+					wsCreate.send(pubKey);
+					wsCreate.send(privKey);
 				};
 			});
 
@@ -49,8 +69,9 @@
 				console.log("CREATE ACCOUNT socket closed");
 			};
 
+			/*
 			$("#remove").bind("click", function(){
-				var wsRemove = new WebSocket("ws://localhost:8888/remove_account");
+				var wsRemove = new WebSocket("ws://localhost:8888/remove_admin");
 				var valid_entry = true;
 				var pubKey = $("#pubKey").val();
 				if (pubKey.length == 0) {
@@ -74,7 +95,7 @@
 			wsRemove.onclose = function() {
 				console.log("REMOVE ACCOUNT socket closed");
 			};
+			*/
 		}
-
 	</script>
 {{end}}

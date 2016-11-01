@@ -74,12 +74,14 @@ func main() {
 		"account.html",
 		"forms.html",
 		"network.html",
+		"admin.html",
 	)
 
 	web.CreatePages(
 		"account",
 		"forms",
 		"network",
+		"admin",
 	)
 
 	// Create action manager
@@ -88,19 +90,23 @@ func main() {
 	js := web.JustFiles{http.Dir("static/")}
 
 	http.HandleFunc("/account", web.TemplateHandler("account.html"))
-	http.HandleFunc("/connect_account", am.ConnectAccount)
 	http.HandleFunc("/create_account", am.CreateAccount)
 	http.HandleFunc("/remove_account", am.RemoveAccount)
 
 	http.HandleFunc("/get_issues", am.GetIssues)
 
 	http.HandleFunc("/forms", web.TemplateHandler("forms.html"))
-	http.HandleFunc("/submit_form", am.SubmitForm)
 	http.HandleFunc("/find_form", am.FindForm)
 	http.HandleFunc("/search_forms", am.SearchForms)
 
 	http.HandleFunc("/network", web.TemplateHandler("network.html"))
+	http.HandleFunc("/connect", am.Connect)
 	http.HandleFunc("/update_feed", am.UpdateFeed)
+	http.HandleFunc("/submit_form", am.SubmitForm)
+	http.HandleFunc("/resolve_form", am.ResolveForm)
+
+	http.HandleFunc("/admin", web.TemplateHandler("admin.html"))
+	http.HandleFunc("/create_admin", am.CreateAdmin)
 
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(js)))
 	http.ListenAndServe(":8888", nil)
