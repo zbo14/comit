@@ -61,36 +61,36 @@ func ExecTx(state *State, tx types.Tx, isCheckTx bool) (res tmsp.Result) {
 	// Run the tx.
 	cacheState := state.CacheWrap()
 	cacheState.SetAccount(tx.Input.Address, inAcc)
-	ctx := types.NewCallContext(tx.Input.Address)
+	address := tx.Input.Address
 	switch tx.Type {
 	case types.CreateAccountTx:
-		res = RunCreateAccountTx(cacheState, ctx, tx.Data)
+		res = RunCreateAccountTx(cacheState, address, tx.Data)
 	case types.RemoveAccountTx:
 		if inAcc.IsAdmin() {
 			res = tmsp.ErrUnauthorized
 		} else {
-			res = RunRemoveAccountTx(cacheState, ctx, tx.Data)
+			res = RunRemoveAccountTx(cacheState, address, tx.Data)
 		}
 	case types.CreateAdminTx:
 		if !inAcc.PermissionToCreateAdmin() {
 			res = tmsp.ErrUnauthorized
 		} else {
-			res = RunCreateAdminTx(cacheState, ctx, tx.Data)
+			res = RunCreateAdminTx(cacheState, address, tx.Data)
 		}
 	case types.RemoveAdminTx:
 		if !inAcc.IsAdmin() {
 			res = tmsp.ErrUnauthorized
 		} else {
-			res = RunRemoveAdminTx(cacheState, ctx, tx.Data)
+			res = RunRemoveAdminTx(cacheState, address, tx.Data)
 		}
 	case types.SubmitTx:
-		res = RunSubmitTx(cacheState, ctx, tx.Data)
+		res = RunSubmitTx(cacheState, address, tx.Data)
 	case types.ResolveTx:
 		if !inAcc.PermissionToResolve() {
 			fmt.Println("Not granted permission to resolve")
 			res = tmsp.ErrUnauthorized
 		} else {
-			res = RunResolveTx(cacheState, ctx, tx.Data)
+			res = RunResolveTx(cacheState, address, tx.Data)
 		}
 	default:
 		res = tmsp.ErrUnknownRequest.SetLog(
@@ -108,18 +108,18 @@ func ExecTx(state *State, tx types.Tx, isCheckTx bool) (res tmsp.Result) {
 
 //=====================================================================//
 
-func RunCreateAccountTx(state *State, ctx types.CallContext, data []byte) tmsp.Result {
+func RunCreateAccountTx(state *State, address []byte, data []byte) tmsp.Result {
 	// Just return OK
 	return tmsp.OK
 }
 
-func RunRemoveAccountTx(state *State, ctx types.CallContext, data []byte) tmsp.Result {
+func RunRemoveAccountTx(state *State, address []byte, data []byte) tmsp.Result {
 	// Return key so we can remove in AppendTx
-	key := AccountKey(ctx.Caller)
+	key := AccountKey(address)
 	return tmsp.NewResultOK(key, "")
 }
 
-func RunCreateAdminTx(state *State, ctx types.CallContext, data []byte) tmsp.Result {
+func RunCreateAdminTx(state *State, address []byte, data []byte) tmsp.Result {
 
 	// Get secret
 	secret, _, err := wire.GetByteSlice(data)
@@ -142,13 +142,13 @@ func RunCreateAdminTx(state *State, ctx types.CallContext, data []byte) tmsp.Res
 	return tmsp.NewResultOK(buf.Bytes(), "")
 }
 
-func RunRemoveAdminTx(state *State, ctx types.CallContext, data []byte) tmsp.Result {
+func RunRemoveAdminTx(state *State, address []byte, data []byte) tmsp.Result {
 	// Return key so we can remove in AppendTx
-	key := AccountKey(ctx.Caller)
+	key := AccountKey(address)
 	return tmsp.NewResultOK(key, "")
 }
 
-func RunSubmitTx(state *State, ctx types.CallContext, data []byte) (res tmsp.Result) {
+func RunSubmitTx(state *State, address []byte, data []byte) (res tmsp.Result) {
 	var form lib.Form
 	err := wire.ReadBinaryBytes(data, &form)
 	if err != nil {
@@ -176,7 +176,7 @@ func RunSubmitTx(state *State, ctx types.CallContext, data []byte) (res tmsp.Res
 	return tmsp.NewResultOK(formID, "")
 }
 
-func RunResolveTx(state *State, ctx types.CallContext, data []byte) (res tmsp.Result) {
+func RunResolveTx(state *State, address []byte, data []byte) (res tmsp.Result) {
 	formID, _, err := wire.GetByteSlice(data)
 	if err != nil {
 		return tmsp.NewResult(
@@ -194,7 +194,7 @@ func RunResolveTx(state *State, ctx types.CallContext, data []byte) (res tmsp.Re
 			Fmt("Error parsing form bytes: %v", err.Error()))
 	}
 	timestr := TimeString()
-	addr := BytesToHexString(ctx.Caller)
+	addr := BytesToHexString(address)
 	err = (&form).Resolve(timestr, addr)
 	if err != nil {
 		return tmsp.NewResult(
@@ -213,7 +213,7 @@ func RunResolveTx(state *State, ctx types.CallContext, data []byte) (res tmsp.Re
 		// print for now
 		fmt.Println(err.Error())
 	}
-	return tmsp.OK
+	return tmsp.NewResultOK(buf.Bytes(), "")
 }
 
 //===============================================================================================//

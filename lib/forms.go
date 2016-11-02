@@ -23,6 +23,7 @@ type Form struct {
 	Issue       string
 	Location    string
 	Description string
+	Submitter   string //optional
 
 	//==============//
 
@@ -71,6 +72,13 @@ func setDescription(description string) Item {
 	return func(form *Form) error {
 		// TODO: field validation
 		form.Description = description
+		return nil
+	}
+}
+
+func setSubmitter(submitter string) Item {
+	return func(form *Form) error {
+		form.Submitter = submitter
 		return nil
 	}
 }
@@ -140,37 +148,3 @@ func (form *Form) Summary() string {
 	summary.WriteString(Fmt(field, "status", status))
 	return summary.String()
 }
-
-/*
-func MatchForm(str string, form *Form) bool {
-	after := ReadField(str, "after")
-	before := ReadField(str, "before")
-	if len(before) > 0 && len(after) > 0 {
-		submittedOn := ParseTimeString(form.SubmittedAt)
-		afterDate := ParseTimeString(after)
-		beforeDate := ParseTimeString(before)
-		if !(submittedOn.After(afterDate)) || !(submittedOn.Before(beforeDate)) {
-			return false
-		}
-	}
-	issue := ReadField(str, "issue")
-	if len(issue) > 0 {
-		if !(issue == form.Issue) {
-			return false
-		}
-	}
-	location := ReadField(str, "location")
-	if len(location) > 0 {
-		if !SubstringMatch(location, form.Location) {
-			return false
-		}
-	}
-	status := ReadField(str, "status")
-	if len(status) > 0 {
-		if !(status == form.Status) {
-			return false
-		}
-	}
-	return true
-}
-*/

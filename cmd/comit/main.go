@@ -5,12 +5,9 @@ import (
 	"flag"
 	"fmt"
 	. "github.com/tendermint/go-common"
-	"github.com/tendermint/go-crypto"
-	"github.com/tendermint/go-p2p"
 	"github.com/tendermint/tmsp/server"
 	"github.com/zballs/comit/actions"
 	"github.com/zballs/comit/app"
-	ntwk "github.com/zballs/comit/network"
 	"github.com/zballs/comit/web"
 	"net/http"
 	"reflect"
@@ -20,8 +17,6 @@ func main() {
 
 	addrPtr := flag.String("addr", "tcp://0.0.0.0:46658", "Listen address")
 	cliPtr := flag.String("cli", "local", "Client address, or 'local' for embedded")
-	networkPtr := flag.String("network", "127.0.0.1:3111", "Feeds address")
-	// peerPtr := flag.String("peer", "127.0.0.1:3112", "Peer address")
 	genFilePath := flag.String("genesis", "genesis.json", "Genesis file, if any")
 	flag.Parse()
 
@@ -43,32 +38,20 @@ func main() {
 		}
 	}
 
-	// State filters
+	// Set State filters
 	filters := append(app_.Issues(), []string{"resolved", "unresolved"}...)
 	app_.SetFilters(filters)
 
-	// Create reactors for network
-	issues := app_.CreateIssueReactor()
-	admins := app_.CreateAdminReactor()
+	// Feed
+	feed := actions.NewFeed()
+	fmt.Println("Starting feed...")
+	go feed.Start()
 
 	// Start the listener
 	_, err = server.NewServer(*addrPtr, "socket", app_)
 	if err != nil {
 		Exit("create listener: " + err.Error())
 	}
-
-	// Start the network
-	network := p2p.NewSwitch(ntwk.Config)
-	network.SetNodeInfo(&p2p.NodeInfo{
-		Network: "testing",
-		Version: "311.311.311",
-	})
-	network.SetNodePrivKey(crypto.GenPrivKeyEd25519())
-	network.AddReactor("issues", issues)
-	network.AddReactor("admins", admins)
-	l := p2p.NewDefaultListener("tcp", *networkPtr, false)
-	network.AddListener(l)
-	network.Start()
 
 	web.RegisterTemplates(
 		"account.html",
@@ -85,7 +68,7 @@ func main() {
 	)
 
 	// Create action manager
-	am := actions.CreateActionManager(app_, network)
+	am := actions.CreateActionManager(app_, feed)
 
 	js := web.JustFiles{http.Dir("static/")}
 
@@ -159,53 +142,3 @@ func loadGenesis(filePath string) (kvz []KeyValue) {
 	}
 	return kvz
 }
-
-/*
-
-// Create action listener
-action_listener, err := actions.CreateActionListener()
-if err != nil {
-	Exit("action listener: " + err.Error())
-}
-
-http.Handle("/", action_listener)
-http.HandleFunc("/create_admin", web.TemplateHandler("create_admin.html"))
-http.HandleFunc("/remove_account", web.TemplateHandler("remove_account.html"))
-http.HandleFunc("/submit_form", web.TemplateHandler("submit_form.html"))
-http.HandleFunc("/resolve_form", web.TemplateHandler("resolve_form.html"))
-http.HandleFunc("/find_form", web.TemplateHandler("find_form.html"))
-http.HandleFunc("/search_forms", web.TemplateHandler("search_forms.html"))
-http.HandleFunc("/connect", web.TemplateHandler("connect.html"))
-
-action_listener.Run(app_, network, *peerPtr)
-
-func writeToGenesis(key, value interface{}, filePath string) error {
-	buf, n, err := new(bytes.Buffer), int(0), error(nil)
-	wire.WriteJSON(&key, buf, &n, &err)
-	f, err := os.OpenFile(filePath, os.O_APPEND|os.O_WRONLY, 0644)
-	if err != nil {
-		return err
-	}
-	f.Write(buf.Bytes())
-	buf = new(bytes.Buffer)
-	wire.WriteJSON(&value, buf, &n, &err)
-	f.Write(buf.Bytes())
-	f.Close()
-	return nil
-}
-
-// Service Feed
-var ServiceChannelIDs = map[string]byte{
-	"street light out":             byte(0x11),
-	"pothole in street":            byte(0x12),
-	"rodent baiting/rat complaint": byte(0x13),
-	"tree trim":                    byte(0x14),
-	"garbage cart black maintenance/replacement": byte(0x15),
-}
-var ServiceChannelDescs = CreateChDescs(ServiceChannelIDs)
-var ServiceFeed = NewReactor(ServiceChannelDescs, true)
-
-func ServiceChannelID(service string) uint8 {
-	return ServiceChannelIDs[service]
-}
-*/

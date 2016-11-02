@@ -6,7 +6,6 @@ import (
 	. "github.com/tendermint/go-common"
 	"github.com/tendermint/go-wire"
 	tmsp "github.com/tendermint/tmsp/types"
-	ntwk "github.com/zballs/comit/network"
 	sm "github.com/zballs/comit/state"
 	"github.com/zballs/comit/types"
 	"strings"
@@ -28,14 +27,7 @@ type App struct {
 	cli        *Client
 	state      *sm.State
 	cacheState *sm.State
-
-	issues   *ntwk.MyReactor
-	issueIDs map[string]byte
-	issueID  byte
-
-	admins   *ntwk.MyReactor
-	adminIDs map[string]byte
-	adminID  byte
+	issues     []string
 }
 
 func NewApp(cli *Client) *App {
@@ -44,12 +36,6 @@ func NewApp(cli *Client) *App {
 		cli:        cli,
 		state:      state,
 		cacheState: nil,
-
-		issueIDs: make(map[string]byte),
-		issueID:  issueID,
-
-		adminIDs: make(map[string]byte),
-		adminID:  adminID,
 	}
 }
 
@@ -138,55 +124,16 @@ func (app *App) IterateNext(fun func(data []byte) bool, in, out chan []byte) {
 }
 
 func (app *App) Issues() []string {
-	issues := make([]string, len(app.issueIDs))
-	idx := 0
-	for issue, _ := range app.issueIDs {
-		issues[idx] = issue
-		idx++
-	}
-	return issues
-}
-
-func (app *App) AddIssue(issue string) {
-	app.issueIDs[issue] = app.issueID
-	app.issueID++
-}
-
-func (app *App) IssueIDs() map[string]byte {
-	return app.issueIDs
-}
-
-func (app *App) IssueID(issue string) byte {
-	return app.issueIDs[issue]
-}
-
-func (app *App) IsIssue(issue string) bool {
-	return app.issueIDs[issue] > 0x0
-}
-
-func (app *App) CreateIssueReactor() *ntwk.MyReactor {
-	chDescs := ntwk.CreateChDescs(app.issueIDs)
-	app.issues = ntwk.NewReactor(chDescs, true)
 	return app.issues
 }
 
-func (app *App) AddAdmin(pubKeyString string) {
-	app.adminIDs[pubKeyString] = app.adminID
-	app.adminID++
-}
-
-func (app *App) AdminIDs() map[string]byte {
-	return app.adminIDs
-}
-
-func (app *App) AdminID(pubKeyString string) byte {
-	return app.adminIDs[pubKeyString]
-}
-
-func (app *App) CreateAdminReactor() *ntwk.MyReactor {
-	chDescs := ntwk.CreateChDescs(app.adminIDs)
-	app.admins = ntwk.NewReactor(chDescs, true)
-	return app.admins
+func (app *App) IsIssue(issue string) bool {
+	for _, i := range app.issues {
+		if issue == i {
+			return true
+		}
+	}
+	return false
 }
 
 func (app *App) IsAdmin(addr []byte) bool {
@@ -207,7 +154,7 @@ func (app *App) SetOption(key string, value string) (log string) {
 		app.state.SetChainID(value)
 		return "Success"
 	case "issue": //--> issues
-		app.AddIssue(value)
+		app.issues = append(app.issues, value)
 		return "Success"
 	case "admin": //--> admins
 		var err error
@@ -218,7 +165,6 @@ func (app *App) SetOption(key string, value string) (log string) {
 		}
 		fmt.Printf("%X\n", acc.PubKey.Address())
 		app.state.SetAccount(acc.PubKey.Address(), acc)
-		app.AddAdmin(acc.PubKey.KeyString())
 		return "Success"
 	}
 	return "Unrecognized option key " + key

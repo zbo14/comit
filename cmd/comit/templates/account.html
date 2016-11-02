@@ -49,15 +49,16 @@
 				console.log("CREATE ACCOUNT socket closed");
 			};
 
+			var wsRemove = new WebSocket("ws://localhost:8888/remove_account");
+
 			$("#remove").bind("click", function(){
-				var wsRemove = new WebSocket("ws://localhost:8888/remove_account");
-				var valid_entry = true;
-				var pubKey = $("#pubKey").val();
+				valid_entry = true;
+				pubKey = $("#pubKey").val();
 				if (pubKey.length == 0) {
 					$("#pubKey").attr("placeholder", "enter public key");
 					valid_entry = false;
 				};
-				var privKey = $("#privKey").val();
+			    privKey = $("#privKey").val();
 				if (privKey.length == 0) {
 					$("#privKey").attr("placeholder", "enter private key");
 					valid_entry = false;

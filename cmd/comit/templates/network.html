@@ -24,7 +24,6 @@
 		</div>
 		<div class="container col-md-6" id="constituent-container" style="display: none;">
 			<h5 class="my-header">submit a form</h5>
-			<br><br>
 			<h5 class="my-header" id="submit-issue-label">issue</h5>
 			<select id="submit-issues"></select>  
 			<br><br>
@@ -110,7 +109,6 @@
 		var wsFeed = new WebSocket("ws://localhost:8888/update_feed");
 
 		$("#update").bind("click", function() {
-			$("#feed").html("");
 			var issues = $("#feed-issues").val();
 			if (issues.length > 0) {
 				wsFeed.send(issues);
