@@ -2,13 +2,14 @@ package state
 
 import (
 	"errors"
+	"fmt"
 	. "github.com/tendermint/go-common"
 	"github.com/tendermint/go-wire"
 	"github.com/zballs/comit/types"
 )
 
 const (
-	ErrSet         = 11311
+	ErrSet         = 10
 	iter    uint64 = 3
 	members uint64 = 1000
 )
@@ -26,6 +27,10 @@ func NewState(store types.Store) *State {
 		store:   store,
 	}
 	return s
+}
+
+func (s *State) PrintStore() {
+	fmt.Println(s.store)
 }
 
 func (s *State) SetChainID(chainID string) {
@@ -77,23 +82,34 @@ func (s *State) AddToFilter(data []byte, filter string) error {
 	return nil
 }
 
-func (s *State) InFilter(filter string, data []byte) bool {
+func (s *State) InFilter(filter string, data []byte) (bool, error) {
 	bloom := s.blooms[filter]
 	if bloom == nil {
-		// errors.New(Fmt("Cannot find filter %s", filter))
-		return false //for now
+		return false, errors.New(
+			Fmt("Cannot find filter %s", filter))
 	}
 	if !bloom.HasMember(data, iter) {
-		return false
+		return false, nil
 	}
-	return true
+	return true, nil
 }
 
-func (s *State) FilterFunc(filters []string) func(data []byte) bool {
+func (s *State) FilterFunc(filters []string, includes []bool) func(data []byte) bool {
 	return func(data []byte) bool {
-		for _, f := range filters {
-			if has := s.InFilter(f, data); !has {
-				return false
+		for idx, f := range filters {
+			has, err := s.InFilter(f, data)
+			if err != nil {
+				fmt.Println(err.Error())
+				continue //for now
+			}
+			if includes[idx] {
+				if !has {
+					return false
+				}
+			} else {
+				if has {
+					return false
+				}
 			}
 		}
 		return true

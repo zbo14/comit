@@ -22,8 +22,6 @@ func MakeBloomFilter(c uint64) *BloomFilter {
 	}
 }
 
-// change some uint64's -> uint's
-
 func (bloom *BloomFilter) getIdx(pos uint64) uint64 {
 	return uint64(len(bloom.bytes)-1) - (pos / 8)
 }

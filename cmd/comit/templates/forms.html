@@ -3,16 +3,16 @@
 {{end}}
 
 {{define "body"}}
-	<div class="container col-md-4">
-		<h5 class="my-header">find a form</h5>
-		<br><br>
+	<div class="container col-md-6">
+		<h5 class="my-header">find a form</h5><br>
 		<input type="text" id="formID" class="my-input" placeholder="form ID" />
 		<br><br>
 		<button type="button" id="find" class="my-button">find</button>
 		<br><br>
 		<p id="find-msg" style="display: none;"></p>
 	</div>
-	<div class="container col-md-4">
+	<div class="container col-md-6">
+
 		<h5 class="my-header">after</h5>
             <div class="form-group">
             <div class="input-group date" id="after">
@@ -28,7 +28,7 @@
 
             });
         </script>
-		<br><br>
+		<br>
 		<h5 class="my-header">before</h5>
         <div class="form-group">
             <div class="input-group date" id="before">
@@ -43,17 +43,15 @@
                 $("#before").datetimepicker();
             });
         </script>
-		<br><br>
-		<h5 class="my-header" id="search-issue-label">issue</h5>
+		<br>
 		<select id="search-issues"></select> 
-		<br><br>
-		<h5 class="my-header">status</h5>
+		<br><br><br><br>
 		<select id="status">
 			<option value="">select status</option>
 			<option value="unresolved">unresolved</option>
 			<option value="resolved">resolved</option>
 		</select>
-		<br><br>
+		<br><br><br><br>
 		<button type="button" id="search" class="my-button">search</button>
 		<br><br>
 		<div id="search-msg"></div>
@@ -108,11 +106,26 @@
 
 		var status = "";
 
+		$("#search-issues").on("change", function(){
+			var content = $("#search-msg").html();
+			if (content.length > 0) {
+				$("#search-msg").html("");
+			}
+		});
+
+		$("#status").on("change", function(){
+			var content = $("#search-msg").html();
+			if (content.length > 0) {
+				$("#search-msg").html("");
+			}
+		});
+
 		$("#search").bind("click", function() {
 			issue = $("#search-issues").val();
 			if (issue.length > 0) {
-				$("#search-issue-label").html("<span style='color:black;''>issue</span>"); 
+				$("#search-issues").css("border-color", "lightgray"); 
 				var after = $("#after").data("DateTimePicker").date();
+				console.log(after);
 				var before = $("#before").data("DateTimePicker").date();
 				status = $("#status").val();
 
@@ -121,7 +134,7 @@
 				wsSearch.send(issue);
 				wsSearch.send(status);
 			} else {
-				$("#search-issue-label").html("<span style='color:red;''>select issue</span>");
+				$("#search-issues").css("border-color", "red"); 
 			}
 		});
 

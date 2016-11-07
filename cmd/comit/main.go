@@ -39,7 +39,7 @@ func main() {
 	}
 
 	// Set State filters
-	filters := append(app_.Issues(), []string{"resolved", "unresolved"}...)
+	filters := append(app_.Issues(), "resolved")
 	app_.SetFilters(filters)
 
 	// Feed

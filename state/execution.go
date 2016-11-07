@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	. "github.com/tendermint/go-common"
+	"github.com/tendermint/go-crypto"
 	"github.com/tendermint/go-wire"
 	tmsp "github.com/tendermint/tmsp/types"
 	"github.com/zballs/comit/lib"
@@ -61,36 +62,36 @@ func ExecTx(state *State, tx types.Tx, isCheckTx bool) (res tmsp.Result) {
 	// Run the tx.
 	cacheState := state.CacheWrap()
 	cacheState.SetAccount(tx.Input.Address, inAcc)
-	address := tx.Input.Address
 	switch tx.Type {
 	case types.CreateAccountTx:
-		res = RunCreateAccountTx(cacheState, address, tx.Data)
+		res = RunCreateAccountTx()
 	case types.RemoveAccountTx:
 		if inAcc.IsAdmin() {
 			res = tmsp.ErrUnauthorized
 		} else {
-			res = RunRemoveAccountTx(cacheState, address, tx.Data)
+			res = RunRemoveAccountTx(cacheState, tx.Input.Address)
 		}
 	case types.CreateAdminTx:
 		if !inAcc.PermissionToCreateAdmin() {
 			res = tmsp.ErrUnauthorized
 		} else {
-			res = RunCreateAdminTx(cacheState, address, tx.Data)
+			res = RunCreateAdminTx(cacheState, tx.Data)
 		}
 	case types.RemoveAdminTx:
 		if !inAcc.IsAdmin() {
 			res = tmsp.ErrUnauthorized
 		} else {
-			res = RunRemoveAdminTx(cacheState, address, tx.Data)
+			res = RunRemoveAdminTx(cacheState, tx.Input.Address)
 		}
 	case types.SubmitTx:
-		res = RunSubmitTx(cacheState, address, tx.Data)
+		res = RunSubmitTx(cacheState, tx.Data)
 	case types.ResolveTx:
 		if !inAcc.PermissionToResolve() {
 			fmt.Println("Not granted permission to resolve")
 			res = tmsp.ErrUnauthorized
 		} else {
-			res = RunResolveTx(cacheState, address, tx.Data)
+			pubKey := inAcc.PubKey.(crypto.PubKeyEd25519)
+			res = RunResolveTx(cacheState, pubKey, tx.Data)
 		}
 	default:
 		res = tmsp.ErrUnknownRequest.SetLog(
@@ -108,18 +109,18 @@ func ExecTx(state *State, tx types.Tx, isCheckTx bool) (res tmsp.Result) {
 
 //=====================================================================//
 
-func RunCreateAccountTx(state *State, address []byte, data []byte) tmsp.Result {
+func RunCreateAccountTx() tmsp.Result {
 	// Just return OK
 	return tmsp.OK
 }
 
-func RunRemoveAccountTx(state *State, address []byte, data []byte) tmsp.Result {
+func RunRemoveAccountTx(state *State, address []byte) tmsp.Result {
 	// Return key so we can remove in AppendTx
 	key := AccountKey(address)
 	return tmsp.NewResultOK(key, "")
 }
 
-func RunCreateAdminTx(state *State, address []byte, data []byte) tmsp.Result {
+func RunCreateAdminTx(state *State, data []byte) tmsp.Result {
 
 	// Get secret
 	secret, _, err := wire.GetByteSlice(data)
@@ -142,13 +143,13 @@ func RunCreateAdminTx(state *State, address []byte, data []byte) tmsp.Result {
 	return tmsp.NewResultOK(buf.Bytes(), "")
 }
 
-func RunRemoveAdminTx(state *State, address []byte, data []byte) tmsp.Result {
+func RunRemoveAdminTx(state *State, address []byte) tmsp.Result {
 	// Return key so we can remove in AppendTx
 	key := AccountKey(address)
 	return tmsp.NewResultOK(key, "")
 }
 
-func RunSubmitTx(state *State, address []byte, data []byte) (res tmsp.Result) {
+func RunSubmitTx(state *State, data []byte) (res tmsp.Result) {
 	var form lib.Form
 	err := wire.ReadBinaryBytes(data, &form)
 	if err != nil {
@@ -163,20 +164,18 @@ func RunSubmitTx(state *State, address []byte, data []byte) (res tmsp.Result) {
 	err = state.AddToFilter(buf.Bytes(), issue)
 	if err != nil {
 		// False positive
+		// May happen if form is submitted
+		// and then form with same type, location
+		// is submitted a minute later...
 		// print for now
 		fmt.Println(err.Error())
+	} else {
+		fmt.Printf("Added form to %s filter\n", issue)
 	}
-	err = state.AddToFilter(buf.Bytes(), "unresolved")
-	if err != nil {
-		// False positive
-		// print for now
-		fmt.Println(err.Error())
-	}
-	fmt.Printf("Added form to %s filter\n", issue)
 	return tmsp.NewResultOK(formID, "")
 }
 
-func RunResolveTx(state *State, address []byte, data []byte) (res tmsp.Result) {
+func RunResolveTx(state *State, pubKey crypto.PubKeyEd25519, data []byte) (res tmsp.Result) {
 	formID, _, err := wire.GetByteSlice(data)
 	if err != nil {
 		return tmsp.NewResult(
@@ -193,9 +192,9 @@ func RunResolveTx(state *State, address []byte, data []byte) (res tmsp.Result) {
 		return tmsp.ErrEncodingError.SetLog(
 			Fmt("Error parsing form bytes: %v", err.Error()))
 	}
-	timestr := TimeString()
-	addr := BytesToHexString(address)
-	err = (&form).Resolve(timestr, addr)
+	minutestr := ToTheMinute(TimeString())
+	pubKeyString := BytesToHexString(pubKey[:])
+	err = (&form).Resolve(minutestr, pubKeyString)
 	if err != nil {
 		return tmsp.NewResult(
 			lib.ErrFormAlreadyResolved, nil, Fmt("Error already resolved form with ID: %v", formID))

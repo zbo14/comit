@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	ErrValueNotFound = 311311
+	ErrValueNotFound = 10000
 )
 
 type MerkleApp struct {

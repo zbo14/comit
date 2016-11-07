@@ -38,7 +38,9 @@ func ParseMomentString(momentstr string) time.Time {
 	yr, _ := strconv.Atoi(momentstr[11:15])
 	mo, _ := months[momentstr[4:7]]
 	d, _ := strconv.Atoi(momentstr[8:10])
-	return time.Date(yr, time.Month(mo), d, 0, 0, 0, 0, time.Local)
+	hr, _ := strconv.Atoi(momentstr[16:18])
+	min, _ := strconv.Atoi(momentstr[19:21])
+	return time.Date(yr, time.Month(mo), d, hr, min, 0, 0, time.Local)
 }
 
 func ParseDateString(datestr string) time.Time {
@@ -46,6 +48,15 @@ func ParseDateString(datestr string) time.Time {
 	mo, _ := strconv.Atoi(datestr[5:7])
 	d, _ := strconv.Atoi(datestr[8:10])
 	return time.Date(yr, time.Month(mo), d, 0, 0, 0, 0, time.Local)
+}
+
+func ParseMinuteString(minutestr string) time.Time {
+	yr, _ := strconv.Atoi(minutestr[:4])
+	mo, _ := strconv.Atoi(minutestr[5:7])
+	d, _ := strconv.Atoi(minutestr[8:10])
+	hr, _ := strconv.Atoi(minutestr[11:13])
+	min, _ := strconv.Atoi(minutestr[14:16])
+	return time.Date(yr, time.Month(mo), d, hr, min, 0, 0, time.Local)
 }
 
 func DurationTimeStrings(timestr1, timestr2 string) time.Duration {

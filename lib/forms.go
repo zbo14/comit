@@ -16,6 +16,7 @@ const (
 	ErrFormAlreadyResolved = 102
 	ErrDecodingFormID      = 103
 	field                  = "<strong style='opacity:0.8;'>%s</strong> <small>%s</small><br>"
+	miniField              = "<strong style='opacity:0.8;'>%s</strong> <really-small>%s</really-small><br>"
 )
 
 type Form struct {
@@ -83,7 +84,7 @@ func setSubmitter(submitter string) Item {
 	}
 }
 
-func MakeForm(issue, location, description string) (*Form, error) {
+func MakeAnonymousForm(issue, location, description string) (*Form, error) {
 	submittedAt := time.Now().Local().String()
 	form, err := newForm(
 		setSubmittedAt(submittedAt),
@@ -94,6 +95,18 @@ func MakeForm(issue, location, description string) (*Form, error) {
 		return nil, err
 	}
 	form.Status = "unresolved"
+	return form, nil
+}
+
+func MakeForm(issue, location, description, submitter string) (*Form, error) {
+	form, err := MakeAnonymousForm(issue, location, description)
+	if err != nil {
+		return nil, err
+	}
+	err = setSubmitter(submitter)(form)
+	if err != nil {
+		return nil, err
+	}
 	return form, nil
 }
 
@@ -124,10 +137,11 @@ func XOR(bytes []byte, items ...string) []byte {
 	return bytes
 }
 
+// TODO: add location
 func (form *Form) ID() []byte {
 	bytes := make([]byte, 16)
-	daystr := ToTheDay(form.SubmittedAt)
-	bytes = XOR(bytes, daystr, form.Issue) //form.Location
+	daystr := ToTheMinute(form.SubmittedAt)
+	bytes = XOR(bytes, daystr, form.Issue)
 	return bytes
 }
 
@@ -135,7 +149,7 @@ func (form *Form) Summary() string {
 	status := "unresolved"
 	if form.Resolved() {
 		status = Fmt(
-			"resolved at %v by %v",
+			"resolved at %v by <really-small>%v</really-small>",
 			form.ResolvedAt,
 			form.ResolvedBy)
 	}
@@ -146,5 +160,8 @@ func (form *Form) Summary() string {
 	summary.WriteString(Fmt(field, "location", form.Location))
 	summary.WriteString(Fmt(field, "description", form.Description))
 	summary.WriteString(Fmt(field, "status", status))
+	if len(form.Submitter) == 64 {
+		summary.WriteString(Fmt(miniField, "submitter", form.Submitter))
+	}
 	return summary.String()
 }

@@ -13,7 +13,16 @@ import (
 	. "github.com/zballs/comit/util"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
+	"time"
+)
+
+const (
+	PUBKEY_LENGTH  = 32
+	PRIVKEY_LENGTH = 64
+	MOMENT_LENGTH  = 32
+	FORM_ID_LENGTH = 16
 )
 
 type ActionManager struct {
@@ -131,7 +140,7 @@ func (am *ActionManager) RemoveAccount(w http.ResponseWriter, req *http.Request)
 			return
 		}
 		n, err := hex.Decode(pubKey[:], pubKeyBytes)
-		if err != nil || n != 32 {
+		if err != nil || n != PUBKEY_LENGTH {
 			msg := Fmt(invalid_public_key, pubKeyBytes)
 			conn.WriteMessage(ws.TextMessage, []byte(msg))
 			continue
@@ -144,7 +153,7 @@ func (am *ActionManager) RemoveAccount(w http.ResponseWriter, req *http.Request)
 			return
 		}
 		n, err = hex.Decode(privKey[:], privKeyBytes)
-		if err != nil || n != 64 {
+		if err != nil || n != PRIVKEY_LENGTH {
 			conn.WriteMessage(ws.TextMessage, []byte(invalid_private_key))
 			continue
 		}
@@ -172,7 +181,7 @@ func (am *ActionManager) RemoveAccount(w http.ResponseWriter, req *http.Request)
 		}
 
 		log.Printf("SUCCESS removed account with pubKey %X\n", pubKeyBytes)
-		msg := Fmt(remove_account_success, pubKeyBytes)
+		msg := Fmt(remove_account_success, pubKey[:])
 		conn.WriteMessage(ws.TextMessage, []byte(msg))
 		conn.Close()
 		return
@@ -202,7 +211,7 @@ func (am *ActionManager) Connect(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 		n, err := hex.Decode(pubKey[:], pubKeyBytes)
-		if err != nil || n != 32 {
+		if err != nil || n != PUBKEY_LENGTH {
 			msg := Fmt(invalid_public_key, pubKeyBytes)
 			conn.WriteMessage(ws.TextMessage, []byte(msg))
 			continue
@@ -215,7 +224,7 @@ func (am *ActionManager) Connect(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 		n, err = hex.Decode(privKey[:], privKeyBytes)
-		if err != nil || n != 64 {
+		if err != nil || n != PRIVKEY_LENGTH {
 			conn.WriteMessage(ws.TextMessage, []byte(invalid_private_key))
 			continue
 		}
@@ -267,6 +276,9 @@ func (am *ActionManager) SubmitForm(w http.ResponseWriter, req *http.Request) {
 	var pubKey crypto.PubKeyEd25519
 	var privKey crypto.PrivKeyEd25519
 
+	// Form
+	var form *lib.Form
+
 	for {
 
 		// Form information
@@ -280,12 +292,14 @@ func (am *ActionManager) SubmitForm(w http.ResponseWriter, req *http.Request) {
 			log.Println(err.Error())
 			return
 		}
+
 		_, locationBytes, err := conn.ReadMessage()
 		if err != nil {
 			log.Println(err.Error())
 			return
 		}
 		location := string(locationBytes)
+
 		_, descriptionBytes, err := conn.ReadMessage()
 		if err != nil {
 			log.Println(err.Error())
@@ -293,15 +307,12 @@ func (am *ActionManager) SubmitForm(w http.ResponseWriter, req *http.Request) {
 		}
 		description := string(descriptionBytes)
 
-		// TODO: field validation
-		form, err := lib.MakeForm(issue, location, description)
+		_, anonymousBytes, err := conn.ReadMessage()
 		if err != nil {
 			log.Println(err.Error())
 			return
 		}
-		buf, n, err := new(bytes.Buffer), int(0), error(nil)
-		wire.WriteBinary(*form, buf, &n, &err)
-		tx.Data = buf.Bytes()
+		anonymous, _ := strconv.ParseBool(string(anonymousBytes))
 
 		// PubKey
 		_, pubKeyBytes, err := conn.ReadMessage()
@@ -309,12 +320,29 @@ func (am *ActionManager) SubmitForm(w http.ResponseWriter, req *http.Request) {
 			log.Println(err.Error())
 			return
 		}
-		n, err = hex.Decode(pubKey[:], pubKeyBytes)
-		if err != nil || n != 32 {
+		n, err := hex.Decode(pubKey[:], pubKeyBytes)
+		if err != nil || n != PUBKEY_LENGTH {
 			msg := Fmt(invalid_public_key, pubKeyBytes)
 			conn.WriteMessage(ws.TextMessage, []byte(msg))
 			continue
 		}
+
+		// TODO: field validation
+		if anonymous {
+			form, err = lib.MakeAnonymousForm(issue, location, description)
+		} else {
+			pubKeyString := BytesToHexString(pubKey[:])
+			form, err = lib.MakeForm(issue, location, description, pubKeyString)
+		}
+
+		if err != nil {
+			log.Println(err.Error())
+			return //change
+		}
+
+		buf, n, err := new(bytes.Buffer), int(0), error(nil)
+		wire.WriteBinary(*form, buf, &n, &err)
+		tx.Data = buf.Bytes()
 
 		// PrivKey
 		_, privKeyBytes, err := conn.ReadMessage()
@@ -323,10 +351,17 @@ func (am *ActionManager) SubmitForm(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 		n, err = hex.Decode(privKey[:], privKeyBytes)
-		if err != nil || n != 64 {
+		if err != nil || n != PRIVKEY_LENGTH {
 			conn.WriteMessage(ws.TextMessage, []byte(invalid_private_key))
 			continue
 		}
+
+		_, sendToFeedBytes, err := conn.ReadMessage()
+		if err != nil {
+			log.Println(err.Error())
+			return
+		}
+		sendToFeed, _ := strconv.ParseBool(string(sendToFeedBytes))
 
 		// Set Sequence, Account, Signature
 		addr := pubKey.Address()
@@ -352,16 +387,18 @@ func (am *ActionManager) SubmitForm(w http.ResponseWriter, req *http.Request) {
 		log.Printf("SUCCESS submitted form with ID %X\n", res.Data)
 
 		// Send update to feed
-		err = am.SendUpdate(tx.Data)
-		if err != nil {
-			log.Panic(err)
+		if sendToFeed {
+			err = am.SendUpdate(tx.Data)
+			if err != nil {
+				log.Panic(err)
+			}
 		}
 
 		// Send response to ws
 		msg := Fmt(submit_form_success, res.Data)
 		conn.WriteMessage(ws.TextMessage, []byte(msg))
 		// conn.Close()
-		return
+		// return
 	}
 }
 
@@ -382,9 +419,9 @@ func (am *ActionManager) FindForm(w http.ResponseWriter, req *http.Request) {
 			log.Println(err.Error())
 			return
 		}
-		formIDBytes := make([]byte, 16)
+		formIDBytes := make([]byte, FORM_ID_LENGTH)
 		n, err := hex.Decode(formIDBytes, hexBytes)
-		if err != nil || n != 16 {
+		if err != nil || n != FORM_ID_LENGTH {
 			msg := Fmt(invalid_formID, hexBytes)
 			conn.WriteMessage(ws.TextMessage, []byte(msg))
 		}
@@ -421,14 +458,23 @@ func (am *ActionManager) SearchForms(w http.ResponseWriter, req *http.Request) {
 		log.Panic(err)
 	}
 
+	var afterTime time.Time
+	var beforeTime time.Time
+
 	for {
+
+		afterTime = time.Time{}
+		beforeTime = time.Time{}
+
 		_, afterBytes, err := conn.ReadMessage()
 		if err != nil {
 			log.Println(err.Error())
 			return
 		}
 		after := string(afterBytes)
-		afterDate := ParseMomentString(after)
+		if len(after) >= MOMENT_LENGTH {
+			afterTime = ParseMomentString(after)
+		}
 
 		_, beforeBytes, err := conn.ReadMessage()
 		if err != nil {
@@ -436,9 +482,12 @@ func (am *ActionManager) SearchForms(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 		before := string(beforeBytes)
-		beforeDate := ParseMomentString(before)
+		if len(before) >= MOMENT_LENGTH {
+			beforeTime = ParseMomentString(before)
+		}
 
 		var filters []string
+		var includes []bool
 
 		_, issueBytes, err := conn.ReadMessage()
 		if err != nil {
@@ -448,6 +497,7 @@ func (am *ActionManager) SearchForms(w http.ResponseWriter, req *http.Request) {
 		issue := string(issueBytes)
 		if len(issue) > 0 {
 			filters = append(filters, issue)
+			includes = append(includes, true)
 		}
 
 		// TODO: add location
@@ -458,17 +508,23 @@ func (am *ActionManager) SearchForms(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 		status := string(statusBytes)
-		if len(status) > 0 {
-			filters = append(filters, status)
+		if status == "resolved" {
+			filters = append(filters, "resolved")
+			includes = append(includes, true)
+		} else if status == "unresolved" {
+			filters = append(filters, "resolved")
+			includes = append(includes, false)
 		}
 
-		fun1 := am.FilterFunc(filters)
+		fun1 := am.FilterFunc(filters, includes)
 
 		fun2 := func(data []byte) bool {
 			key, _, _ := wire.GetByteSlice(data)
-			datestr := string(lib.XOR(key, issue))
-			date := ParseDateString(datestr)
-			if !date.After(afterDate) || !date.Before(beforeDate) {
+			minutestr := string(lib.XOR(key, issue))
+			time := ParseMinuteString(minutestr)
+			if len(after) >= MOMENT_LENGTH && !time.After(afterTime) {
+				return false
+			} else if len(before) >= MOMENT_LENGTH && !time.Before(beforeTime) {
 				return false
 			}
 			return true
@@ -478,6 +534,7 @@ func (am *ActionManager) SearchForms(w http.ResponseWriter, req *http.Request) {
 		out := make(chan []byte)
 		// errs := make(chan error)
 
+		// Search pipeline
 		go am.Iterate(fun1, in) //errs
 		go am.IterateNext(fun2, in, out)
 
@@ -491,7 +548,7 @@ func (am *ActionManager) SearchForms(w http.ResponseWriter, req *http.Request) {
 					log.Println(res.Error())
 					continue
 				}
-				err := wire.ReadBinaryBytes(res.Data, &form)
+				err = wire.ReadBinaryBytes(res.Data, &form)
 				if err != nil {
 					log.Println(err.Error())
 					continue
@@ -513,14 +570,14 @@ func (am *ActionManager) UpdateFeed(w http.ResponseWriter, req *http.Request) {
 		log.Panic(err)
 	}
 
-	log.Println("Updating feed...")
-
 	_, issueBytes, err := conn.ReadMessage()
 	if err != nil {
 		log.Println(err.Error())
 		return
 	}
 	issues := strings.Split(string(issueBytes), `,`)
+
+	log.Println("Updating feed...")
 
 	// Create client
 	cli := NewClient(conn, issues)
@@ -532,7 +589,7 @@ func (am *ActionManager) UpdateFeed(w http.ResponseWriter, req *http.Request) {
 	done := make(chan *struct{})
 	go cli.writeRoutine(done)
 
-	_ = <-done
+	<-done
 	cli.Close()
 }
 
@@ -572,7 +629,7 @@ func (am *ActionManager) CreateAdmin(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 		n, err = hex.Decode(pubKey[:], pubKeyBytes)
-		if err != nil || n != 32 {
+		if err != nil || n != PUBKEY_LENGTH {
 			msg := Fmt(invalid_public_key, pubKeyBytes)
 			conn.WriteMessage(ws.TextMessage, []byte(msg))
 			continue
@@ -585,7 +642,7 @@ func (am *ActionManager) CreateAdmin(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 		n, err = hex.Decode(privKey[:], privKeyBytes)
-		if err != nil || n != 64 {
+		if err != nil || n != PRIVKEY_LENGTH {
 			conn.WriteMessage(ws.TextMessage, []byte(invalid_private_key))
 			continue
 		}
@@ -655,7 +712,7 @@ func (am *ActionManager) RemoveAdmin(w http.ResponseWriter, req *http.Request) {
 		}
 
 		n, err := hex.Decode(pubKey[:], pubKeyBytes)
-		if err != nil || n != 32 {
+		if err != nil || n != PUBKEY_LENGTH {
 			msg := Fmt(invalid_public_key, pubKeyBytes)
 			conn.WriteMessage(ws.TextMessage, []byte(msg))
 			continue
@@ -669,7 +726,7 @@ func (am *ActionManager) RemoveAdmin(w http.ResponseWriter, req *http.Request) {
 		}
 
 		n, err = hex.Decode(privKey[:], privKeyBytes)
-		if err != nil || n != 64 {
+		if err != nil || n != PRIVKEY_LENGTH {
 			conn.WriteMessage(ws.TextMessage, []byte(invalid_private_key))
 			continue
 		}
@@ -729,9 +786,9 @@ func (am *ActionManager) ResolveForm(w http.ResponseWriter, req *http.Request) {
 			log.Println(err.Error())
 			return
 		}
-		formIDBytes := make([]byte, 16)
+		formIDBytes := make([]byte, FORM_ID_LENGTH)
 		n, err := hex.Decode(formIDBytes, hexBytes)
-		if err != nil || n != 16 {
+		if err != nil || n != FORM_ID_LENGTH {
 			msg := Fmt(invalid_formID, hexBytes)
 			conn.WriteMessage(ws.TextMessage, []byte(msg))
 			continue
@@ -748,7 +805,7 @@ func (am *ActionManager) ResolveForm(w http.ResponseWriter, req *http.Request) {
 		}
 
 		n, err = hex.Decode(pubKey[:], pubKeyBytes)
-		if err != nil || n != 32 {
+		if err != nil || n != PUBKEY_LENGTH {
 			msg := Fmt(invalid_public_key, pubKeyBytes)
 			conn.WriteMessage(ws.TextMessage, []byte(msg))
 			continue
@@ -761,7 +818,7 @@ func (am *ActionManager) ResolveForm(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 		n, err = hex.Decode(privKey[:], privKeyBytes)
-		if err != nil || n != 64 {
+		if err != nil || n != PRIVKEY_LENGTH {
 			conn.WriteMessage(ws.TextMessage, []byte(invalid_private_key))
 			continue
 		}

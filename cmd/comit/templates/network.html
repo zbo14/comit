@@ -15,23 +15,39 @@
 	</div>
 	<div class="container">
 		<div class="container col-md-6" id="feed-container" style="display: none;">
-			<h5 class="my-header">choose feed</h5><br>
-			<select multiple id="feed-issues"></select>
-			<br><br>
-			<button type="button" id="update" class="my-button">update</button>
-			<br><br>
+			<div class="container" id="select-feed">
+				<h5 class="my-header">choose feed</h5><br>
+				<select class="select-picker" id="feed-issues" multiple></select>
+				<br><br>
+				<button type="button" id="update" class="my-button">update</button>
+				<br><br>
+			</div>
+			<div class="container" id="animation" style="display: none;">
+				<h5 class="my-header">updating feed...</h5><br>
+				<div class="container" style="margin-left: 20px;">
+					<div id="img2" class="img"></div>
+					<div id="img3" class="img"></div>
+					<div id="img4" class="img"></div>
+					<div id="img5" class="img"></div>
+					<div id="img6" class="img"></div>
+				</div>
+			</div>
+			<br><br><br><br>
 			<div id="feed"></div>
 		</div>
 		<div class="container col-md-6" id="constituent-container" style="display: none;">
-			<h5 class="my-header">submit a form</h5>
-			<h5 class="my-header" id="submit-issue-label">issue</h5>
+			<h5 class="my-header">submit a form</h5><br>
 			<select id="submit-issues"></select>  
 			<br><br>
 			<input type="text" id="location" class="my-input" placeholder="location" />
 			<br><br>
 			<textarea id="description" class="my-textarea" placeholder="description"></textarea>
 			<br><br>
-			<button type="button" id="submit" class="my-button">submit</button>
+			<label class="checkbox-inline"><input type="checkbox" id="anonymous"> anonymous</label>
+			<br><br>
+			<label class="checkbox-inline"><input type="checkbox" id="send-to-feed"> send to feed</label>
+			<br><br>
+ 			<button type="button" id="submit" class="my-button">submit</button>
 			<br><br>
 			<p id="submit-msg" style="display: none;"></p>
 		</div>
@@ -113,10 +129,14 @@
 			if (issues.length > 0) {
 				wsFeed.send(issues);
 			}
+			$("#select-feed").hide(100, "linear");
+			$("#animation").show(100, "linear");
+			$(".img").css("display", "inline-block");
 		})
 
 		wsFeed.onmessage = function(msg) {
-			$("#feed").append("<p>"+msg.data+"</p>");
+			$("#feed").hide(100,"linear");
+			$("#feed").show(100, "linear").html("<p class='update'>"+msg.data+"</p>");
 		}
 
 		wsFeed.onclose = function() {
@@ -130,13 +150,15 @@
 		var issue = "";
 		var location = "";
 		var description = "";
+		var anonymous = "";
+		var send_to_feed = "";
 
 		$("#submit").bind("click", function() {
 			if (user == "constituent") {
 				valid_entry = true;
 				issue = $("#submit-issues").val();
 				if (issue.length == 0) {
-					$("#submit-issue-label").html("<span style='color:red;''>select issue</span>"); 
+					$("#submit-issues").css("border-color", "red");
 					valid_entry = false;
 				};
 				location = $("#location").val();
@@ -149,14 +171,17 @@
 					$("#description").attr("placeholder", "enter description"); 
 					valid_entry = false;
 				};
+				anonymous = $("#anonymous").is(":checked");
+				send_to_feed = $("#send-to-feed").is(":checked");
 				if (valid_entry) {
-					$("#submit-issue-label").html("<span style='color:black;''>issue</span>"); 
-					console.log("Submitting form...");
+					$("#submit-issues").css("border-color", "lightgray"); 
 					wsSubmit.send(issue);
 					wsSubmit.send(location);
 					wsSubmit.send(description);
+					wsSubmit.send(anonymous);
 					wsSubmit.send(pubKey);
 					wsSubmit.send(privKey);
+					wsSubmit.send(send_to_feed);
 				};
 
 				wsSubmit.onmessage = function(msg) {

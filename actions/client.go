@@ -18,9 +18,9 @@ type Client struct {
 	issues  map[string]*struct{}
 }
 
-func NewClient(conn *ws.Conn, issues_ []string) *Client {
+func NewClient(conn *ws.Conn, _issues []string) *Client {
 	issues := make(map[string]*struct{})
-	for _, i := range issues_ {
+	for _, i := range _issues {
 		issues[i] = nil
 	}
 	return &Client{
@@ -82,8 +82,6 @@ func (cli *Client) writeRoutine(done chan *struct{}) {
 			return
 		}
 		msg := form.Summary()
-
-		log.Println("Writing message: %s", msg)
 
 		w.Write([]byte(msg))
 

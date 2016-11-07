@@ -58,8 +58,8 @@ func (app *App) GetSize() int {
 	return s
 }
 
-func (app *App) FilterFunc(filters []string) func(data []byte) bool {
-	return app.state.FilterFunc(filters)
+func (app *App) FilterFunc(filters []string, includes []bool) func(data []byte) bool {
+	return app.state.FilterFunc(filters, includes)
 }
 
 func (app *App) SetFilters(filters []string) {
@@ -98,8 +98,6 @@ func (app *App) Iterate(fun func(data []byte) bool, in chan []byte) { //errs cha
 			fmt.Println(res.Error())
 			// errs <- errors.New(res.Error())
 		}
-		// data := make([]byte, len(res.Data))
-		// copy(data, res.Data)
 		if fun(res.Data) {
 			in <- res.Data
 		}
@@ -113,7 +111,7 @@ func (app *App) IterateNext(fun func(data []byte) bool, in, out chan []byte) {
 		data, more := <-in
 		if more {
 			if fun(data) {
-				fmt.Printf("%X\n", data)
+				// fmt.Printf("%X\n", data)
 				out <- data
 			}
 		} else {
@@ -163,7 +161,7 @@ func (app *App) SetOption(key string, value string) (log string) {
 		if err != nil {
 			return "Error decoding acc message: " + err.Error()
 		}
-		fmt.Printf("%X\n", acc.PubKey.Address())
+		// fmt.Printf("%X\n", acc.PubKey.Address())
 		app.state.SetAccount(acc.PubKey.Address(), acc)
 		return "Success"
 	}

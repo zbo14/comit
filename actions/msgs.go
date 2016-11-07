@@ -8,8 +8,8 @@ const (
 	create_account_success = "<strong style='opacity:0.8;'>public key</strong> <really-small>%X</really-small><br><strong style='opacity:0.8;'>private key</strong> <really-small>%X</really-small>"
 	create_account_failure = "<span style='color:red;'>Could not create account</span>"
 
-	remove_account_failure = "<span style='color:red;'>Could not remove account<br><strong>public key</strong> <small>%v</small>"
-	remove_account_success = "Removed account<br><strong>public key</strong> <small>%X</small>"
+	remove_account_failure = "<span style='color:red;'>Could not remove account with public key <really-small>%X</really-small></span>"
+	remove_account_success = "Removed account with public key <really-small>%X</really-small>"
 
 	create_admin_failure = "<span style='color:red;'>Failed to create admin</span>"
 	create_admin_success = "Created admin<br><strong style='opacity:0.8;'>public key</strong> <really-small>%X</really-small><br><strong style='opacity:0.8;'>private key</strong> <really-small>%X</really-small>"
@@ -18,7 +18,7 @@ const (
 	remove_admin_success = "Removed admin with public key <really-small>%X</really-small>"
 
 	submit_form_failure = "<span style='color:red;'>Failed to submit form</span>"
-	submit_form_success = "Submitted form with ID <strong>%X</strong>"
+	submit_form_success = "Submitted form with ID <small>%X</small>"
 
 	form_already_exists = "<span style='color:red;'>Form already exists</span>"
 
