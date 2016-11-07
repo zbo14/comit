@@ -43,9 +43,9 @@ func main() {
 	app_.SetFilters(filters)
 
 	// Feed
-	feed := actions.NewFeed()
-	fmt.Println("Starting feed...")
-	go feed.Start()
+	hub := actions.NewHub()
+	fmt.Println("Starting hub...")
+	go hub.Start()
 
 	// Start the listener
 	_, err = server.NewServer(*addrPtr, "socket", app_)
@@ -68,7 +68,7 @@ func main() {
 	)
 
 	// Create action manager
-	am := actions.CreateActionManager(app_, feed)
+	am := actions.CreateActionManager(app_, hub)
 
 	js := web.JustFiles{http.Dir("static/")}
 
@@ -85,6 +85,8 @@ func main() {
 	http.HandleFunc("/network", web.TemplateHandler("network.html"))
 	http.HandleFunc("/connect", am.Connect)
 	http.HandleFunc("/update_feed", am.UpdateFeed)
+	http.HandleFunc("/check_messages", am.CheckMessages)
+	http.HandleFunc("/send_message", am.SendMessage)
 	http.HandleFunc("/submit_form", am.SubmitForm)
 	http.HandleFunc("/resolve_form", am.ResolveForm)
 

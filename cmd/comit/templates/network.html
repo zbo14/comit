@@ -14,7 +14,7 @@
 		<p id="connect-msg" style="display: none;"></p>
 	</div>
 	<div class="container">
-		<div class="container col-md-6" id="feed-container" style="display: none;">
+		<div class="container col-md-4" id="feed-container" style="display: none;">
 			<div class="container" id="select-feed">
 				<h5 class="my-header">choose feed</h5><br>
 				<select class="select-picker" id="feed-issues" multiple></select>
@@ -35,7 +35,25 @@
 			<br><br><br><br>
 			<div id="feed"></div>
 		</div>
-		<div class="container col-md-6" id="constituent-container" style="display: none;">
+		<div class="container col-md-4" id="message-container" style="display: none;">
+			<div class="row">
+				<h5 class="my-header">send a message</h5><br>
+				<input type="text" id="recipient" class="my-input" placeholder="recipient" />
+				<br><br>
+				<textarea id="message" class="my-textarea" placeholder="message"></textarea> 
+				<br><br>
+				<button type="button" id="send" class="my-button">send</button>
+				<br><br>
+				<p id="send-msg" style="display: none;"></p><br>
+			</div>
+			<div class="row">
+				<h5 class="my-header">check messages</h5><br>
+				<button type="button" id="check" class="my-button">check</button>
+				<br><br>
+				<div id="messages" style="display: none;"></div>
+			</div>
+		</div>
+		<div class="container col-md-4" id="constituent-container" style="display: none;">
 			<h5 class="my-header">submit a form</h5><br>
 			<select id="submit-issues"></select>  
 			<br><br>
@@ -51,7 +69,7 @@
 			<br><br>
 			<p id="submit-msg" style="display: none;"></p>
 		</div>
-		<div class="container col-md-6" id="admin-container" style="display: none;">
+		<div class="container col-md-4" id="admin-container" style="display: none;">
 			<h5 class="my-header">resolve a form</h5>
 			<br><br>
 			<input type="text" id="formID" class="my-input" placeholder="form ID" />
@@ -95,11 +113,13 @@
 			if (msg.data == "connect-constituent") {
 				$("#connect-container").hide(100, "linear");
 				$("#feed-container").show(100, "linear");
+				$("#message-container").show(100, "linear");
 				$("#constituent-container").show(100, "linear");
 				user = "constituent";
 			} else if (msg.data == "connect-admin") {
 				$("#connect-container").hide(100, "linear");
 				$("#feed-container").show(100, "linear");
+				$("#message-container").show(100, "linear");
 				$("#admin-container").show(100, "linear");
 				user = "admin";
 			} else {
@@ -128,6 +148,7 @@
 			var issues = $("#feed-issues").val();
 			if (issues.length > 0) {
 				wsFeed.send(issues);
+				wsFeed.send(pubKey);
 			}
 			$("#select-feed").hide(100, "linear");
 			$("#animation").show(100, "linear");
@@ -142,7 +163,60 @@
 		wsFeed.onclose = function() {
 			console.log("UPDATE FEED socket closed");
 		}
-			
+
+		// Check messages
+
+		var wsCheck = new WebSocket("ws://localhost:8888/check_messages");
+
+		$("#check").bind("click", function() {
+			wsCheck.send(pubKey);
+			$("#check").hide(100, "linear");
+			$("#messages").show(100, "linear");
+		})
+
+		wsCheck.onmessage = function(msg) {
+			console.log(msg.data);
+			$("#messages").append("<p class='message'>"+msg.data+"</p>");
+		}
+
+		wsCheck.onclose = function() {
+			console.log("CHECK MESSAGES socket closed");
+		}
+
+		// Send message 
+
+		var wsSend = new WebSocket("ws://localhost:8888/send_message");
+
+		var recipient = "";
+		var message = "";
+
+		$("#send").bind("click", function() {
+			valid_entry = true;
+			recipient = $("#recipient").val();
+			if (recipient.length == 0) {
+				$("#recipient").attr("placeholder", "enter recipient");
+				valid_entry = false;
+			}
+			message = $("#message").val();
+			if (message.length == 0) {
+				$("#message").attr("placeholder", "enter message");
+				valid_entry = false;
+			}
+			if (valid_entry) {
+				wsSend.send(recipient);
+				wsSend.send(message);
+				wsSend.send(pubKey);
+			}
+		})
+
+		wsSend.onmessage = function(msg) {
+			$("#send-msg").show(100, "linear").html(msg.data);
+		}
+
+		wsSend.onclose = function() {
+			console.log("SEND MESSAGE socket closed");
+		}
+
 		// Submit form
 		
 		var wsSubmit = new WebSocket("ws://localhost:8888/submit_form");

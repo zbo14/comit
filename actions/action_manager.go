@@ -27,11 +27,11 @@ const (
 
 type ActionManager struct {
 	*app.App
-	*Feed
+	*Hub
 }
 
-func CreateActionManager(app_ *app.App, feed *Feed) *ActionManager {
-	return &ActionManager{app_, feed}
+func CreateActionManager(app_ *app.App, hub *Hub) *ActionManager {
+	return &ActionManager{app_, hub}
 }
 
 // Upgrader
@@ -141,8 +141,7 @@ func (am *ActionManager) RemoveAccount(w http.ResponseWriter, req *http.Request)
 		}
 		n, err := hex.Decode(pubKey[:], pubKeyBytes)
 		if err != nil || n != PUBKEY_LENGTH {
-			msg := Fmt(invalid_public_key, pubKeyBytes)
-			conn.WriteMessage(ws.TextMessage, []byte(msg))
+			conn.WriteMessage(ws.TextMessage, []byte(invalid_public_key))
 			continue
 		}
 
@@ -212,8 +211,7 @@ func (am *ActionManager) Connect(w http.ResponseWriter, req *http.Request) {
 		}
 		n, err := hex.Decode(pubKey[:], pubKeyBytes)
 		if err != nil || n != PUBKEY_LENGTH {
-			msg := Fmt(invalid_public_key, pubKeyBytes)
-			conn.WriteMessage(ws.TextMessage, []byte(msg))
+			conn.WriteMessage(ws.TextMessage, []byte(invalid_public_key))
 			continue
 		}
 
@@ -322,8 +320,7 @@ func (am *ActionManager) SubmitForm(w http.ResponseWriter, req *http.Request) {
 		}
 		n, err := hex.Decode(pubKey[:], pubKeyBytes)
 		if err != nil || n != PUBKEY_LENGTH {
-			msg := Fmt(invalid_public_key, pubKeyBytes)
-			conn.WriteMessage(ws.TextMessage, []byte(msg))
+			conn.WriteMessage(ws.TextMessage, []byte(invalid_public_key))
 			continue
 		}
 
@@ -563,6 +560,92 @@ func (am *ActionManager) SearchForms(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
+func (am *ActionManager) CheckMessages(w http.ResponseWriter, req *http.Request) {
+
+	conn, err := upgrader.Upgrade(w, req, nil)
+	if err != nil {
+		log.Panic(err)
+	}
+
+	var pubKey crypto.PubKeyEd25519
+	_, pubKeyBytes, err := conn.ReadMessage()
+	if err != nil {
+		log.Println(err.Error())
+		return
+	}
+	n, err := hex.Decode(pubKey[:], pubKeyBytes)
+	if err != nil || n != PUBKEY_LENGTH {
+		conn.WriteMessage(ws.TextMessage, []byte(invalid_public_key))
+		return
+	}
+
+	log.Println("Getting messages...")
+
+	// Create client
+	cli := NewClient(conn, pubKey)
+
+	// Get messages
+	go am.GetMessages(cli)
+
+	// Write messages to ws
+	done := make(chan *struct{})
+	go cli.writeMessagesRoutine(done)
+
+	<-done
+	cli.Close()
+}
+
+func (am *ActionManager) SendMessage(w http.ResponseWriter, req *http.Request) {
+	for {
+		conn, err := upgrader.Upgrade(w, req, nil)
+		if err != nil {
+			log.Panic(err)
+		}
+
+		message := NewMessage()
+
+		_, recipientBytes, err := conn.ReadMessage()
+		if err != nil {
+			log.Println(err.Error())
+			return
+		}
+		n, err := hex.Decode(message.recipient[:], recipientBytes)
+		if err != nil || n != PUBKEY_LENGTH {
+			conn.WriteMessage(ws.TextMessage, []byte(invalid_public_key))
+			continue
+		}
+
+		_, contentBytes, err := conn.ReadMessage()
+		if err != nil {
+			log.Println(err.Error())
+			return
+		}
+		message.content = contentBytes
+
+		_, senderBytes, err := conn.ReadMessage()
+		if err != nil {
+			log.Println(err.Error())
+			return
+		}
+		n, err = hex.Decode(message.sender[:], senderBytes)
+		if err != nil || n != PUBKEY_LENGTH {
+			conn.WriteMessage(ws.TextMessage, []byte(invalid_public_key))
+			continue
+		}
+
+		err = am.sendMessage(message)
+		if err != nil {
+			conn.WriteMessage(ws.TextMessage, []byte("Could not send message"))
+			conn.Close()
+			return
+		}
+
+		conn.WriteMessage(ws.TextMessage, []byte("Message sent!"))
+		// conn.Close()
+		// return
+	}
+}
+
 func (am *ActionManager) UpdateFeed(w http.ResponseWriter, req *http.Request) {
 
 	conn, err := upgrader.Upgrade(w, req, nil)
@@ -577,17 +660,25 @@ func (am *ActionManager) UpdateFeed(w http.ResponseWriter, req *http.Request) {
 	}
 	issues := strings.Split(string(issueBytes), `,`)
 
+	var pubKey crypto.PubKeyEd25519
+	_, pubKeyBytes, err := conn.ReadMessage()
+	if err != nil {
+		log.Println(err.Error())
+		return
+	}
+	hex.Decode(pubKey[:], pubKeyBytes)
+
 	log.Println("Updating feed...")
 
 	// Create client
-	cli := NewClient(conn, issues)
+	cli := NewClient(conn, pubKey)
 
 	// Register with feed
 	am.Register(cli)
 
 	// Write updates to ws
 	done := make(chan *struct{})
-	go cli.writeRoutine(done)
+	go cli.writeUpdatesRoutine(issues, done)
 
 	<-done
 	cli.Close()
@@ -630,8 +721,7 @@ func (am *ActionManager) CreateAdmin(w http.ResponseWriter, req *http.Request) {
 		}
 		n, err = hex.Decode(pubKey[:], pubKeyBytes)
 		if err != nil || n != PUBKEY_LENGTH {
-			msg := Fmt(invalid_public_key, pubKeyBytes)
-			conn.WriteMessage(ws.TextMessage, []byte(msg))
+			conn.WriteMessage(ws.TextMessage, []byte(invalid_public_key))
 			continue
 		}
 
@@ -713,8 +803,7 @@ func (am *ActionManager) RemoveAdmin(w http.ResponseWriter, req *http.Request) {
 
 		n, err := hex.Decode(pubKey[:], pubKeyBytes)
 		if err != nil || n != PUBKEY_LENGTH {
-			msg := Fmt(invalid_public_key, pubKeyBytes)
-			conn.WriteMessage(ws.TextMessage, []byte(msg))
+			conn.WriteMessage(ws.TextMessage, []byte(invalid_public_key))
 			continue
 		}
 
@@ -806,8 +895,7 @@ func (am *ActionManager) ResolveForm(w http.ResponseWriter, req *http.Request) {
 
 		n, err = hex.Decode(pubKey[:], pubKeyBytes)
 		if err != nil || n != PUBKEY_LENGTH {
-			msg := Fmt(invalid_public_key, pubKeyBytes)
-			conn.WriteMessage(ws.TextMessage, []byte(msg))
+			conn.WriteMessage(ws.TextMessage, []byte(invalid_public_key))
 			continue
 		}
 

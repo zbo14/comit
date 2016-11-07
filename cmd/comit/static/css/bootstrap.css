@@ -13,6 +13,14 @@
   display: inline-block;
 }
 
+.message{
+  border: solid 2px #EFEFEF;
+  box-shadow: 2px 2px 4px #20BF9F;
+  border-radius: 4px;
+  padding: 6px;
+  display: inline-block;
+}
+
 .my-input {
   transition: 0.3s;
   border: solid 1px lightgray;

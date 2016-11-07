@@ -1,7 +1,7 @@
 package actions
 
 const (
-	invalid_public_key  = "<span style='color:red;'>Invalid public key <really-small>%X</really-small></span>"
+	invalid_public_key  = "<span style='color:red;'>Invalid public key</span>"
 	invalid_private_key = "<span style='color:red;'>Invalid private key</span>"
 	invalid_formID      = "<span style='color:red;'>Invalid form ID <small>%X</small></span>"
 
