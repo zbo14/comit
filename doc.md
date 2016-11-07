@@ -3,16 +3,12 @@
 comit provides an interface through which constituents
 	
 - submit issue forms
+- send messages to other users
 - find an issue form by ID 
 - search forms by type, location, date
 - view submissions in real time via the feeds
 
-Admins (e.g. government officials, local organizers) can
-
-- resolve issue forms
-- find an issue form by ID 
-- search forms by type, location, date
-- view submissions in real time via the feeds 
+Admins (e.g. government officials, local organizers) can resolve forms but cannot submit forms. Otherwise, admins and constituents have the same abilities.  
 
 
 ## API Endpoint
@@ -38,7 +34,7 @@ To create a new account or remove an existing account, go to the following endpo
 
 ## Network 
 
-To connect to the network, view real-time submissions on the feeds, submit and resolve forms, go to the following endpoint in your web browser:
+To connect to the network, view real-time submissions on the feeds, send and check messages, submit and resolve forms, go to the following endpoint in your web browser:
 
 `http://localhost:8888/network`
 
@@ -50,6 +46,14 @@ To connect to the network, view real-time submissions on the feeds, submit and r
 ### View the feeds
 - select one or more feeds from the dropdown
 - click `update` and watch the submissions pop up!
+
+### Send a message 
+- enter the recipient public key in hexadecimal form
+- type a message 
+- click `send` and receive confirmation of message send or failure message
+
+### Check messages
+- click `check` to receive unseen messages
 
 ### Submit a form (constituent)
 - select an issue type 

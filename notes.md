@@ -10,4 +10,4 @@
 1. Transparency: constituents and officials can query complaints
 1. Better word than complaint? Issue, incident? 
 1. Censorship resistance = big selling point of blockchains.. target use cases where there is controversy over the administrative entity restricing access/distribution of information 
-1. Comit is not a messaging app. However, limited messaging functionality may help admins connect with constituents and work to resolve issues, especially went the issues involve sensitive or serious subject matter. 
+1. Comit is not a messaging app. However, limited messaging functionality may help admins connect with constituents and work to resolve issues, especially when the issues involve sensitive or serious subject matter. 
