@@ -33,7 +33,7 @@ func NewMessage() *Message {
 func (m *Message) Format() []byte {
 	var buf bytes.Buffer
 	buf.WriteString(
-		Fmt("<small>From</small> <really-small>%X</really-small><br>", m.sender))
+		Fmt("<small><strong>from</strong></small> <really-small>%X</really-small><br>", m.sender))
 	buf.Write(m.content)
 	return buf.Bytes()
 }

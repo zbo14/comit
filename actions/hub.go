@@ -96,12 +96,16 @@ func (hub *Hub) GetMessages(cli *Client) {
 
 	for message := range hub.inboxes[pubKeyString] {
 		//log.Println(message)
-		select {
-		case cli.messages <- message:
-			continue
-		default:
-			log.Println("Could not get a message")
-		}
+		cli.messages <- message
+
+		/*
+			select {
+			case cli.messages <- message:
+				continue
+			default:
+				log.Println("Could not get a message")
+			}
+		*/
 	}
 }
 

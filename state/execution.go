@@ -87,7 +87,6 @@ func ExecTx(state *State, tx types.Tx, isCheckTx bool) (res tmsp.Result) {
 		res = RunSubmitTx(cacheState, tx.Data)
 	case types.ResolveTx:
 		if !inAcc.PermissionToResolve() {
-			fmt.Println("Not granted permission to resolve")
 			res = tmsp.ErrUnauthorized
 		} else {
 			pubKey := inAcc.PubKey.(crypto.PubKeyEd25519)

@@ -567,40 +567,46 @@ func (am *ActionManager) CheckMessages(w http.ResponseWriter, req *http.Request)
 		log.Panic(err)
 	}
 
-	var pubKey crypto.PubKeyEd25519
-	_, pubKeyBytes, err := conn.ReadMessage()
-	if err != nil {
-		log.Println(err.Error())
-		return
+	for {
+
+		var pubKey crypto.PubKeyEd25519
+		_, pubKeyBytes, err := conn.ReadMessage()
+		if err != nil {
+			log.Println(err.Error())
+			return
+		}
+		n, err := hex.Decode(pubKey[:], pubKeyBytes)
+		if err != nil || n != PUBKEY_LENGTH {
+			conn.WriteMessage(ws.TextMessage, []byte(invalid_public_key))
+			return
+		}
+
+		log.Println("Getting messages...")
+
+		// Create client
+		cli := NewClient(conn, pubKey)
+
+		// Get messages
+		go am.GetMessages(cli)
+
+		// Write messages to ws
+		done := make(chan *struct{})
+		go cli.writeMessagesRoutine(done)
+
+		<-done
+		//cli.Close()
+		//return
 	}
-	n, err := hex.Decode(pubKey[:], pubKeyBytes)
-	if err != nil || n != PUBKEY_LENGTH {
-		conn.WriteMessage(ws.TextMessage, []byte(invalid_public_key))
-		return
-	}
-
-	log.Println("Getting messages...")
-
-	// Create client
-	cli := NewClient(conn, pubKey)
-
-	// Get messages
-	go am.GetMessages(cli)
-
-	// Write messages to ws
-	done := make(chan *struct{})
-	go cli.writeMessagesRoutine(done)
-
-	<-done
-	cli.Close()
 }
 
 func (am *ActionManager) SendMessage(w http.ResponseWriter, req *http.Request) {
+
+	conn, err := upgrader.Upgrade(w, req, nil)
+	if err != nil {
+		log.Panic(err)
+	}
+
 	for {
-		conn, err := upgrader.Upgrade(w, req, nil)
-		if err != nil {
-			log.Panic(err)
-		}
 
 		message := NewMessage()
 
@@ -653,35 +659,37 @@ func (am *ActionManager) UpdateFeed(w http.ResponseWriter, req *http.Request) {
 		log.Panic(err)
 	}
 
-	_, issueBytes, err := conn.ReadMessage()
-	if err != nil {
-		log.Println(err.Error())
-		return
+	for {
+
+		_, issueBytes, err := conn.ReadMessage()
+		if err != nil {
+			log.Println(err.Error())
+			return
+		}
+		issues := strings.Split(string(issueBytes), `,`)
+
+		var pubKey crypto.PubKeyEd25519
+		_, pubKeyBytes, err := conn.ReadMessage()
+		if err != nil {
+			log.Println(err.Error())
+			return
+		}
+		hex.Decode(pubKey[:], pubKeyBytes)
+
+		log.Println("Updating feed...")
+
+		// Create client
+		cli := NewClient(conn, pubKey)
+
+		// Register with feed
+		am.Register(cli)
+
+		// Write updates to ws
+		done := make(chan *struct{})
+		go cli.writeUpdatesRoutine(issues, done)
+
+		<-done
 	}
-	issues := strings.Split(string(issueBytes), `,`)
-
-	var pubKey crypto.PubKeyEd25519
-	_, pubKeyBytes, err := conn.ReadMessage()
-	if err != nil {
-		log.Println(err.Error())
-		return
-	}
-	hex.Decode(pubKey[:], pubKeyBytes)
-
-	log.Println("Updating feed...")
-
-	// Create client
-	cli := NewClient(conn, pubKey)
-
-	// Register with feed
-	am.Register(cli)
-
-	// Write updates to ws
-	done := make(chan *struct{})
-	go cli.writeUpdatesRoutine(issues, done)
-
-	<-done
-	cli.Close()
 }
 
 // Create Admin

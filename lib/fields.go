@@ -1,10 +1,20 @@
 package lib
 
-import ()
+import (
+	re "regexp"
+)
 
 // TODO: field validation
+
 var regexPatterns = map[string]string{
 	"obscenities": ``,
 }
 
-func ValidateField(field, content string) bool { return true }
+func ValidateField(content string) bool {
+	pattern := re.MustCompile(regexPatterns["obscenities"])
+	obscene := pattern.MatchString(content)
+	if obscene {
+		return false
+	}
+	return true
+}
