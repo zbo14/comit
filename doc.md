@@ -1,4 +1,4 @@
-# comit
+<img src="https://raw.githubusercontent.com/zballs/comit/master/cmd/comit/static/images/logo/logo.png" height="120" width="120" />
 
 comit provides an interface through which constituents
 	
@@ -59,6 +59,7 @@ To connect to the network, view real-time submissions on the feeds, send and che
 - select an issue type 
 - enter a location
 - write a description 
+- include an image, audio, or video file (optional)
 - choose whether you want to submit the form anonymously
 - choose whether you want to send an update to the feed
 - click `submit` to receive confirmation of submission or failure message
