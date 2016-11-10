@@ -305,6 +305,19 @@ func (am *ActionManager) SubmitForm(w http.ResponseWriter, req *http.Request) {
 		}
 		description := string(descriptionBytes)
 
+		_, mediaBytes, err := conn.ReadMessage()
+		if err != nil {
+			log.Println(err.Error())
+			return
+		}
+
+		_, extensionBytes, err := conn.ReadMessage()
+		if err != nil {
+			log.Println(err.Error())
+			return
+		}
+		extension := string(extensionBytes)
+
 		_, anonymousBytes, err := conn.ReadMessage()
 		if err != nil {
 			log.Println(err.Error())
@@ -326,10 +339,25 @@ func (am *ActionManager) SubmitForm(w http.ResponseWriter, req *http.Request) {
 
 		// TODO: field validation
 		if anonymous {
-			form, err = lib.MakeAnonymousForm(issue, location, description)
+			form, err = lib.MakeAnonymousForm(
+				// Text
+				issue,
+				location,
+				description,
+				// Media
+				mediaBytes,
+				extension)
 		} else {
 			pubKeyString := BytesToHexString(pubKey[:])
-			form, err = lib.MakeForm(issue, location, description, pubKeyString)
+			form, err = lib.MakeForm(
+				// Text
+				issue,
+				location,
+				description,
+				pubKeyString,
+				// Media
+				mediaBytes,
+				extension)
 		}
 
 		if err != nil {
@@ -445,6 +473,15 @@ func (am *ActionManager) FindForm(w http.ResponseWriter, req *http.Request) {
 		log.Printf("SUCCESS found form with ID %X", formIDBytes)
 		msg := (&form).Summary()
 		conn.WriteMessage(ws.TextMessage, []byte(msg))
+		if form.Media != nil && len(form.Extension) > 0 {
+			decompressed, err := form.MediaDecomp()
+			if err != nil {
+				log.Println(err.Error())
+				continue
+			}
+			log.Printf("DECOMPRESSED length: %d\n", len(decompressed))
+			conn.WriteMessage(ws.BinaryMessage, decompressed)
+		}
 	}
 }
 

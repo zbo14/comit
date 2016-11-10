@@ -61,6 +61,7 @@
 			<br><br>
 			<textarea id="description" class="my-textarea" placeholder="description"></textarea>
 			<br><br>
+			<input type="file" onchange="openFile(event)"/><br>
 			<label class="checkbox-inline"><input type="checkbox" id="anonymous"> anonymous</label>
 			<br><br>
 			<label class="checkbox-inline"><input type="checkbox" id="send-to-feed"> send to feed</label>
@@ -80,6 +81,40 @@
 		</div>
 	</div>
 	<script type="text/javascript">
+
+	var media;
+	var extension = "";
+
+	var openFile = function(event){
+		var reader = new FileReader();
+		var input = event.target;
+		reader.onload = function(){
+			media = reader.result;
+		};
+		reader.readAsArrayBuffer(input.files[0]);
+		console.log(input.files[0]);
+		extension = (input.files[0].name).split(".")[1]
+		console.log(extension);
+	};
+
+	/*
+	function fetchAndDecode(file, encoding) {
+		var xhr = new XMLHttpRequest();
+		xhr.open("GET", file);
+		xhr.responseType = "arraybuffer";
+		xhr.onload = function(){
+			if (this.status == 200) {
+				var dataView = new DataView(this.response);
+				var decoder = new TextDecoder(encoding);
+				media = decoder.decode(dataView);
+			} else {
+				console.error("Error while requesting", file, this);
+			}
+		};
+		xhr.send()
+	}
+	*/
+
 	window.onload = function() {
 
 		var wsConnect = new WebSocket("ws://localhost:8888/connect");
@@ -252,6 +287,8 @@
 					wsSubmit.send(issue);
 					wsSubmit.send(location);
 					wsSubmit.send(description);
+					wsSubmit.send(media);
+					wsSubmit.send(extension);
 					wsSubmit.send(anonymous);
 					wsSubmit.send(pubKey);
 					wsSubmit.send(privKey);

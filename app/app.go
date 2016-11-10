@@ -12,8 +12,8 @@ import (
 )
 
 const (
-	version   = "0.1"
-	maxTxSize = 10240
+	version = "0.1"
+	//maxTxSize = 10240
 
 	querySize    byte = 1
 	queryByKey   byte = 2
@@ -169,9 +169,11 @@ func (app *App) SetOption(key string, value string) (log string) {
 }
 
 func (app *App) AppendTx(txBytes []byte) tmsp.Result {
-	if len(txBytes) > maxTxSize {
-		return tmsp.ErrBaseEncodingError.AppendLog("Tx size exceeds maximum")
-	}
+	/*
+		if len(txBytes) > maxTxSize {
+			return tmsp.ErrBaseEncodingError.AppendLog("Tx size exceeds maximum")
+		}
+	*/
 	// Decode Tx
 	var tx types.Tx
 	err := wire.ReadBinaryBytes(txBytes, &tx)
@@ -192,9 +194,11 @@ func (app *App) AppendTx(txBytes []byte) tmsp.Result {
 }
 
 func (app *App) CheckTx(txBytes []byte) tmsp.Result {
-	if len(txBytes) > maxTxSize {
-		return tmsp.ErrBaseEncodingError.AppendLog("Tx size exceeds maximum")
-	}
+	/*
+		if len(txBytes) > maxTxSize {
+			return tmsp.ErrBaseEncodingError.AppendLog("Tx size exceeds maximum")
+		}
+	*/
 	// Decode tx
 	var tx types.Tx
 	err := wire.ReadBinaryBytes(txBytes, &tx)

@@ -14,3 +14,10 @@
 - `cd app` from base directory
 - `go test -v`
 
+## Technical Features 
+- asymmetric key cryptography 
+- websocket messaging between users 
+- bloom filters for subject-specific search
+
+
+

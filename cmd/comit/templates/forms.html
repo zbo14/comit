@@ -91,9 +91,16 @@
 			};
 		});
 
+		var extension = "";
+
 		wsFind.onmessage = function(msg) {
-			console.log(msg.data);
-			$("#find-msg").show(100, "linear").html(msg.data);
+			if (msg.data.length < 1000) {
+				$("#find-msg").show(100, "linear").html(msg.data);
+			} else {
+				msg.data.type = $("#media").attr("name");
+				var video = document.getElementById("media");
+				video.src = window.URL.createObjectURL(msg.data);
+			};
 		}
 
 		wsFind.onclose = function(msg) {
