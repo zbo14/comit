@@ -1,5 +1,3 @@
-<img src="https://raw.githubusercontent.com/zballs/comit/master/cmd/comit/static/images/logo/logo.png" height="120" width="120" />
-
 ## Installation
 - Download and install [Go](https://golang.org/dl/)
 - Install [Tendermint](https://github.com/tendermint/tendermint/wiki/Installation)

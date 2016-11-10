@@ -1,4 +1,4 @@
-<img src="https://raw.githubusercontent.com/zballs/comit/master/cmd/comit/static/images/logo/logo.png" height="120" width="120" />
+# comit
 
 comit provides an interface through which constituents
 	
