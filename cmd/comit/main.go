@@ -45,7 +45,7 @@ func main() {
 	// Feed
 	hub := actions.NewHub()
 	fmt.Println("Starting hub...")
-	go hub.Start()
+	hub.Run()
 
 	// Start the listener
 	_, err = server.NewServer(*addrPtr, "socket", app_)

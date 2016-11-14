@@ -5,9 +5,12 @@ import (
 	. "github.com/zballs/comit/util"
 	"log"
 	// "time"
+	// . "github.com/tendermint/go-common"
+	"sync"
 )
 
 type Hub struct {
+	sync.Mutex
 
 	// updates
 	updates chan []byte
@@ -109,7 +112,7 @@ func (hub *Hub) GetMessages(cli *Client) {
 	}
 }
 
-// TODO: Add explicit unregister
+// explicit unregister necessary?
 
 func (hub *Hub) Start() {
 	for {
@@ -150,5 +153,67 @@ func (hub *Hub) Start() {
 			}
 			hub.inboxes[pubKeyString] <- message
 		}
+	}
+}
+
+// Separate routines
+
+func (hub *Hub) Run() {
+	go hub.registerRoutine()
+	go hub.updatesRoutine()
+	go hub.messagesRoutine()
+}
+
+func (hub *Hub) registerRoutine() {
+	for {
+		cli := <-hub.register
+
+		pubKeyString := BytesToHexString(cli.pubKey[:])
+
+		hub.Lock()
+		if _, exists := hub.clients[pubKeyString]; exists {
+			continue
+		}
+
+		log.Println("Registered client...")
+
+		hub.clients[pubKeyString] = cli
+		hub.Unlock()
+	}
+}
+
+func (hub *Hub) updatesRoutine() {
+	for {
+		update := <-hub.updates
+
+		hub.Lock()
+		for pubKeyString, cli := range hub.clients {
+			sent := cli.sendUpdate(update)
+			if !sent {
+
+				log.Println("Error: could not send update to client")
+
+				delete(hub.clients, pubKeyString)
+			}
+		}
+		hub.Unlock()
+	}
+}
+
+func (hub *Hub) messagesRoutine() {
+	for {
+		message := <-hub.messages
+
+		log.Println("Received message...")
+
+		pubKeyString := BytesToHexString(message.recipient)
+
+		if _, ok := hub.inboxes[pubKeyString]; !ok {
+			// User does not have inbox
+			// Create new inbox and send message
+			log.Printf("Creating inbox for %v", pubKeyString)
+			hub.inboxes[pubKeyString] = make(chan *Message)
+		}
+		hub.inboxes[pubKeyString] <- message
 	}
 }
