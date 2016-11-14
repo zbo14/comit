@@ -109,7 +109,7 @@ func (cli *Client) writeUpdatesRoutine(issues []string, done chan *struct{}) {
 			close(done)
 			return
 		}
-		msg := form.Summary()
+		msg := form.Summary("feed", 0)
 
 		w.Write([]byte(msg))
 
@@ -125,7 +125,7 @@ func (cli *Client) writeUpdatesRoutine(issues []string, done chan *struct{}) {
 					// Not a match
 					continue
 				}
-				msg = form.Summary()
+				msg = form.Summary("feed", 0)
 				w.Write([]byte(msg))
 			}
 		}

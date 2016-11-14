@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"compress/flate"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	. "github.com/zballs/comit/util"
@@ -20,9 +21,20 @@ const (
 	ErrDecodingFormID      = 103
 	field                  = "<strong style='opacity:0.8;'>%s</strong> <small>%s</small><br>"
 	miniField              = "<strong style='opacity:0.8;'>%s</strong> <really-small>%s</really-small><br>"
-	imageElement           = "<img width='240' height='240' id='media' name='%s'><br>"
-	audioElement           = "<audio id='media' name='%s' controls></audio><br>"
-	videoElement           = "<video width='240' height='240' id='media' name='%s' controls></video><br>"
+	imageElement           = "<img width='240' height='240' id='%s-media-%d' name='%s'><br>"
+	audioElement           = "<audio id='%s-media-%d' name='%s' controls></audio><br>"
+	videoElement           = "<video width='240' height='240' id='%s-media-%d' name='%s' controls></video><br>"
+	mediaScript            = `<script type='text/javascript'>
+								var byteChars = atob('%s'); 
+								var byteNums = new Array(byteChars.length);
+								for (var i = 0; i < byteNums.length; i++) {
+									byteNums[i] = byteChars.charCodeAt(i);
+								}
+								var byteArray = new Uint8Array(byteNums);
+								var blob = new Blob([byteArray], {type: '%s'});
+								var media = document.getElementById('%s-media-%d');
+								media.src = window.URL.createObjectURL(blob);
+							  </script>`
 )
 
 var fileFormats = map[string]string{
@@ -170,6 +182,13 @@ func XOR(bytes []byte, items ...string) []byte {
 	return bytes
 }
 
+func (form *Form) hasMedia() bool {
+	if _, ok := fileFormats[form.Extension]; !ok {
+		return false
+	}
+	return form.Media != nil
+}
+
 // TODO: add location
 func (form *Form) ID() []byte {
 	bytes := make([]byte, 16)
@@ -178,7 +197,7 @@ func (form *Form) ID() []byte {
 	return bytes
 }
 
-func (form *Form) Summary() string {
+func (form *Form) Summary(textID string, numID int) string {
 	status := "unresolved"
 	if form.Resolved() {
 		status = Fmt(
@@ -196,18 +215,26 @@ func (form *Form) Summary() string {
 	if len(form.Submitter) == 64 {
 		summary.WriteString(Fmt(miniField, "submitter", form.Submitter))
 	}
-	if form.Media != nil {
+	if form.hasMedia() {
+		decomp, err := form.MediaDecomp()
+		if err != nil {
+			fmt.Println("Error: failed to decompress media bytes")
+			return summary.String()
+		}
+		b64 := base64.StdEncoding.EncodeToString(decomp)
 		switch fileFormats[form.Extension] {
 		case "image":
 			summary.WriteString(
-				Fmt(imageElement, form.Extension))
+				Fmt(imageElement, textID, numID, form.Extension))
 		case "audio":
 			summary.WriteString(
-				Fmt(audioElement, form.Extension))
+				Fmt(audioElement, textID, numID, form.Extension))
 		case "video":
 			summary.WriteString(
-				Fmt(videoElement, form.Extension))
+				Fmt(videoElement, textID, numID, form.Extension))
 		}
+		summary.WriteString(
+			Fmt(mediaScript, b64, form.Extension, textID, numID))
 	}
 	return summary.String()
 }

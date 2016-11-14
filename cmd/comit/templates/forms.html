@@ -56,7 +56,7 @@
 		<br><br>
 		<div id="search-msg"></div>
 	</div>
-	<script type="text/javascript" charset="utf-8">
+	<script type="text/javascript">
 	window.onload = function() {
 
 		// Get issues 
@@ -94,13 +94,7 @@
 		var extension = "";
 
 		wsFind.onmessage = function(msg) {
-			if (msg.data.length < 1000) {
-				$("#find-msg").show(100, "linear").html(msg.data);
-			} else {
-				msg.data.type = $("#media").attr("name");
-				var video = document.getElementById("media");
-				video.src = window.URL.createObjectURL(msg.data);
-			};
+			$("#find-msg").show(100, "linear").html(msg.data);
 		}
 
 		wsFind.onclose = function(msg) {
@@ -146,7 +140,6 @@
 		});
 
 		wsSearch.onmessage = function(msg) {
-			console.log(msg.data);
 			$("#search-msg").append("<p>"+msg.data+"</p>");
 		}
 

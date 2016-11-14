@@ -164,6 +164,8 @@ func (hub *Hub) Run() {
 	go hub.messagesRoutine()
 }
 
+// consolidate register + update so
+// we don't have to use mutex?..
 func (hub *Hub) registerRoutine() {
 	for {
 		cli := <-hub.register

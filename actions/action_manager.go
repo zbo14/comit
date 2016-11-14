@@ -471,17 +471,9 @@ func (am *ActionManager) FindForm(w http.ResponseWriter, req *http.Request) {
 			log.Panic(err)
 		}
 		log.Printf("SUCCESS found form with ID %X", formIDBytes)
-		msg := (&form).Summary()
+		msg := (&form).Summary("find", 0)
+		log.Println(string(msg))
 		conn.WriteMessage(ws.TextMessage, []byte(msg))
-		if form.Media != nil && len(form.Extension) > 0 {
-			decompressed, err := form.MediaDecomp()
-			if err != nil {
-				log.Println(err.Error())
-				continue
-			}
-			log.Printf("DECOMPRESSED length: %d\n", len(decompressed))
-			conn.WriteMessage(ws.BinaryMessage, decompressed)
-		}
 	}
 }
 
@@ -494,6 +486,8 @@ func (am *ActionManager) SearchForms(w http.ResponseWriter, req *http.Request) {
 
 	var afterTime time.Time
 	var beforeTime time.Time
+
+	count := 1
 
 	for {
 
@@ -587,7 +581,8 @@ func (am *ActionManager) SearchForms(w http.ResponseWriter, req *http.Request) {
 					log.Println(err.Error())
 					continue
 				}
-				msg := (&form).Summary()
+				msg := (&form).Summary("search", count)
+				count++
 				conn.WriteMessage(ws.TextMessage, []byte(msg))
 			} else {
 				break
