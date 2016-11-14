@@ -582,8 +582,8 @@ func (am *ActionManager) SearchForms(w http.ResponseWriter, req *http.Request) {
 					continue
 				}
 				msg := (&form).Summary("search", count)
-				count++
 				conn.WriteMessage(ws.TextMessage, []byte(msg))
+				count++
 			} else {
 				break
 			}
