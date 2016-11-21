@@ -164,8 +164,8 @@ func (hub *Hub) Run() {
 	go hub.messagesRoutine()
 }
 
-// consolidate register + update so
-// we don't have to use mutex?..
+// consolidate register, update so
+// we don't have to sync with mutex?
 func (hub *Hub) registerRoutine() {
 	for {
 		cli := <-hub.register
@@ -190,6 +190,7 @@ func (hub *Hub) updatesRoutine() {
 
 		hub.Lock()
 		for pubKeyString, cli := range hub.clients {
+
 			sent := cli.sendUpdate(update)
 			if !sent {
 

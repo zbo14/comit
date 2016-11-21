@@ -1,6 +1,9 @@
 package actions
 
 const (
+	write_request_failure = "<span style='color:red;'>Failed to write request to connection</span>"
+	read_response_failure = "<span style='color:red;'>Failed to read response from server</span>"
+
 	invalid_public_key  = "<span style='color:red;'>Invalid public key</span>"
 	invalid_private_key = "<span style='color:red;'>Invalid private key</span>"
 	invalid_formID      = "<span style='color:red;'>Invalid form ID <small>%X</small></span>"

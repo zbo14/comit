@@ -1,8 +1,9 @@
 package app
 
 import (
+	"bytes"
 	"errors"
-	"fmt"
+	//"fmt"
 	. "github.com/tendermint/go-common"
 	"github.com/tendermint/go-wire"
 	tmsp "github.com/tendermint/tmsp/types"
@@ -66,30 +67,7 @@ func (app *App) SetFilters(filters []string) {
 	app.state.SetBloomFilters(filters)
 }
 
-func (app *App) QueryByKey(key []byte) tmsp.Result {
-	query := make([]byte, wire.ByteSliceSize(key)+1)
-	buf := query
-	buf[0] = queryByKey
-	buf = buf[1:]
-	wire.PutByteSlice(buf, key)
-	res := app.Query(query)
-	return res
-}
-
-func (app *App) QueryByIndex(i int) tmsp.Result {
-	query := make([]byte, 100)
-	buf := query
-	buf[0] = queryByIndex
-	buf = buf[1:]
-	n, err := wire.PutVarint(buf, i)
-	if err != nil {
-		return tmsp.ErrInternalError
-	}
-	query = query[:n+1]
-	res := app.Query(query)
-	return res
-}
-
+/*
 // Run in goroutine
 func (app *App) Iterate(fun func(data []byte) bool, in chan []byte) { //errs chan error
 	for i := 0; i < app.GetSize(); i++ {
@@ -120,6 +98,7 @@ func (app *App) IterateNext(fun func(data []byte) bool, in, out chan []byte) {
 	}
 	close(out)
 }
+*/
 
 func (app *App) Issues() []string {
 	return app.issues
@@ -214,7 +193,16 @@ func (app *App) CheckTx(txBytes []byte) tmsp.Result {
 }
 
 func (app *App) Query(query []byte) tmsp.Result {
-	return app.cli.QuerySync(query)
+	switch query[0] {
+	case 0x00: //chainID
+		return tmsp.NewResultOK(nil, app.GetChainID())
+	case 0x04: //issues
+		buf, n, err := new(bytes.Buffer), int(0), error(nil)
+		wire.WriteBinary(app.issues, buf, &n, &err)
+		return tmsp.NewResultOK(buf.Bytes(), "")
+	default:
+		return app.cli.QuerySync(query)
+	}
 }
 
 func (app *App) Commit() (res tmsp.Result) {

@@ -1,3 +1,6 @@
+## Description
+comit provides an infrastructure through which constituents view, submit, and search issues in their local area (e.g. service requests, complaints, other issue types TBD) while officials resolve them. Submitted information and media (images, audio, video) are appended to an immutable, decentralized ledger, i.e. the blockchain.
+
 ## Installation
 - Download and install [Go](https://golang.org/dl/)
 - Install [Tendermint](https://github.com/tendermint/tendermint/wiki/Installation)

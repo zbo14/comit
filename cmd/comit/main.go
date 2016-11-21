@@ -5,12 +5,13 @@ import (
 	"flag"
 	"fmt"
 	. "github.com/tendermint/go-common"
-	"github.com/tendermint/tmsp/server"
 	"github.com/zballs/comit/actions"
 	"github.com/zballs/comit/app"
+	"github.com/zballs/comit/server"
 	"github.com/zballs/comit/web"
 	"net/http"
 	"reflect"
+	"strings"
 )
 
 func main() {
@@ -68,7 +69,8 @@ func main() {
 	)
 
 	// Create action manager
-	am := actions.CreateActionManager(app_, hub)
+	addr := strings.Split(*addrPtr, "//")[1]
+	am := actions.CreateActionManager(addr)
 
 	js := web.JustFiles{http.Dir("static/")}
 
@@ -76,23 +78,26 @@ func main() {
 	http.HandleFunc("/create_account", am.CreateAccount)
 	http.HandleFunc("/remove_account", am.RemoveAccount)
 
-	http.HandleFunc("/get_issues", am.GetIssues)
-
-	http.HandleFunc("/forms", web.TemplateHandler("forms.html"))
-	http.HandleFunc("/find_form", am.FindForm)
-	http.HandleFunc("/search_forms", am.SearchForms)
-
 	http.HandleFunc("/network", web.TemplateHandler("network.html"))
 	http.HandleFunc("/connect", am.Connect)
-	http.HandleFunc("/update_feed", am.UpdateFeed)
-	http.HandleFunc("/check_messages", am.CheckMessages)
-	http.HandleFunc("/send_message", am.SendMessage)
-	http.HandleFunc("/submit_form", am.SubmitForm)
-	http.HandleFunc("/resolve_form", am.ResolveForm)
+	http.HandleFunc("/get_issues", am.GetIssues)
 
-	http.HandleFunc("/admin", web.TemplateHandler("admin.html"))
-	http.HandleFunc("/create_admin", am.CreateAdmin)
-	http.HandleFunc("/remove_admin", am.RemoveAdmin)
+	/*
+
+		http.HandleFunc("/forms", web.TemplateHandler("forms.html"))
+		http.HandleFunc("/find_form", am.FindForm)
+		http.HandleFunc("/search_forms", am.SearchForms)
+
+		http.HandleFunc("/update_feed", am.UpdateFeed)
+		http.HandleFunc("/check_messages", am.CheckMessages)
+		http.HandleFunc("/send_message", am.SendMessage)
+		http.HandleFunc("/submit_form", am.SubmitForm)
+		http.HandleFunc("/resolve_form", am.ResolveForm)
+
+		http.HandleFunc("/admin", web.TemplateHandler("admin.html"))
+		http.HandleFunc("/create_admin", am.CreateAdmin)
+		http.HandleFunc("/remove_admin", am.RemoveAdmin)
+	*/
 
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(js)))
 	http.ListenAndServe(":8888", nil)

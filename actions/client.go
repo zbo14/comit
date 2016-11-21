@@ -15,6 +15,8 @@ const (
 	waitTime = 10 * time.Second
 )
 
+// Message
+
 type Message struct {
 	sender    []byte
 	recipient []byte
@@ -37,6 +39,8 @@ func (m *Message) Format() []byte {
 	buf.Write(m.content)
 	return buf.Bytes()
 }
+
+// Client
 
 type Client struct {
 	*ws.Conn
