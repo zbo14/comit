@@ -3,9 +3,8 @@ package server
 import (
 	"bufio"
 	"fmt"
-	//"github.com/golang/protobuf/proto"
 	. "github.com/tendermint/go-common"
-	// "github.com/tendermint/go-wire"
+	"github.com/tendermint/go-wire"
 	"github.com/tendermint/tmsp/types"
 	"io"
 	"net"
@@ -13,9 +12,22 @@ import (
 	"sync"
 )
 
+const (
+	QUERY_CHAIN_ID byte = 0
+	QUERY_SIZE     byte = 1
+	QUERY_BY_KEY   byte = 2
+	QUERY_BY_INDEX byte = 3
+	QUERY_ISSUES   byte = 4
+
+	CHECK_TX_CONNECT       = 5
+	CHECK_TX_REGISTER byte = 6
+	CHECK_TX_UPDATE   byte = 7
+)
+
 // var maxNumberConnections = 2
 
 type SocketServer struct {
+	*Hub
 	QuitService
 
 	proto    string
@@ -34,6 +46,7 @@ func NewSocketServer(protoAddr string, app types.Application) (Service, error) {
 	parts := strings.SplitN(protoAddr, "://", 2)
 	proto, addr := parts[0], parts[1]
 	s := &SocketServer{
+		Hub:      NewHub(),
 		proto:    proto,
 		addr:     addr,
 		listener: nil,
@@ -53,6 +66,7 @@ func (s *SocketServer) OnStart() error {
 	}
 	s.listener = ln
 	go s.acceptConnectionsRoutine()
+	go s.Run() // run hub
 	return nil
 }
 
@@ -119,7 +133,7 @@ func (s *SocketServer) acceptConnectionsRoutine() {
 		go func() {
 			// Wait until signal to close connection
 			errClose := <-closeConn
-			if err == io.EOF {
+			if errClose == io.EOF {
 				log.Warn("Connection was closed by client")
 			} else if errClose != nil {
 				log.Warn("Connection error", "error", errClose)
@@ -212,6 +226,47 @@ func (s *SocketServer) handleResponses(closeConn chan error, responses <-chan *t
 	var bufWriter = bufio.NewWriter(conn)
 	for {
 		res := <-responses
+
+		switch res.Value.(type) {
+
+		case *types.Response_AppendTx:
+
+			resAppendTx := res.GetAppendTx()
+			code := resAppendTx.Code
+			data := resAppendTx.Data
+			log_ := resAppendTx.Log
+
+			if code == types.CodeType_OK && log_ == "form" {
+				s.SendUpdate(data)
+			}
+
+		case *types.Response_CheckTx:
+
+			resCheckTx := res.GetCheckTx()
+			code := resCheckTx.Code
+			data := resCheckTx.Data
+
+			fmt.Printf("%v\n", resCheckTx)
+
+			if code == types.CodeType_OK && len(data) > 0 {
+
+				switch data[0] {
+
+				case CHECK_TX_REGISTER:
+					addr, _, err := wire.GetByteSlice(data[1:])
+					if err != nil {
+						log.Error(err.Error())
+					}
+					cli := NewClient(conn, addr)
+					s.Register(cli)
+
+				default:
+				}
+			}
+
+		default:
+		}
+
 		err = types.WriteMessage(res, bufWriter)
 		if err != nil {
 			closeConn <- fmt.Errorf("Error writing message: %v", err.Error())

@@ -43,13 +43,8 @@ func main() {
 	filters := append(app_.Issues(), "resolved")
 	app_.SetFilters(filters)
 
-	// Feed
-	hub := actions.NewHub()
-	fmt.Println("Starting hub...")
-	hub.Run()
-
 	// Start the listener
-	_, err = server.NewServer(*addrPtr, "socket", app_)
+	_, err = server.NewSocketServer(*addrPtr, app_)
 	if err != nil {
 		Exit("create listener: " + err.Error())
 	}
@@ -76,23 +71,23 @@ func main() {
 
 	http.HandleFunc("/account", web.TemplateHandler("account.html"))
 	http.HandleFunc("/create_account", am.CreateAccount)
-	http.HandleFunc("/remove_account", am.RemoveAccount)
+	// http.HandleFunc("/remove_account", am.RemoveAccount)
 
 	http.HandleFunc("/network", web.TemplateHandler("network.html"))
 	http.HandleFunc("/connect", am.Connect)
-	http.HandleFunc("/get_issues", am.GetIssues)
+	http.HandleFunc("/get_issues", am.SendIssues)
+	http.HandleFunc("/submit_form", am.SubmitForm)
+	http.HandleFunc("/resolve_form", am.ResolveForm)
+	http.HandleFunc("/update_feed", am.UpdateFeed)
+
+	http.HandleFunc("/forms", web.TemplateHandler("forms.html"))
+	http.HandleFunc("/find_form", am.FindForm)
 
 	/*
-
-		http.HandleFunc("/forms", web.TemplateHandler("forms.html"))
-		http.HandleFunc("/find_form", am.FindForm)
 		http.HandleFunc("/search_forms", am.SearchForms)
 
-		http.HandleFunc("/update_feed", am.UpdateFeed)
 		http.HandleFunc("/check_messages", am.CheckMessages)
 		http.HandleFunc("/send_message", am.SendMessage)
-		http.HandleFunc("/submit_form", am.SubmitForm)
-		http.HandleFunc("/resolve_form", am.ResolveForm)
 
 		http.HandleFunc("/admin", web.TemplateHandler("admin.html"))
 		http.HandleFunc("/create_admin", am.CreateAdmin)

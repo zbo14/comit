@@ -3,7 +3,6 @@ package app
 import (
 	"bytes"
 	"errors"
-	//"fmt"
 	. "github.com/tendermint/go-common"
 	"github.com/tendermint/go-wire"
 	tmsp "github.com/tendermint/tmsp/types"
@@ -16,12 +15,16 @@ const (
 	version = "0.1"
 	//maxTxSize = 10240
 
-	querySize    byte = 1
-	queryByKey   byte = 2
-	queryByIndex byte = 3
+	QUERY_CHAIN_ID byte = 0
+	QUERY_SIZE     byte = 1
+	QUERY_BY_KEY   byte = 2
+	QUERY_BY_INDEX byte = 3
+	QUERY_ISSUES   byte = 4
 
-	issueID byte = 10
-	adminID byte = 20
+	CHECK_TX_CONNECT  byte = 5
+	CHECK_TX_REGISTER byte = 6
+	CHECK_TX_INBOX    byte = 7
+	CHECK_TX_UPDATE   byte = 8
 )
 
 type App struct {
@@ -53,7 +56,7 @@ func (app *App) GetSequence(addr []byte) (int, error) {
 }
 
 func (app *App) GetSize() int {
-	res := app.Query([]byte{querySize})
+	res := app.Query([]byte{QUERY_SIZE})
 	var s int
 	wire.ReadBinaryBytes(res.Data, &s)
 	return s
@@ -130,10 +133,10 @@ func (app *App) SetOption(key string, value string) (log string) {
 	case "chainID":
 		app.state.SetChainID(value)
 		return "Success"
-	case "issue": //--> issues
+	case "issue":
 		app.issues = append(app.issues, value)
 		return "Success"
-	case "admin": //--> admins
+	case "admin":
 		var err error
 		var acc *types.Account
 		wire.ReadJSONPtr(&acc, []byte(value), &err)
@@ -148,11 +151,13 @@ func (app *App) SetOption(key string, value string) (log string) {
 }
 
 func (app *App) AppendTx(txBytes []byte) tmsp.Result {
+
 	/*
 		if len(txBytes) > maxTxSize {
 			return tmsp.ErrBaseEncodingError.AppendLog("Tx size exceeds maximum")
 		}
 	*/
+
 	// Decode Tx
 	var tx types.Tx
 	err := wire.ReadBinaryBytes(txBytes, &tx)
@@ -173,11 +178,13 @@ func (app *App) AppendTx(txBytes []byte) tmsp.Result {
 }
 
 func (app *App) CheckTx(txBytes []byte) tmsp.Result {
+
 	/*
 		if len(txBytes) > maxTxSize {
 			return tmsp.ErrBaseEncodingError.AppendLog("Tx size exceeds maximum")
 		}
 	*/
+
 	// Decode tx
 	var tx types.Tx
 	err := wire.ReadBinaryBytes(txBytes, &tx)
@@ -189,14 +196,44 @@ func (app *App) CheckTx(txBytes []byte) tmsp.Result {
 	if res.IsErr() {
 		return res.PrependLog("Error in CheckTx")
 	}
-	return tmsp.OK
+
+	switch tx.Data[0] {
+
+	case CHECK_TX_CONNECT:
+
+		return tmsp.OK
+
+	case CHECK_TX_REGISTER:
+
+		data := make([]byte, wire.ByteSliceSize(tx.Input.Address)+1)
+		buf := data
+		buf[0] = CHECK_TX_REGISTER
+		buf = buf[1:]
+		wire.PutByteSlice(buf, tx.Input.Address)
+
+		return tmsp.NewResultOK(data, "")
+
+	case CHECK_TX_INBOX:
+
+		data := make([]byte, wire.ByteSliceSize(tx.Input.Address)+1)
+		buf := data
+		buf[0] = CHECK_TX_INBOX
+		buf = buf[1:]
+		wire.PutByteSlice(buf, tx.Input.Address)
+
+		return tmsp.NewResultOK(data, "")
+
+	default:
+		return tmsp.ErrUnknownRequest
+
+	}
 }
 
 func (app *App) Query(query []byte) tmsp.Result {
 	switch query[0] {
-	case 0x00: //chainID
+	case QUERY_CHAIN_ID:
 		return tmsp.NewResultOK(nil, app.GetChainID())
-	case 0x04: //issues
+	case QUERY_ISSUES:
 		buf, n, err := new(bytes.Buffer), int(0), error(nil)
 		wire.WriteBinary(app.issues, buf, &n, &err)
 		return tmsp.NewResultOK(buf.Bytes(), "")

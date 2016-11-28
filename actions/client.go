@@ -1,132 +1,108 @@
 package actions
 
 import (
-	"bytes"
+	"bufio"
 	ws "github.com/gorilla/websocket"
-	. "github.com/tendermint/go-common"
-	"github.com/tendermint/go-crypto"
 	"github.com/tendermint/go-wire"
-	"github.com/zballs/comit/lib"
+	"github.com/zballs/comit/forms"
+	"io"
 	"log"
+	"net"
 	"time"
 )
 
-const (
-	waitTime = 10 * time.Second
-)
+func ReadForm(r io.Reader, form *forms.Form) error {
 
-// Message
+	n, err := int(0), error(nil)
+	data := wire.ReadByteSlice(r, 0, &n, &err)
 
-type Message struct {
-	sender    []byte
-	recipient []byte
-	content   []byte
-}
-
-func NewMessage() *Message {
-	senderBytes := make([]byte, 32)
-	recipientBytes := make([]byte, 32)
-	return &Message{
-		sender:    senderBytes,
-		recipient: recipientBytes,
+	if err != nil {
+		return err
 	}
-}
 
-func (m *Message) Format() []byte {
-	var buf bytes.Buffer
-	buf.WriteString(
-		Fmt("<small><strong>from</strong></small> <really-small>%X</really-small><br>", m.sender))
-	buf.Write(m.content)
-	return buf.Bytes()
+	err = wire.ReadBinaryBytes(data, form)
+	return err
 }
 
 // Client
+// Reads from TMSP server conn, writes to ws conn
 
 type Client struct {
-	*ws.Conn
-	pubKey   crypto.PubKeyEd25519
-	updates  chan []byte
-	messages chan *Message
+	In      net.Conn
+	Out     *ws.Conn
+	Updates chan *forms.Form
 }
 
-func NewClient(conn *ws.Conn, pubKey crypto.PubKeyEd25519) *Client {
+func NewClient(in net.Conn, out *ws.Conn) *Client {
 	return &Client{
-		Conn:     conn,
-		pubKey:   pubKey,
-		updates:  make(chan []byte),
-		messages: make(chan *Message),
+		In:      in,
+		Out:     out,
+		Updates: make(chan *forms.Form),
 	}
 }
 
-func (cli *Client) sendUpdate(update []byte) bool {
-	timeout := make(chan *struct{})
-	go func() {
-		time.Sleep(waitTime)
-		close(timeout)
-	}()
-	select {
-	case cli.updates <- update:
-		return true
-	case <-timeout:
-		return false
-	}
-}
+func (cli *Client) ReadRoutine() {
 
-func (cli *Client) processUpdate(update []byte, issues []string) (*lib.Form, error) {
-	var form lib.Form
-	err := wire.ReadBinaryBytes(update, &form)
-	if err != nil {
-		return nil, err
-	}
-	issue := form.Issue
-	for _, _issue := range issues {
-		if issue == _issue {
-			return &form, nil
-		}
-	}
-	return nil, nil
-}
-
-func (cli *Client) writeUpdatesRoutine(issues []string, done chan *struct{}) {
-
-	defer cli.Close()
+	form := &forms.Form{}
+	bufReader := bufio.NewReader(cli.In)
 
 	for {
-		update, ok := <-cli.updates
+
+		err := ReadForm(bufReader, form)
+
+		if err != nil {
+			log.Println(err.Error())
+			time.Sleep(time.Second * 20)
+			continue
+		}
+
+		cli.Updates <- form
+	}
+}
+
+func (cli *Client) WriteRoutine(issues []string, done chan struct{}) {
+
+	defer cli.Out.Close()
+	var match bool
+
+	for {
+		form, ok := <-cli.Updates
 		if !ok {
 			close(done)
 			return
 		}
-		form, err := cli.processUpdate(update, issues)
-		if err != nil {
-			log.Println(err.Error())
-			close(done)
-			return
+		match = false
+		for _, issue := range issues {
+			if form.Issue == issue {
+				match = true
+				break
+			}
 		}
-		if form == nil {
-			// Not a match
+		if !match {
 			continue
 		}
-		w, err := cli.NextWriter(ws.TextMessage)
+		w, err := cli.Out.NextWriter(ws.TextMessage)
 		if err != nil {
 			log.Println(err.Error())
 			close(done)
 			return
 		}
 		msg := form.Summary("feed", 0)
+		log.Println(msg)
 
 		w.Write([]byte(msg))
 
-		if len(cli.updates) > 0 {
-			for queued := range cli.updates {
-				form, err = cli.processUpdate(queued, issues)
-				if err != nil {
-					log.Println(err.Error()) //for now
-					close(done)
-					return
+		if len(cli.Updates) > 0 {
+			// process queued forms
+			for form := range cli.Updates {
+				match = false
+				for _, issue := range issues {
+					if form.Issue == issue {
+						match = true
+						break
+					}
 				}
-				if form == nil {
-					// Not a match
+				if !match {
 					continue
 				}
 				msg = form.Summary("feed", 0)
@@ -142,19 +118,20 @@ func (cli *Client) writeUpdatesRoutine(issues []string, done chan *struct{}) {
 	}
 }
 
-func (cli *Client) writeMessagesRoutine(done chan *struct{}) {
+/*
+func (cli *Client) WriteMessagesRoutine(done chan struct{}) {
 
-	defer cli.Close()
+	defer cli.Out.Close()
 
 	for {
-		message, ok := <-cli.messages
+		message, ok := <-cli.Messages
 
 		if !ok {
 			close(done)
 			return
 		}
 
-		w, err := cli.NextWriter(ws.TextMessage)
+		w, err := cli.Out.NextWriter(ws.TextMessage)
 		if err != nil {
 			log.Println(err.Error())
 			close(done)
@@ -163,8 +140,8 @@ func (cli *Client) writeMessagesRoutine(done chan *struct{}) {
 		messageBytes := message.Format()
 		w.Write(messageBytes)
 
-		if len(cli.messages) > 0 {
-			for queued := range cli.messages {
+		if len(cli.Messages) > 0 {
+			for queued := range cli.Messages {
 				messageBytes := queued.Format()
 				w.Write(messageBytes)
 			}
@@ -177,3 +154,4 @@ func (cli *Client) writeMessagesRoutine(done chan *struct{}) {
 		}
 	}
 }
+*/

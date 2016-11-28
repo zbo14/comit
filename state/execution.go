@@ -7,7 +7,7 @@ import (
 	"github.com/tendermint/go-crypto"
 	"github.com/tendermint/go-wire"
 	tmsp "github.com/tendermint/tmsp/types"
-	"github.com/zballs/comit/lib"
+	"github.com/zballs/comit/forms"
 	"github.com/zballs/comit/types"
 	. "github.com/zballs/comit/util"
 )
@@ -139,17 +139,17 @@ func RunCreateAdminTx(state *State, data []byte) tmsp.Result {
 	buf, n, err := new(bytes.Buffer), int(0), error(nil)
 	wire.WriteByteSlice(pubKey[:], buf, &n, &err)
 	wire.WriteByteSlice(privKey[:], buf, &n, &err)
-	return tmsp.NewResultOK(buf.Bytes(), "")
+	return tmsp.NewResultOK(buf.Bytes(), "account")
 }
 
 func RunRemoveAdminTx(state *State, address []byte) tmsp.Result {
 	// Return key so we can remove in AppendTx
 	key := AccountKey(address)
-	return tmsp.NewResultOK(key, "")
+	return tmsp.NewResultOK(key, "account")
 }
 
 func RunSubmitTx(state *State, data []byte) (res tmsp.Result) {
-	var form lib.Form
+	var form forms.Form
 	err := wire.ReadBinaryBytes(data, &form)
 	if err != nil {
 		return tmsp.ErrEncodingError.SetLog(
@@ -168,35 +168,36 @@ func RunSubmitTx(state *State, data []byte) (res tmsp.Result) {
 		// is submitted a minute later...
 		// print for now
 		fmt.Println(err.Error())
-	} else {
-		fmt.Printf("Added form to %s filter\n", issue)
 	}
-	return tmsp.NewResultOK(formID, "")
+
+	formBytes := wire.BinaryBytes(form)
+
+	return tmsp.NewResultOK(formBytes, "form")
 }
 
 func RunResolveTx(state *State, pubKey crypto.PubKeyEd25519, data []byte) (res tmsp.Result) {
 	formID, _, err := wire.GetByteSlice(data)
 	if err != nil {
 		return tmsp.NewResult(
-			lib.ErrDecodingFormID, nil, "")
+			forms.ErrDecodingFormID, nil, "")
 	}
 	value := state.Get(data)
 	if len(value) == 0 {
 		return tmsp.NewResult(
-			lib.ErrFindForm, nil, Fmt("Error cannot find form with ID: %X", formID))
+			forms.ErrFindForm, nil, Fmt("Error cannot find form with ID: %X", formID))
 	}
-	var form lib.Form
+	var form forms.Form
 	err = wire.ReadBinaryBytes(value, &form)
 	if err != nil {
 		return tmsp.ErrEncodingError.SetLog(
 			Fmt("Error parsing form bytes: %v", err.Error()))
 	}
-	minutestr := ToTheMinute(TimeString())
+	minuteString := ToTheMinute(TimeString())
 	pubKeyString := BytesToHexString(pubKey[:])
-	err = (&form).Resolve(minutestr, pubKeyString)
+	err = (&form).Resolve(minuteString, pubKeyString)
 	if err != nil {
 		return tmsp.NewResult(
-			lib.ErrFormAlreadyResolved, nil, Fmt("Error already resolved form with ID: %v", formID))
+			forms.ErrFormAlreadyResolved, nil, Fmt("Error already resolved form with ID: %v", formID))
 	}
 	buf, n, err := new(bytes.Buffer), int(0), error(nil)
 	wire.WriteBinary(form, buf, &n, &err)
@@ -211,7 +212,7 @@ func RunResolveTx(state *State, pubKey crypto.PubKeyEd25519, data []byte) (res t
 		// print for now
 		fmt.Println(err.Error())
 	}
-	return tmsp.NewResultOK(buf.Bytes(), "")
+	return tmsp.NewResultOK(buf.Bytes(), "form")
 }
 
 //===============================================================================================//

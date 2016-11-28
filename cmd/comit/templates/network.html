@@ -14,7 +14,7 @@
 		<p id="connect-msg" style="display: none;"></p>
 	</div>
 	<div class="container">
-		<div class="container col-md-4" id="feed-container" style="display: none;">
+		<div class="container col-md-6" id="feed-container" style="display: none;">
 			<div class="container" id="select-feed">
 				<h5 class="my-header">choose feed</h5><br>
 				<select class="select-picker" id="feed-issues" multiple></select>
@@ -35,6 +35,7 @@
 			<br><br><br><br>
 			<div id="feed"></div>
 		</div>
+		<!--
 		<div class="container col-md-4" id="message-container" style="display: none;">
 			<div class="row">
 				<h5 class="my-header">send a message</h5><br>
@@ -53,7 +54,8 @@
 				<div id="messages" style="display: none;"></div>
 			</div>
 		</div>
-		<div class="container col-md-4" id="constituent-container" style="display: none;">
+		-->
+		<div class="container col-md-6" id="constituent-container" style="display: none;">
 			<h5 class="my-header">submit a form</h5><br>
 			<select id="submit-issues"></select>  
 			<br><br>
@@ -64,8 +66,10 @@
 			<input type="file" onchange="openFile(event)"/><br>
 			<label class="checkbox-inline"><input type="checkbox" id="anonymous"> anonymous</label>
 			<br><br>
+			<!--
 			<label class="checkbox-inline"><input type="checkbox" id="send-to-feed"> send to feed</label>
 			<br><br>
+			-->
  			<button type="button" id="submit" class="my-button">submit</button>
 			<br><br>
 			<p id="submit-msg" style="display: none;"></p>
@@ -184,6 +188,7 @@
 			if (issues.length > 0) {
 				wsFeed.send(issues);
 				wsFeed.send(pubKey);
+				wsFeed.send(privKey);
 			}
 			$("#select-feed").hide(100, "linear");
 			$("#animation").show(100, "linear");
@@ -198,6 +203,10 @@
 		wsFeed.onclose = function() {
 			console.log("UPDATE FEED socket closed");
 		}
+
+		/*
+	
+		NO MESSAGES FOR NOW
 
 		// Check messages
 
@@ -251,37 +260,39 @@
 		wsSend.onclose = function() {
 			console.log("SEND MESSAGE socket closed");
 		}
+		*/
 
 		// Submit form
 		
 		var wsSubmit = new WebSocket("ws://localhost:8888/submit_form");
 
-		var issue = "";
-		var location = "";
-		var description = "";
-		var anonymous = "";
-		var send_to_feed = "";
+		var issue, location, description, anonymous; //sendtofeed
 
 		$("#submit").bind("click", function() {
 			if (user == "constituent") {
+
 				valid_entry = true;
+
 				issue = $("#submit-issues").val();
 				if (issue.length == 0) {
 					$("#submit-issues").css("border-color", "red");
 					valid_entry = false;
 				};
+
 				location = $("#location").val();
 				if (location.length == 0) {
 					$("#location").attr("placeholder", "enter location"); 
 					valid_entry = false;
 				};
+
 				description = $("#description").val();
 				if (description.length == 0) {
 					$("#description").attr("placeholder", "enter description"); 
 					valid_entry = false;
 				};
+
 				anonymous = $("#anonymous").is(":checked");
-				send_to_feed = $("#send-to-feed").is(":checked");
+
 				if (valid_entry) {
 					$("#submit-issues").css("border-color", "lightgray"); 
 					wsSubmit.send(issue);
@@ -292,7 +303,6 @@
 					wsSubmit.send(anonymous);
 					wsSubmit.send(pubKey);
 					wsSubmit.send(privKey);
-					wsSubmit.send(send_to_feed);
 				};
 
 				wsSubmit.onmessage = function(msg) {
