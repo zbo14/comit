@@ -94,22 +94,16 @@ func (s *State) InFilter(filter string, data []byte) (bool, error) {
 	return true, nil
 }
 
-func (s *State) FilterFunc(filters []string, includes []bool) func(data []byte) bool {
+func (s *State) FilterFunc(filters []string) func(data []byte) bool {
 	return func(data []byte) bool {
-		for idx, f := range filters {
+		for _, f := range filters {
 			has, err := s.InFilter(f, data)
 			if err != nil {
 				fmt.Println(err.Error())
 				continue //for now
 			}
-			if includes[idx] {
-				if !has {
-					return false
-				}
-			} else {
-				if has {
-					return false
-				}
+			if !has {
+				return false
 			}
 		}
 		return true

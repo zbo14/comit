@@ -2,35 +2,36 @@
 <html>
 	<head>
 		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<script type="text/javascript" src="/static/js/jquery-1.12.2.js"></script>
+		<link rel="stylesheet" href="http://www.w3schools.com/lib/w3.css">
+		<script type="text/javascript" src="/static/js/bootstrap.js"></script>
+
+		<!--
 		<link rel="stylesheet" href="/static/css/bootstrap.css" type="text/css" />
 		<link rel="stylesheet" href="/static/css/bootstrap-select.css" type="text/css" />
 		<link href='https://fonts.googleapis.com/css?family=Anonymous+Pro' rel='stylesheet' type='text/css'>
 		<script type="text/javascript" src="/static/js/jquery-1.12.2.js"></script>
+
 		<script type="text/javascript" src="/static/js/bootstrap.js"></script>
 		<script type="text/javascript" src="/static/js/bootstrap-select.js"></script>
 		<script type="text/javascript" src="/static/bower_components/moment/min/moment.min.js"></script>
 		<script type="text/javascript" src="/static/bower_components/eonasdan-bootstrap-datetimepicker/build/js/bootstrap-datetimepicker.min.js"></script>
 		<link rel="stylesheet" href="/static/bower_components/eonasdan-bootstrap-datetimepicker/build/css/bootstrap-datetimepicker.min.css" />
-		<!-- Latest compiled and minified CSS -->
 		<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-select/1.11.2/css/bootstrap-select.min.css">
 
-		<!-- Latest compiled and minified JavaScript -->
-		<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-select/1.11.2/js/bootstrap-select.min.js"></script>
-		<style type="text/css">
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-select/1.11.2/js/bootstrap-select.min.js"></script>-->
 		<style type="text/css">
 			html,
 			body {
-				height: 100%
+				 background-color: #e6f4ee;
+				font-family: source sans pro;
 			}
 		</style>
 		{{template "head" .}}
 	</head>
 	<body>
-		<br>
-		<div class="row col-md-11" align="center">
-			<img src="/static/images/logo/logo.png" width="132" height="128">
-		</div><br>
-		<div class="container" style="align: center;">
+		<div class="container">
 			{{template "body" .}}
 		</div>
 	</body>

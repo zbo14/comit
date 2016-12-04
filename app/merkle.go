@@ -1,6 +1,7 @@
 package app
 
 import (
+	"encoding/binary"
 	"fmt"
 	. "github.com/tendermint/go-common"
 	"github.com/tendermint/go-merkle"
@@ -106,8 +107,9 @@ func (merk *MerkleApp) Query(query []byte) tmsp.Result {
 	switch typeByte {
 	case 0x01: // Size
 		size := merk.tree.Size()
-		res := wire.BinaryBytes(size)
-		return tmsp.NewResultOK(res, "")
+		data := make([]byte, 4)
+		binary.BigEndian.PutUint32(data, uint32(size))
+		return tmsp.NewResultOK(data, "")
 	case 0x02: // Query by key
 		query = query[1:]
 		key, n, err := wire.GetByteSlice(query)

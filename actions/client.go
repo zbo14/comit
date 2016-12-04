@@ -51,7 +51,9 @@ func (cli *Client) ReadRoutine() {
 		err := ReadForm(bufReader, form)
 
 		if err != nil {
+
 			log.Println(err.Error())
+
 			time.Sleep(time.Second * 20)
 			continue
 		}
@@ -65,12 +67,16 @@ func (cli *Client) WriteRoutine(issues []string, done chan struct{}) {
 	defer cli.Out.Close()
 	var match bool
 
+	count := 1
+
 	for {
+
 		form, ok := <-cli.Updates
 		if !ok {
 			close(done)
 			return
 		}
+
 		match = false
 		for _, issue := range issues {
 			if form.Issue == issue {
@@ -78,23 +84,28 @@ func (cli *Client) WriteRoutine(issues []string, done chan struct{}) {
 				break
 			}
 		}
+
 		if !match {
 			continue
 		}
+
 		w, err := cli.Out.NextWriter(ws.TextMessage)
 		if err != nil {
 			log.Println(err.Error())
 			close(done)
 			return
 		}
-		msg := form.Summary("feed", 0)
-		log.Println(msg)
+
+		msg := form.Summary("feed", count)
+
+		count++
 
 		w.Write([]byte(msg))
 
 		if len(cli.Updates) > 0 {
 			// process queued forms
 			for form := range cli.Updates {
+
 				match = false
 				for _, issue := range issues {
 					if form.Issue == issue {
@@ -102,10 +113,15 @@ func (cli *Client) WriteRoutine(issues []string, done chan struct{}) {
 						break
 					}
 				}
+
 				if !match {
 					continue
 				}
-				msg = form.Summary("feed", 0)
+
+				msg = form.Summary("feed", count)
+
+				count++
+
 				w.Write([]byte(msg))
 			}
 		}

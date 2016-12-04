@@ -9,8 +9,6 @@
 			<input type="password" id="secret" class="my-input" maxlength="32" placeholder="secret" />
 			<br><br>
 			<button type="button" id="create" class="my-button">create</button>
-			<br><br>
-			<p id="create-msg" style="display: none;"></p>
 		</div>
 		<div class="container col-md-6">
 			<h5 class="my-header" id="remove-label">remove an existing account</h5><br>
@@ -19,61 +17,71 @@
 			<input type="password" id="privKey" class="my-input" placeholder="private key" />
 			<br><br>
 			<button type="button" id="remove" class="my-button">remove </button>
-			<br><br>
-			<p id="remove-msg" style="display: none;"></p>
 		</div>
 	</div>
 	<script type="text/javascript">
+
 		window.onload = function() {
 
-			var wsCreate = new WebSocket("ws://localhost:8888/create_account");
+			var wsCreate = new WebSocket("ws://localhost:8888/create-account");
 
 			var secret = "";
 
 			$("#create").bind("click", function() {
+
 				valid_entry = true;
 				secret = $("#secret").val();
+
 				if (secret.length == 0) {
 					$("#secret").attr("placeholder", "enter secret");
 					valid_entry = false;
 				};
+
 				if (valid_entry) {
 					wsCreate.send(secret);
 				};
 			});
 
 			wsCreate.onmessage = function (msg) {
-				$("#create-msg").show(100, "linear").html(msg.data);
-			};
-			wsCreate.onclose = function() {
-				console.log("CREATE ACCOUNT socket closed");
+				console.log(msg.data);
 			};
 
-			var wsRemove = new WebSocket("ws://localhost:8888/remove_account");
+			wsCreate.onclose = function() {
+				console.log("create-account socket closed");
+			};
+
+			var wsRemove = new WebSocket("ws://localhost:8888/remove-account");
 
 			$("#remove").bind("click", function(){
+
 				valid_entry = true;
 				pubKey = $("#pubKey").val();
+
 				if (pubKey.length == 0) {
 					$("#pubKey").attr("placeholder", "enter public key");
 					valid_entry = false;
 				};
+
 			    privKey = $("#privKey").val();
 				if (privKey.length == 0) {
 					$("#privKey").attr("placeholder", "enter private key");
 					valid_entry = false;
 				};
+
 				if (valid_entry) {
-					wsRemove.send(pubKey);
-					wsRemove.send(privKey);
+					wsRemove.send(JSON.stringify({
+						"public-key": pubKey, 
+						"private-key": privKey,
+					}));
 				};
 			});
 
 			wsRemove.onmessage = function (msg) {
-				$("#remove-msg").show(100, "linear").html(msg.data);
+				console.log(msg.data);
 			};
+
 			wsRemove.onclose = function() {
-				console.log("REMOVE ACCOUNT socket closed");
+				console.log("remove-account socket closed");
 			};
 		}
 

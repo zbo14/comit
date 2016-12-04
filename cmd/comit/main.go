@@ -28,23 +28,25 @@ func main() {
 	}
 
 	// Create comit app
-	app_ := app.NewApp(cli)
+	_app := app.NewApp(cli)
 
 	// If genesis file was specified, set key-value options
 	if *genFilePath != "" {
 		kvz := loadGenesis(*genFilePath)
 		for _, kv := range kvz {
-			log := app_.SetOption(kv.Key, kv.Value)
+			log := _app.SetOption(kv.Key, kv.Value)
 			fmt.Println(Fmt("Set: %v=%v. Log: %v", kv.Key, kv.Value, log))
 		}
 	}
 
 	// Set State filters
-	filters := append(app_.Issues(), "resolved")
-	app_.SetFilters(filters)
+	/*
+		filters := append(_app.Issues(), "resolved")
+		_app.SetFilters(filters)
+	*/
 
 	// Start the listener
-	_, err = server.NewSocketServer(*addrPtr, app_)
+	_, err = server.NewSocketServer(*addrPtr, _app)
 	if err != nil {
 		Exit("create listener: " + err.Error())
 	}
@@ -54,6 +56,8 @@ func main() {
 		"forms.html",
 		"network.html",
 		"admin.html",
+		"index.html",
+		"form.html",
 	)
 
 	web.CreatePages(
@@ -61,6 +65,8 @@ func main() {
 		"forms",
 		"network",
 		"admin",
+		"index",
+		"form",
 	)
 
 	// Create action manager
@@ -69,19 +75,22 @@ func main() {
 
 	js := web.JustFiles{http.Dir("static/")}
 
+	http.HandleFunc("/index", web.TemplateHandler("index.html"))
+	http.HandleFunc("/form", web.TemplateHandler("form.html"))
+
 	http.HandleFunc("/account", web.TemplateHandler("account.html"))
-	http.HandleFunc("/create_account", am.CreateAccount)
-	// http.HandleFunc("/remove_account", am.RemoveAccount)
+	http.HandleFunc("/create-account", am.CreateAccount)
+	http.HandleFunc("/remove-account", am.RemoveAccount)
 
 	http.HandleFunc("/network", web.TemplateHandler("network.html"))
 	http.HandleFunc("/connect", am.Connect)
-	http.HandleFunc("/get_issues", am.SendIssues)
-	http.HandleFunc("/submit_form", am.SubmitForm)
-	http.HandleFunc("/resolve_form", am.ResolveForm)
-	http.HandleFunc("/update_feed", am.UpdateFeed)
+	http.HandleFunc("/issues", am.SendIssues)
+	http.HandleFunc("/submit-form", am.SubmitForm)
+	http.HandleFunc("/resolve-form", am.ResolveForm)
+	http.HandleFunc("/update-feed", am.UpdateFeed)
 
 	http.HandleFunc("/forms", web.TemplateHandler("forms.html"))
-	http.HandleFunc("/find_form", am.FindForm)
+	http.HandleFunc("/find-form", am.FindForm)
 
 	/*
 		http.HandleFunc("/search_forms", am.SearchForms)

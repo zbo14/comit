@@ -2,6 +2,7 @@ package app
 
 import (
 	"bytes"
+	"encoding/binary"
 	"errors"
 	. "github.com/tendermint/go-common"
 	"github.com/tendermint/go-wire"
@@ -15,16 +16,11 @@ const (
 	version = "0.1"
 	//maxTxSize = 10240
 
-	QUERY_CHAIN_ID byte = 0
-	QUERY_SIZE     byte = 1
-	QUERY_BY_KEY   byte = 2
-	QUERY_BY_INDEX byte = 3
-	QUERY_ISSUES   byte = 4
-
-	CHECK_TX_CONNECT  byte = 5
-	CHECK_TX_REGISTER byte = 6
-	CHECK_TX_INBOX    byte = 7
-	CHECK_TX_UPDATE   byte = 8
+	QueryChainID byte = 0
+	QuerySize    byte = 1
+	QueryKey     byte = 2
+	QueryIndex   byte = 3
+	QueryIssues  byte = 4
 )
 
 type App struct {
@@ -56,14 +52,26 @@ func (app *App) GetSequence(addr []byte) (int, error) {
 }
 
 func (app *App) GetSize() int {
-	res := app.Query([]byte{QUERY_SIZE})
-	var s int
-	wire.ReadBinaryBytes(res.Data, &s)
-	return s
+	res := app.Query([]byte{QuerySize})
+	s := binary.BigEndian.Uint32(res.Data)
+	return int(s)
 }
 
-func (app *App) FilterFunc(filters []string, includes []bool) func(data []byte) bool {
-	return app.state.FilterFunc(filters, includes)
+func (app *App) QueryByIndex(i int) tmsp.Result {
+	query := make([]byte, 100)
+	buf := query
+	buf[0] = QueryIndex
+	buf = buf[1:]
+	n, err := wire.PutVarint(buf, i)
+	if err != nil {
+		return tmsp.ErrEncodingError
+	}
+	query = query[:n+1]
+	return app.Query(query)
+}
+
+func (app *App) FilterFunc(filters []string) func(data []byte) bool {
+	return app.state.FilterFunc(filters)
 }
 
 func (app *App) SetFilters(filters []string) {
@@ -143,7 +151,6 @@ func (app *App) SetOption(key string, value string) (log string) {
 		if err != nil {
 			return "Error decoding acc message: " + err.Error()
 		}
-		// fmt.Printf("%X\n", acc.PubKey.Address())
 		app.state.SetAccount(acc.PubKey.Address(), acc)
 		return "Success"
 	}
@@ -158,22 +165,35 @@ func (app *App) AppendTx(txBytes []byte) tmsp.Result {
 		}
 	*/
 
-	// Decode Tx
+	// Create tx
 	var tx types.Tx
+
+	// Decode Tx
 	err := wire.ReadBinaryBytes(txBytes, &tx)
+
 	if err != nil {
 		return tmsp.ErrBaseEncodingError.AppendLog("Error decoding tx: " + err.Error())
 	}
+
 	// Validate and exec tx
 	res := sm.ExecTx(app.state, tx, false)
 	if res.IsErr() {
 		return res.PrependLog("Error in AppendTx")
 	}
-	// If RemoveAccountTx, remove account
-	if tx.Type == types.RemoveAccountTx || tx.Type == types.RemoveAdminTx {
+
+	switch tx.Type {
+
+	case types.RemoveAccountTx:
 		key := res.Data
 		app.cli.Remove(key)
+
+	case types.RemoveAdminTx:
+		key := res.Data
+		app.cli.Remove(key)
+
+	default:
 	}
+
 	return res
 }
 
@@ -197,27 +217,17 @@ func (app *App) CheckTx(txBytes []byte) tmsp.Result {
 		return res.PrependLog("Error in CheckTx")
 	}
 
-	switch tx.Data[0] {
+	switch tx.Type {
 
-	case CHECK_TX_CONNECT:
+	case types.ConnectTx:
 
 		return tmsp.OK
 
-	case CHECK_TX_REGISTER:
+	case types.UpdateTx:
 
 		data := make([]byte, wire.ByteSliceSize(tx.Input.Address)+1)
 		buf := data
-		buf[0] = CHECK_TX_REGISTER
-		buf = buf[1:]
-		wire.PutByteSlice(buf, tx.Input.Address)
-
-		return tmsp.NewResultOK(data, "")
-
-	case CHECK_TX_INBOX:
-
-		data := make([]byte, wire.ByteSliceSize(tx.Input.Address)+1)
-		buf := data
-		buf[0] = CHECK_TX_INBOX
+		buf[0] = types.UpdateTx
 		buf = buf[1:]
 		wire.PutByteSlice(buf, tx.Input.Address)
 
@@ -230,13 +240,19 @@ func (app *App) CheckTx(txBytes []byte) tmsp.Result {
 }
 
 func (app *App) Query(query []byte) tmsp.Result {
+
 	switch query[0] {
-	case QUERY_CHAIN_ID:
+
+	case QueryChainID:
+
 		return tmsp.NewResultOK(nil, app.GetChainID())
-	case QUERY_ISSUES:
+
+	case QueryIssues:
+
 		buf, n, err := new(bytes.Buffer), int(0), error(nil)
 		wire.WriteBinary(app.issues, buf, &n, &err)
 		return tmsp.NewResultOK(buf.Bytes(), "")
+
 	default:
 		return app.cli.QuerySync(query)
 	}

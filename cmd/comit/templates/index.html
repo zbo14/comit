@@ -1,0 +1,186 @@
+{{define "head"}}
+  <title>{{ .Title}}</title>
+{{end}}
+
+{{define "body"}}
+<style type="text/css">
+  h1 { 
+    color: #4ea3b7;
+    font-size: 12pt;
+    margin-top: 0px;
+    font-family: Source Sans Pro;
+    display:inline-block;
+    align-items: center;
+  }
+
+  h2 {
+    color:white; 
+    font-size:14px; 
+    font-family: source sans pro; 
+    text-align:center;
+  }
+
+  button {
+    background-color:#e6f4ee;
+    border-style: solid;
+    border-width: thin;
+    border-color: #4ea3b7;
+    color: #4EA3B7; 
+    padding: 8px 38px; 
+    font-family: Source Sans Pro;
+    font-size: 10pt;
+    text-align: center;
+    display: inline-block;
+    margin: 2px 4px;
+    margin-top: 10px;
+  }
+
+  .button1:hover {
+    background-color: #4ea3b7;
+    color: white;
+  }
+
+  .button1{
+    margin-top: 18px;
+    display: inline-block;
+  }
+
+  .button2{
+    background-color: #4ea3b7;
+    border-color:white;
+    border-style:solid;
+    border-width: thin;
+    color: white; 
+  }
+
+  .button2:hover {
+    background-color:white;
+    color:#4ea3b7;
+  }
+
+  div {
+    position: fixed;
+    right:0;
+    left:0;
+    bottom: 300px;
+  }
+
+  .section{
+    box-shadow: 4px 4px 8px;
+    border-radius: 4px;
+    opacity: 0.7;
+    background-color: #4ea3b7;
+    position: fixed;
+    width: 300px;
+    height: 280px;
+    padding-top: 45px;
+    padding-bottom: 45px;
+    margin:5px;
+    font-family: source sans pro;
+    text-align: center;
+    color:#4ea3b7;
+    font-size: 12px;
+    top: 30%;
+    left: 15%;
+  }
+  .my-input{
+    margin-left: +20px;
+    font-family: source sans pro;
+    color: #4ea3b7;
+    width: 260px;
+    font-size: 14px;
+    padding-left: 10px; 
+    padding-right: 10px;
+    margin-bottom: 15px;
+    text-align: center;
+  }
+  .container{
+    position:fixed;
+    bottom: 35%;
+  }
+  .close-btn{
+    color:none;
+    float:right;
+    position:relative;
+  }
+
+  footer { 
+    position: absolute;
+    right:0;
+    bottom:0;
+    left: 0;
+    font-family: Source Sans Pro;
+    font-size: 10pt;
+    text-align: center;
+    background-color: #4ea3b7;
+    padding: 12px;
+    color: white;
+    display: block;
+  } 
+</style>
+
+<div>
+  <center><img src="/static/images/logo.png" width="450" height="180" alt=""/></center> 
+  <!--
+  <center><img src="comitwebicons-01.png" width="50" height="50" alt="inbox" style="margin-left:5px; margin-right:5px;margin-bottom:5px;margin-top:10px;"/>
+  <img src="comitwebicons-03.png" width="50" height="50" style="margin-left:5px;margin-right:5px;margin-bottom:5px;margin-top:10px;" alt="eye"/>
+  <img src="comitwebicons-02.png" width="50" height="50" style="margin-left:5px; margin-right:5px;margin-bottom:5px;margin-top:10px;" alt="radar"/>
+  </center>
+  -->
+  <center><h1>somewhere&nbsp&nbsp>&nbsp&nbspsomething&nbsphappens&nbsp&nbsp>&nbsp&nbspcomit&nbspit</h1> </center>
+</div>
+
+<div class="container">
+<center><button onclick="document.getElementById('login').style.display='block'" class="button1" >login</button>
+<button onclick="document.getElementById('create-account').style.display='block'" class="button1" >create account</button>
+</center>
+
+<div id="login" class="w3-modal w3-animate-opacity">
+  <form class="container" action="form.asp">
+    <div class="section">
+      <h2> login </h2>
+      <input class="my-input" type="username" placeholder="public key" name="public-key"  required />
+      <input class="my-input" type="password" placeholder="private key" name="private-key" required />
+      <button class="button2" type="submit">enter</button>
+      <span onclick="document.getElementById('login').style.display='none'" class="close-btn">&times;</span>
+    </div> 
+  </form>
+</div>
+
+<div id="create-account" class="w3-modal w3-animate-opacity">
+  <form class="container" action="form.asp">
+    <div class="section" style="margin-left: 720px;"> <!-- better way to right align this -->
+      <h2> create an account </h2>
+      <input class="my-input" type="username" placeholder="username" name="username"  required />
+      <input class="my-input" type="password" placeholder="password" name="password" required />
+      <button class="button2" type="submit">create</button>
+      <span onclick="document.getElementById('create-account').style.display='none'" class="close-btn">&times;</span>
+    </div> 
+  </form>
+</div>
+
+<script>
+window.onload = function(){
+
+    window.onclick = function(event) {
+
+        if (event.target == document.getElementById('login')) {
+           document.getElementById('login').style.display = "none";
+        }; 
+
+        if (event.target == document.getElementById('create-account')) {
+           document.getElementById('create-account').style.display = "none";
+        };
+    }
+
+    // TODO: add js and websockets
+}
+</script>
+</div>
+</div>
+</div>
+<footer class="site-footer"></footer>
+{{end}}
+
+
+

@@ -2,7 +2,6 @@ package state
 
 import (
 	"bytes"
-	"fmt"
 	. "github.com/tendermint/go-common"
 	"github.com/tendermint/go-crypto"
 	"github.com/tendermint/go-wire"
@@ -155,24 +154,32 @@ func RunSubmitTx(state *State, data []byte) (res tmsp.Result) {
 		return tmsp.ErrEncodingError.SetLog(
 			Fmt("Error: could not decode form data: %v", data))
 	}
-	issue := form.Issue
+	// issue := form.Issue
 	formID := (&form).ID()
 	buf, n, err := new(bytes.Buffer), int(0), error(nil)
 	wire.WriteByteSlice(formID, buf, &n, &err)
 	state.Set(buf.Bytes(), data)
-	err = state.AddToFilter(buf.Bytes(), issue)
-	if err != nil {
-		// False positive
-		// May happen if form is submitted
-		// and then form with same type, location
-		// is submitted a minute later...
-		// print for now
-		fmt.Println(err.Error())
-	}
+
+	/*
+		err = state.AddToFilter(buf.Bytes(), issue)
+		if err != nil {
+			// False positive
+			// May happen if form is submitted
+			// and then form with same type, location
+			// is submitted a minute later...
+			// print for now
+			fmt.Println(err.Error())
+		}
+	*/
 
 	formBytes := wire.BinaryBytes(form)
+	data = make([]byte, wire.ByteSliceSize(formBytes)+1)
+	bz := data
+	bz[0] = types.SubmitTx
+	bz = bz[1:]
+	wire.PutByteSlice(bz, formBytes)
 
-	return tmsp.NewResultOK(formBytes, "form")
+	return tmsp.NewResultOK(data, "")
 }
 
 func RunResolveTx(state *State, pubKey crypto.PubKeyEd25519, data []byte) (res tmsp.Result) {
@@ -206,13 +213,23 @@ func RunResolveTx(state *State, pubKey crypto.PubKeyEd25519, data []byte) (res t
 			Fmt("Error encoding form with ID: %v", formID))
 	}
 	state.Set(data, buf.Bytes())
-	err = state.AddToFilter(data, "resolved")
-	if err != nil {
-		// False positive
-		// print for now
-		fmt.Println(err.Error())
-	}
-	return tmsp.NewResultOK(buf.Bytes(), "form")
+
+	/*
+		err = state.AddToFilter(data, "resolved")
+		if err != nil {
+			// False positive
+			// print for now
+			fmt.Println(err.Error())
+		}
+	*/
+
+	data = make([]byte, wire.ByteSliceSize(buf.Bytes())+1)
+	bz := data
+	bz[0] = types.ResolveTx
+	bz = bz[1:]
+	wire.PutByteSlice(bz, buf.Bytes())
+
+	return tmsp.NewResultOK(data, "")
 }
 
 //===============================================================================================//

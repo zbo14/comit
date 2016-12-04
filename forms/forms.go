@@ -19,22 +19,25 @@ const (
 	ErrFindForm            = 101
 	ErrFormAlreadyResolved = 102
 	ErrDecodingFormID      = 103
-	field                  = "<strong style='opacity:0.8;'>%s</strong> <small>%s</small><br>"
-	miniField              = "<strong style='opacity:0.8;'>%s</strong> <really-small>%s</really-small><br>"
-	imageElement           = "<img width='240' height='240' id='%s-media-%d' name='%s'><br>"
-	audioElement           = "<audio id='%s-media-%d' name='%s' controls></audio><br>"
-	videoElement           = "<video width='240' height='240' id='%s-media-%d' name='%s' controls></video><br>"
-	mediaScript            = `<script type='text/javascript'>
-								var byteChars = atob('%s'); 
-								var byteNums = new Array(byteChars.length);
-								for (var i = 0; i < byteNums.length; i++) {
-									byteNums[i] = byteChars.charCodeAt(i);
-								}
-								var byteArray = new Uint8Array(byteNums);
-								var blob = new Blob([byteArray], {type: '%s'});
-								var media = document.getElementById('%s-media-%d');
-								media.src = window.URL.createObjectURL(blob);
-							  </script>`
+
+	field     = ""
+	miniField = ""
+
+	imageElement = "<img width='240' height='240' id='%s-media-%d' name='%s'><br>"
+	audioElement = "<audio id='%s-media-%d' name='%s' controls></audio><br>"
+	videoElement = "<video width='240' height='240' id='%s-media-%d' name='%s' controls></video><br>"
+
+	mediaScript = `<script type='text/javascript'>
+					var byteChars = atob('%s'); 
+					var byteNums = new Array(byteChars.length);
+					for (var i = 0; i < byteNums.length; i++) {
+						byteNums[i] = byteChars.charCodeAt(i);
+					}
+					var byteArray = new Uint8Array(byteNums);
+					var blob = new Blob([byteArray], {type: '%s'});
+					var media = document.getElementById('%s-media-%d');
+					media.src = window.URL.createObjectURL(blob);
+				  </script>`
 )
 
 var fileFormats = map[string]string{
@@ -44,7 +47,7 @@ var fileFormats = map[string]string{
 }
 
 type Form struct {
-	SubmittedAt string `json:"submitted_at"`
+	SubmittedAt string `json:"submitted-at"`
 	Issue       string `json:"issue"`
 	Location    string `json:"location"`
 	Description string `json:"description"`
@@ -55,8 +58,8 @@ type Form struct {
 	// -------------------------------- //
 
 	Status     string `json:"status"`
-	ResolvedBy string `json:"resolved_by"`
-	ResolvedAt string `json:"resolved_at"`
+	ResolvedBy string `json:"resolved-by"`
+	ResolvedAt string `json:"resolved-at"`
 }
 
 // Functional Options
@@ -235,6 +238,36 @@ func (form *Form) Summary(textID string, numID int) string {
 			Fmt(mediaScript, b64, form.Extension, textID, numID))
 	}
 	return summary.String()
+}
+
+func (form *Form) MediaContent(textID string, numID int) ([]byte, error) {
+
+	var content bytes.Buffer
+
+	if !form.hasMedia() {
+		return nil, errors.New("No media")
+	}
+
+	decomp, err := form.MediaDecomp()
+
+	if err != nil {
+		return nil, err
+	}
+
+	b64 := base64.StdEncoding.EncodeToString(decomp)
+
+	switch fileFormats[form.Extension] {
+	case "image":
+		content.WriteString(Fmt(imageElement, textID, numID, form.Extension))
+	case "audio":
+		content.WriteString(Fmt(audioElement, textID, numID, form.Extension))
+	case "video":
+		content.WriteString(Fmt(videoElement, textID, numID, form.Extension))
+	}
+
+	content.WriteString(Fmt(mediaScript, b64, form.Extension, textID, numID))
+
+	return content.Bytes(), nil
 }
 
 func (form *Form) MediaDecomp() ([]byte, error) {

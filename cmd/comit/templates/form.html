@@ -1,0 +1,330 @@
+{{define "head"}}
+  <title>{{ .Title}}</title>
+{{end}}
+
+{{define "body"}}
+<style type="text/css">
+
+  div.choose-feed {
+    width:325px;
+    height: 155px;
+    font-family: source sans pro;
+    font-size: 7px;
+    font-style:normal;
+    text-align: center;
+    color:#4ea3b7;
+    background-color: white;
+    border-style: solid;
+    border-width: thin;
+    padding-top: 5px;
+    padding-bottom: 8px;
+    margin: 2px; 
+    border-color: #cccccc;
+    position:absolute;
+    left: 300px;
+    top: 75px;
+    
+  }
+  
+  button {
+    background-color:#e6f4ee;
+    border-style: solid;
+    border-width: thin;
+    border-color: #4ea3b7;
+    color: #4EA3B7; 
+    padding: 8px 38px; 
+    font-family: Source Sans Pro;
+    font-size: 9pt;
+    text-align: center;
+    display: inline-block;
+    margin: 2px 2px;
+    margin-top: 3px;
+  }
+  
+  .update:hover {
+    background-color: #4ea3b7;
+    color: white;
+}
+  
+  div.submit-form {
+    width:325px;
+    font-family: source sans pro;
+    font-size: 7px;
+    font-style:normal;
+    text-align: center;
+    color:#4ea3b7;
+    background-color: white;
+    border-style: solid;
+    border-width: thin;
+    padding-top: 5px;
+    padding-bottom: 130px;
+    margin: 2px; 
+    border-color: #cccccc;
+    position:absolute;
+    left: 300px;
+    top: 255px;
+  }
+  
+  ul{
+      align-content: center;
+      font-size: 10px;
+      background-color:white;
+      border-style:solid;
+      border-color:#4ea3b7;
+      border-width:thin;
+      margin-left:45px;
+      margin-right:45px;
+      padding: 5px;
+      
+    }
+.issue-dropdown {
+      align-content: center;
+    width: 100px;
+    position:fixed;
+      font-size: 10px;
+      background-color:e6f4ee;
+      border-style:solid;
+      border-color:#4ea3b7;
+      border-width:thin;
+      margin: 5px; 
+      padding: 8px 38px;
+}
+
+.issue-dropdown {
+    position: relative;
+    display: inline-block;
+}
+
+.issue-content {
+    display: none;
+    position: absolute;
+    background-color: #e6f4ee;
+    width: 100%;
+    box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+}
+
+.issue-content a {
+    color: #4ea3b7;
+    padding: 5px 38px;
+  text-decoration: none;
+    display: block;
+}
+
+.issue-content a:hover {
+  background-color:#4ea3b7;
+  color: white;
+  }
+.dropdown:hover .issue-content {
+    display: block;}
+
+.dropdown:hover .issue-dropdown {
+    background-color: #4ea3b7;
+  color: white;
+}
+  
+.location-dropdown {
+      width: 100px;
+    position:fixed;
+      font-size: 10px;
+      background-color:e6f4ee;
+      border-style:solid;
+      border-color:#4ea3b7;
+      border-width:thin;
+      margin:5px;
+      padding: 8px 38px;
+}
+
+.location-dropdown {
+    position: relative;
+    display: inline-block;
+}
+
+.location-content {
+    display: none;
+    position: absolute;
+    background-color: #e6f4ee;
+    width: 100%;
+    box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+}
+
+.location-content a {
+    color: #4ea3b7;
+    padding: 5px 38px;
+  text-decoration: none;
+    display: block;
+}
+
+.location-content a:hover {
+  background-color:#4ea3b7;
+  color: white;
+  }
+.dropdown:hover .location-content {
+    display: block;}
+
+.dropdown:hover .location-dropdown {
+    background-color: #4ea3b7;
+  color: white;
+} 
+  
+  
+  div.findforms{
+    width:325px;
+    font-family: source sans pro;
+    font-size: 7px;
+    font-style:normal;
+    text-align: center;
+    color:#4ea3b7;
+    background-color: white;
+    border-style: solid;
+    border-width: thin;
+    padding-top: 5px;
+    padding-bottom: 130px;
+    margin: 2px; 
+    border-color: #cccccc;
+    position:absolute;
+    left: 300px;
+    top: 440px;
+    
+  }
+  
+  div.select-feed{
+    width:400px;
+    height: 450px;
+    font-family: source sans pro;
+    font-size: 7px;
+    font-style:normal;
+    color:#4ea3b7;
+    background-color: white;
+    border-style: solid;
+    border-width: thin;
+    padding-top: 5px;
+    padding-bottom: 130px;
+    padding-left: 25px;
+    margin: 2px; 
+    border-color: #cccccc;
+    position:absolute;
+    right: 300px;
+    top: 75px;
+  }
+  
+  div.p{
+    font-size: 10px;
+  }
+
+  
+footer { 
+  position: absolute;
+  right:0;
+  bottom:0;
+  left: 0;
+  font-family: Source Sans Pro;
+  font-size: 10pt;
+  text-align: center;
+  background-color: #4ea3b7;
+  padding: 12px;
+  color: white;
+  }
+
+  .my-input{
+    font-family: source sans pro;
+    color: #4ea3b7;
+    font-style: italic;
+    font-size: 12px;
+    padding-left: 10px; 
+    padding-right: 10px;
+    margin-bottom: 15px;
+    text-align: center;
+  } 
+  .button3{
+    background: none;
+    font-style:italic;
+    border: none;
+    padding: 3px;
+  }
+</style>
+
+  <div class=choose-feed>
+    <h1>choose a feed</h1>
+    <!-- should be select -->
+    <ul style="list-style-type:none">
+      <li>select issue</li>
+      <li>citizen complaint</li>
+      <li>constituent concern</li>
+      <li>accident report</li> 
+    </ul>
+    <button class="update">update</button>
+  </div>
+
+  <div class=submit-form>
+    <h1>submit a form</h1>
+    <div class="dropdown">
+    <button class="issue-dropdown">issue</button>
+      <div class="issue-content">
+        <a href="#">complaint</a>
+        <a href="#">concern</a>
+        <a href="#">accident report</a>
+      </div>
+    </div>
+
+    <div class="dropdown">
+    <button class="location-dropdown">location</button>
+      <div class="location-content">
+        <a href="#">Evanston, IL</a>
+        <a href="#">Rogers Park, IL</a>
+        <a href="#">Uptown, IL</a>
+      </div>
+    </div>
+  </div>
+
+  <div class=select-feed>
+    <center><h1>select a feed</h1></center> 
+    <p>submitted: 2016-11-15 10:57 <br>
+    issue: constituent concern <br>
+    location: Evanston, IL<br>
+    description: noise complaint <br>
+    status: unresolved <br>
+    submitter: 1234567890</p>
+  </div>
+
+  <div class=findforms>
+  <h1>find a form</h1>
+
+  <div class="w3-container">
+  <center><button onclick="document.getElementById('id01').style.display='block'" class="button3" >filter terms</button>
+  </center>
+
+  <div id="id01" class="w3-modal w3-animate-opacity">
+    <form class="w3-container1" action="form.asp">
+      <div class="w3-section">
+      <input class="my-input" type="username" placeholder="public key" name="publickey"  required>
+      <input class="my-input" type="password" placeholder="private key" name="privatekey" required>
+      <button class="button2" type="submit">filter</button>
+      <span onclick="document.getElementById('id01').style.display='none'" class="w3-closebtn">&times;</span>
+      </div> 
+    </form>
+  </div>
+
+  <div class="w3-container">
+
+  <div id="id01" class="w3-modal">
+  <div class="modalcontent"></div>
+
+  <form class="w3-container" action="form.asp">
+    <div class="w3-section">
+      <input class="my-input" type="username" placeholder="find by key" name="keyid"  required>
+      <button class="button2" type="submit">search</button>
+    </div>
+  </form>
+  <footer class="site-footer"></footer>
+  <script type="text/javascript">
+
+    var modal = document.getElementById('id01');
+
+    window.onclick = function(event) {
+      if (event.target == modal) {
+        modal.style.display = "none";
+      }
+    }
+  </script>
+{{end}}
+

@@ -1,4 +1,4 @@
-{{define "head"}}
+(f{{define "head"}}
 	<title>{{ .Title}}</title>
 {{end}}
 
@@ -86,91 +86,86 @@
 	</div>
 	<script type="text/javascript">
 
-	var media;
-	var extension = "";
+	var media, extension;
 
 	var openFile = function(event){
+
 		var reader = new FileReader();
-		var input = event.target;
-		reader.onload = function(){
-			media = reader.result;
+		var file = event.target.files[0];
+
+		reader.onloadend = function(e){
+			media = new Int8Array(e.target.result);
 		};
-		reader.readAsArrayBuffer(input.files[0]);
-		console.log(input.files[0]);
-		extension = (input.files[0].name).split(".")[1]
-		console.log(extension);
+
+		reader.readAsArrayBuffer(file);
+		extension = (file.name).split(".")[1]
 	};
 
-	/*
-	function fetchAndDecode(file, encoding) {
-		var xhr = new XMLHttpRequest();
-		xhr.open("GET", file);
-		xhr.responseType = "arraybuffer";
-		xhr.onload = function(){
-			if (this.status == 200) {
-				var dataView = new DataView(this.response);
-				var decoder = new TextDecoder(encoding);
-				media = decoder.decode(dataView);
-			} else {
-				console.error("Error while requesting", file, this);
-			}
-		};
-		xhr.send()
-	}
-	*/
-
 	window.onload = function() {
+
+		// Connect
 
 		var wsConnect = new WebSocket("ws://localhost:8888/connect");
 
 		var valid_entry = true;
-		var pubKey = "";
-		var privKey = "";
+		var pubKey, privKey;
 
 		$("#connect").bind("click", function() {
+
 			valid_entry = true;
 			pubKey = $("#pubKey").val();
+
 			if (pubKey.length == 0) {
 				$("#pubKey").attr("placeholder", "enter public key");
 				valid_entry = false;
 			};
+
 			privKey = $("#privKey").val();
 			if (privKey.length == 0) {
 				$("#privKey").attr("placeholder", "enter private key");
 				valid_entry = false;
 			};
+
 			if (valid_entry) {
-				wsConnect.send(pubKey);
-				wsConnect.send(privKey);
+				wsConnect.send(JSON.stringify({
+					"public-key": pubKey,
+					"private-key": privKey,
+				}));
 			};
 		})
 
-		var user = "";
+		var json;
 
 		wsConnect.onmessage = function (msg) {
-			console.log(msg.data);
-			if (msg.data == "connect-constituent") {
+
+			json = JSON.parse(msg.data) 
+
+			if (json.connect == "success" && json.type == "constituent")  {
+
 				$("#connect-container").hide(100, "linear");
 				$("#feed-container").show(100, "linear");
-				$("#message-container").show(100, "linear");
+				// $("#message-container").show(100, "linear");
 				$("#constituent-container").show(100, "linear");
-				user = "constituent";
-			} else if (msg.data == "connect-admin") {
+
+			} else if (json.connect == "success" && json.type == "admin") {
+
 				$("#connect-container").hide(100, "linear");
 				$("#feed-container").show(100, "linear");
-				$("#message-container").show(100, "linear");
+				// $("#message-container").show(100, "linear");
 				$("#admin-container").show(100, "linear");
-				user = "admin";
+
 			} else {
-				$("#connect-msg").show(100, "linear").html(msg.data);
+				console.log(json);
 			};
 		};
 
 		wsConnect.onclose = function() {
-			console.log("CONNECT ACCOUNT socket closed");
+			console.log("connect-account socket closed");
 		};
 
-		var wsIssues = new WebSocket("ws://localhost:8888/get_issues");
+		// Issues
+
+		var wsIssues = new WebSocket("ws://localhost:8888/issues");
 		
 		wsIssues.onmessage = function(msg) {
 			$("#feed-issues").html(msg.data);
@@ -178,18 +173,30 @@
 		}
 
 		wsIssues.onclose = function() {
-			console.log("GET ISSUES socket closed");
+			console.log("issues socket closed");
 		}
 
-		var wsFeed = new WebSocket("ws://localhost:8888/update_feed");
+		// Feed
+
+		var wsFeed = new WebSocket("ws://localhost:8888/update-feed");
 
 		$("#update").bind("click", function() {
+
 			var issues = $("#feed-issues").val();
+
 			if (issues.length > 0) {
-				wsFeed.send(issues);
-				wsFeed.send(pubKey);
-				wsFeed.send(privKey);
+
+				var j = JSON.stringify({
+					"issues": issues,
+					"public-key": pubKey,
+					"private-key": privKey,
+				});
+
+				console.log(j);
+
+				wsFeed.send(j);
 			}
+
 			$("#select-feed").hide(100, "linear");
 			$("#animation").show(100, "linear");
 			$(".img").css("display", "inline-block");
@@ -201,11 +208,10 @@
 		}
 
 		wsFeed.onclose = function() {
-			console.log("UPDATE FEED socket closed");
+			console.log("update-feed socket closed");
 		}
-
-		/*
 	
+	/*
 		NO MESSAGES FOR NOW
 
 		// Check messages
@@ -264,12 +270,13 @@
 
 		// Submit form
 		
-		var wsSubmit = new WebSocket("ws://localhost:8888/submit_form");
+		var wsSubmit = new WebSocket("ws://localhost:8888/submit-form");
 
 		var issue, location, description, anonymous; //sendtofeed
 
 		$("#submit").bind("click", function() {
-			if (user == "constituent") {
+
+			if (json.type == "constituent") {
 
 				valid_entry = true;
 
@@ -294,30 +301,36 @@
 				anonymous = $("#anonymous").is(":checked");
 
 				if (valid_entry) {
+
 					$("#submit-issues").css("border-color", "lightgray"); 
-					wsSubmit.send(issue);
-					wsSubmit.send(location);
-					wsSubmit.send(description);
+
 					wsSubmit.send(media);
-					wsSubmit.send(extension);
-					wsSubmit.send(anonymous);
-					wsSubmit.send(pubKey);
-					wsSubmit.send(privKey);
+
+					wsSubmit.send(JSON.stringify({
+						"issue": issue,
+						"location": location, 
+						"description": description,
+						"extension": extension,
+						"anonymous": anonymous,
+						"public-key": pubKey,
+						"private-key": privKey,
+					}));
 				};
 
 				wsSubmit.onmessage = function(msg) {
-					$("#submit-msg").show(100, "linear").html(msg.data);
+					// $("#submit-msg").show(100, "linear").html(msg.data);
+					console.log(msg.data);
 				};
 
 				wsSubmit.onclose = function() {
-					console.log("SUBMIT FORM socket closed");
+					console.log("submit-form socket closed");
 				};	
 			};
 		});
 
 		// Resolve form 
 
-		var wsResolve = new WebSocket ("ws://localhost:8888/resolve_form");
+		var wsResolve = new WebSocket ("ws://localhost:8888/resolve-form");
 
 		var formID = "";
 
@@ -327,19 +340,22 @@
 				if (formID.length == 0) {
 					$("#formID").attr("placeholder", "enter form ID");
 				} else {
-					wsResolve.send(formID);
-					wsResolve.send(pubKey);
-					wsResolve.send(privKey);
+					wsResolve.send(JSON.stringify({
+						"form-ID": formID,
+						"public-key": pubKey,
+						"private-key": privKey,
+					}));
 				};
 			};
 		});
 
 		wsResolve.onmessage = function(msg) {
-			$("#resolve-msg").show(100, "linear").html(msg.data)
+			// $("#resolve-msg").show(100, "linear").html(msg.data)
+			console.log(msg.data)
 		};
 
 		wsResolve.onclose = function() {
-			console.log("RESOLVE FORM socket closed");
+			console.log("resolve-form socket closed");
 		};
 	}
 </script>

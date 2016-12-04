@@ -74,7 +74,7 @@ func (cli *Client) RemSync(key []byte) tmsp.Result {
 	return cli.AppendTxSync(tx)
 }
 
-//==============================================================//
+// ------------------------------------------------ //
 
 func (client *Client) Get(key []byte) (value []byte) {
 	res := client.GetSync(key)

@@ -16,6 +16,9 @@ const (
 	RemoveAdminTx   = 0x04
 	SubmitTx        = 0x05
 	ResolveTx       = 0x06
+	//CheckTxs - do not change state
+	ConnectTx = 0x07
+	UpdateTx  = 0x08
 
 	// Errors
 	ErrUnexpectedData       = 1000
@@ -26,7 +29,7 @@ type TxInput struct {
 	Address   []byte           `json: "address"`
 	Sequence  int              `json: "sequence"`
 	Signature crypto.Signature `json: "signature"`
-	PubKey    crypto.PubKey    `json: "pub_key"`
+	PubKey    crypto.PubKey    `json: "public-key"`
 }
 
 func (txIn TxInput) ValidateBasic() tmsp.Result {

@@ -5,7 +5,8 @@ import (
 	"fmt"
 	. "github.com/tendermint/go-common"
 	"github.com/tendermint/go-wire"
-	"github.com/tendermint/tmsp/types"
+	tmsp "github.com/tendermint/tmsp/types"
+	"github.com/zballs/comit/types"
 	"io"
 	"net"
 	"strings"
@@ -18,10 +19,6 @@ const (
 	QUERY_BY_KEY   byte = 2
 	QUERY_BY_INDEX byte = 3
 	QUERY_ISSUES   byte = 4
-
-	CHECK_TX_CONNECT       = 5
-	CHECK_TX_REGISTER byte = 6
-	CHECK_TX_UPDATE   byte = 7
 )
 
 // var maxNumberConnections = 2
@@ -39,10 +36,10 @@ type SocketServer struct {
 	nextConnID int
 
 	appMtx sync.Mutex
-	app    types.Application
+	app    tmsp.Application
 }
 
-func NewSocketServer(protoAddr string, app types.Application) (Service, error) {
+func NewSocketServer(protoAddr string, app tmsp.Application) (Service, error) {
 	parts := strings.SplitN(protoAddr, "://", 2)
 	proto, addr := parts[0], parts[1]
 	s := &SocketServer{
@@ -122,8 +119,8 @@ func (s *SocketServer) acceptConnectionsRoutine() {
 
 		connID := s.addConn(conn)
 
-		closeConn := make(chan error, 2)              // Push to signal connection closed
-		responses := make(chan *types.Response, 1000) // A channel to buffer responses
+		closeConn := make(chan error, 2)             // Push to signal connection closed
+		responses := make(chan *tmsp.Response, 1000) // A channel to buffer responses
 
 		// Read requests from conn and deal with them
 		go s.handleRequests(closeConn, conn, responses)
@@ -154,12 +151,12 @@ func (s *SocketServer) acceptConnectionsRoutine() {
 }
 
 // Read requests from conn and deal with them
-func (s *SocketServer) handleRequests(closeConn chan error, conn net.Conn, responses chan<- *types.Response) {
+func (s *SocketServer) handleRequests(closeConn chan error, conn net.Conn, responses chan<- *tmsp.Response) {
 	var count int
 	var bufReader = bufio.NewReader(conn)
 	for {
-		var req = &types.Request{}
-		err := types.ReadMessage(bufReader, req)
+		var req = &tmsp.Request{}
+		err := tmsp.ReadMessage(bufReader, req)
 		if err != nil {
 			if err == io.EOF {
 				closeConn <- err
@@ -175,104 +172,132 @@ func (s *SocketServer) handleRequests(closeConn chan error, conn net.Conn, respo
 	}
 }
 
-func (s *SocketServer) handleRequest(req *types.Request, responses chan<- *types.Response) {
+func (s *SocketServer) handleRequest(req *tmsp.Request, responses chan<- *tmsp.Response) {
 	switch r := req.Value.(type) {
-	case *types.Request_Echo:
-		responses <- types.ToResponseEcho(r.Echo.Message)
-	case *types.Request_Flush:
-		responses <- types.ToResponseFlush()
-	case *types.Request_Info:
+	case *tmsp.Request_Echo:
+		responses <- tmsp.ToResponseEcho(r.Echo.Message)
+	case *tmsp.Request_Flush:
+		responses <- tmsp.ToResponseFlush()
+	case *tmsp.Request_Info:
 		data := s.app.Info()
-		responses <- types.ToResponseInfo(data)
-	case *types.Request_SetOption:
+		responses <- tmsp.ToResponseInfo(data)
+	case *tmsp.Request_SetOption:
 		so := r.SetOption
 		logStr := s.app.SetOption(so.Key, so.Value)
-		responses <- types.ToResponseSetOption(logStr)
-	case *types.Request_AppendTx:
+		responses <- tmsp.ToResponseSetOption(logStr)
+	case *tmsp.Request_AppendTx:
 		res := s.app.AppendTx(r.AppendTx.Tx)
-		responses <- types.ToResponseAppendTx(res.Code, res.Data, res.Log)
-	case *types.Request_CheckTx:
+		responses <- tmsp.ToResponseAppendTx(res.Code, res.Data, res.Log)
+	case *tmsp.Request_CheckTx:
 		res := s.app.CheckTx(r.CheckTx.Tx)
-		responses <- types.ToResponseCheckTx(res.Code, res.Data, res.Log)
-	case *types.Request_Commit:
+		responses <- tmsp.ToResponseCheckTx(res.Code, res.Data, res.Log)
+	case *tmsp.Request_Commit:
 		res := s.app.Commit()
-		responses <- types.ToResponseCommit(res.Code, res.Data, res.Log)
-	case *types.Request_Query:
+		responses <- tmsp.ToResponseCommit(res.Code, res.Data, res.Log)
+	case *tmsp.Request_Query:
 		res := s.app.Query(r.Query.Query)
-		responses <- types.ToResponseQuery(res.Code, res.Data, res.Log)
-	case *types.Request_InitChain:
-		if app, ok := s.app.(types.BlockchainAware); ok {
+		responses <- tmsp.ToResponseQuery(res.Code, res.Data, res.Log)
+	case *tmsp.Request_InitChain:
+		if app, ok := s.app.(tmsp.BlockchainAware); ok {
 			app.InitChain(r.InitChain.Validators)
-			responses <- types.ToResponseInitChain()
+			responses <- tmsp.ToResponseInitChain()
 		} else {
-			responses <- types.ToResponseInitChain()
+			responses <- tmsp.ToResponseInitChain()
 		}
-	case *types.Request_EndBlock:
-		if app, ok := s.app.(types.BlockchainAware); ok {
+	case *tmsp.Request_EndBlock:
+		if app, ok := s.app.(tmsp.BlockchainAware); ok {
 			validators := app.EndBlock(r.EndBlock.Height)
-			responses <- types.ToResponseEndBlock(validators)
+			responses <- tmsp.ToResponseEndBlock(validators)
 		} else {
-			responses <- types.ToResponseEndBlock(nil)
+			responses <- tmsp.ToResponseEndBlock(nil)
 		}
 	default:
-		responses <- types.ToResponseException("Unknown request")
+		responses <- tmsp.ToResponseException("Unknown request")
 	}
 }
 
 // Pull responses from 'responses' and write them to conn.
-func (s *SocketServer) handleResponses(closeConn chan error, responses <-chan *types.Response, conn net.Conn) {
+func (s *SocketServer) handleResponses(closeConn chan error, responses <-chan *tmsp.Response, conn net.Conn) {
 	var count int
 	var err error
 	var bufWriter = bufio.NewWriter(conn)
+
+FOR_LOOP:
 	for {
 		res := <-responses
 
 		switch res.Value.(type) {
 
-		case *types.Response_AppendTx:
+		case *tmsp.Response_AppendTx:
 
 			resAppendTx := res.GetAppendTx()
+
 			code := resAppendTx.Code
 			data := resAppendTx.Data
-			log_ := resAppendTx.Log
 
-			if code == types.CodeType_OK && log_ == "form" {
-				s.SendUpdate(data)
-			}
-
-		case *types.Response_CheckTx:
-
-			resCheckTx := res.GetCheckTx()
-			code := resCheckTx.Code
-			data := resCheckTx.Data
-
-			fmt.Printf("%v\n", resCheckTx)
-
-			if code == types.CodeType_OK && len(data) > 0 {
+			if code == tmsp.CodeType_OK && len(data) > 0 {
 
 				switch data[0] {
 
-				case CHECK_TX_REGISTER:
-					addr, _, err := wire.GetByteSlice(data[1:])
+				case types.SubmitTx:
+
+					update, _, err := wire.GetByteSlice(data[1:])
+
 					if err != nil {
 						log.Error(err.Error())
+						continue FOR_LOOP
 					}
-					cli := NewClient(conn, addr)
-					s.Register(cli)
+
+					s.SendUpdate(update)
+
+				case types.ResolveTx:
+
+					update, _, err := wire.GetByteSlice(data[1:])
+
+					if err != nil {
+						log.Error(err.Error())
+						continue FOR_LOOP
+					}
+
+					s.SendUpdate(update)
 
 				default:
+				}
+			}
+
+		case *tmsp.Response_CheckTx:
+
+			resCheckTx := res.GetCheckTx()
+
+			code := resCheckTx.Code
+			data := resCheckTx.Data
+
+			if code == tmsp.CodeType_OK && len(data) > 0 {
+
+				if data[0] == types.UpdateTx {
+
+					addr, _, err := wire.GetByteSlice(data[1:])
+
+					if err != nil {
+
+						log.Error(err.Error())
+						continue FOR_LOOP
+					}
+
+					cli := NewClient(conn, addr)
+					s.Register(cli)
 				}
 			}
 
 		default:
 		}
 
-		err = types.WriteMessage(res, bufWriter)
+		err = tmsp.WriteMessage(res, bufWriter)
 		if err != nil {
 			closeConn <- fmt.Errorf("Error writing message: %v", err.Error())
 			return
 		}
-		if _, ok := res.Value.(*types.Response_Flush); ok {
+		if _, ok := res.Value.(*tmsp.Response_Flush); ok {
 			err = bufWriter.Flush()
 			if err != nil {
 				closeConn <- fmt.Errorf("Error flushing write buffer: %v", err.Error())
