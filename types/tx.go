@@ -16,7 +16,7 @@ const (
 	RemoveAdminTx   = 0x04
 	SubmitTx        = 0x05
 	ResolveTx       = 0x06
-	//CheckTxs - do not change state
+	//CheckTxs // don't change state
 	ConnectTx = 0x07
 	UpdateTx  = 0x08
 

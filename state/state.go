@@ -9,7 +9,9 @@ import (
 )
 
 const (
-	ErrSet         = 10
+	ErrSet = 10
+
+	// For bloom filter
 	iter    uint64 = 3
 	members uint64 = 1000
 )
@@ -94,7 +96,7 @@ func (s *State) InFilter(filter string, data []byte) (bool, error) {
 	return true, nil
 }
 
-func (s *State) FilterFunc(filters []string) func(data []byte) bool {
+func (s *State) FilterFunc(filters []string) func([]byte) bool {
 	return func(data []byte) bool {
 		for _, f := range filters {
 			has, err := s.InFilter(f, data)

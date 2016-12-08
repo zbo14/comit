@@ -1,5 +1,5 @@
 ## Description
-comit provides an infrastructure through which constituents view, submit, and search issues in their local area (e.g. service requests, complaints, other issue types TBD) while officials resolve them. Submitted information and media (images, audio, video) are appended to an immutable, decentralized ledger, i.e. the blockchain.
+Comit provides an infrastructure through which constituents view, submit, and find issues in their local area (e.g. service requests, complaints, other TBD). Submitted information and media (images, video) are appended to an immutable, decentralized ledger (i.e. the blockchain) and broadcast to a live feed.
 
 ## Installation
 - Download and install [Go](https://golang.org/dl/)
@@ -17,13 +17,7 @@ comit provides an infrastructure through which constituents view, submit, and se
 - `cd app` from base directory
 - `go test -v`
 
-## Technical Features 
-- asymmetric key cryptography 
-- websocket messaging between users 
-- bloom filters for subject-specific search
-- file submission and compression
-
 ## Credits 
-logo and artistic consulation from [JFang Design](http://www.jjessfang.com/)
+Design and logo by [JFang Design](http://www.jjessfang.com/)
 
 

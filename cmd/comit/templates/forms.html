@@ -61,7 +61,7 @@
 
 		// Get issues 
 
-		var wsIssues = new WebSocket("ws://localhost:8888/get_issues");
+		var wsIssues = new WebSocket("ws://localhost:8888/issues");
 			
 		wsIssues.onmessage = function(msg) {
 			console.log(msg.data);
@@ -75,7 +75,7 @@
 
 		// Find form
 
-		var wsFind = new WebSocket("ws://localhost:8888/find_form");
+		var wsFind = new WebSocket("ws://localhost:8888/find-form");
 
 		var formID = "";
 
@@ -130,10 +130,18 @@
 				var before = $("#before").data("DateTimePicker").date();
 				status = $("#status").val();
 
+				/*
 				wsSearch.send(after);
 				wsSearch.send(before);
 				wsSearch.send(issue);
 				wsSearch.send(status);
+				*/
+
+				wsSearch.send(JSON.stringify({
+					"after": after,
+					"before": before,
+					"issue": issue,	
+				}));
 
 				$("#search-msg").html("");
 			} else {

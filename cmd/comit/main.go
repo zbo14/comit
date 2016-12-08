@@ -28,25 +28,24 @@ func main() {
 	}
 
 	// Create comit app
-	_app := app.NewApp(cli)
+	comitApp := app.NewApp(cli)
 
 	// If genesis file was specified, set key-value options
 	if *genFilePath != "" {
 		kvz := loadGenesis(*genFilePath)
 		for _, kv := range kvz {
-			log := _app.SetOption(kv.Key, kv.Value)
+			log := comitApp.SetOption(kv.Key, kv.Value)
 			fmt.Println(Fmt("Set: %v=%v. Log: %v", kv.Key, kv.Value, log))
 		}
 	}
 
 	// Set State filters
-	/*
-		filters := append(_app.Issues(), "resolved")
-		_app.SetFilters(filters)
-	*/
+	// Just Issues for now..
+	// TODO: add location, maybe status..
+	comitApp.SetFilters(comitApp.Issues())
 
 	// Start the listener
-	_, err = server.NewSocketServer(*addrPtr, _app)
+	_, err = server.NewSocketServer(*addrPtr, comitApp)
 	if err != nil {
 		Exit("create listener: " + err.Error())
 	}
@@ -57,7 +56,7 @@ func main() {
 		"network.html",
 		"admin.html",
 		"index.html",
-		"form.html",
+		"constituent.html",
 	)
 
 	web.CreatePages(
@@ -66,7 +65,7 @@ func main() {
 		"network",
 		"admin",
 		"index",
-		"form",
+		"constituent",
 	)
 
 	// Create action manager
@@ -76,25 +75,28 @@ func main() {
 	js := web.JustFiles{http.Dir("static/")}
 
 	http.HandleFunc("/index", web.TemplateHandler("index.html"))
-	http.HandleFunc("/form", web.TemplateHandler("form.html"))
+	http.HandleFunc("/constituent", web.TemplateHandler("constituent.html"))
 
 	http.HandleFunc("/account", web.TemplateHandler("account.html"))
 	http.HandleFunc("/create-account", am.CreateAccount)
 	http.HandleFunc("/remove-account", am.RemoveAccount)
-
-	http.HandleFunc("/network", web.TemplateHandler("network.html"))
-	http.HandleFunc("/connect", am.Connect)
-	http.HandleFunc("/issues", am.SendIssues)
+	http.HandleFunc("/login", am.Login)
 	http.HandleFunc("/submit-form", am.SubmitForm)
-	http.HandleFunc("/resolve-form", am.ResolveForm)
-	http.HandleFunc("/update-feed", am.UpdateFeed)
 
-	http.HandleFunc("/forms", web.TemplateHandler("forms.html"))
+	http.HandleFunc("/issues", am.SendIssues)
+	http.HandleFunc("/update-feed", am.UpdateFeed)
+	http.HandleFunc("/updates", am.Updates)
 	http.HandleFunc("/find-form", am.FindForm)
 
 	/*
-		http.HandleFunc("/search_forms", am.SearchForms)
+		http.HandleFunc("/network", web.TemplateHandler("network.html"))
+		http.HandleFunc("/resolve-form", am.ResolveForm)
 
+		http.HandleFunc("/forms", web.TemplateHandler("forms.html"))
+		http.HandleFunc("/search_forms", am.SearchForms)
+	*/
+
+	/*
 		http.HandleFunc("/check_messages", am.CheckMessages)
 		http.HandleFunc("/send_message", am.SendMessage)
 
@@ -112,7 +114,7 @@ func main() {
 	})
 }
 
-//----------------------------------------
+//------------------------------------------------//
 
 type KeyValue struct {
 	Key   string `json:"key"`

@@ -2,6 +2,7 @@ package actions
 
 import (
 	"bufio"
+	"encoding/json"
 	ws "github.com/gorilla/websocket"
 	"github.com/tendermint/go-wire"
 	"github.com/zballs/comit/forms"
@@ -10,6 +11,8 @@ import (
 	"net"
 	"time"
 )
+
+// TODO: add logger, messages
 
 func ReadForm(r io.Reader, form *forms.Form) error {
 
@@ -48,81 +51,74 @@ func (cli *Client) ReadRoutine() {
 
 	for {
 
+		log.Println("Reading...")
+
 		err := ReadForm(bufReader, form)
 
 		if err != nil {
 
 			log.Println(err.Error())
 
-			time.Sleep(time.Second * 20)
+			time.Sleep(time.Second * 5)
 			continue
 		}
+
+		log.Printf("%v\n", form)
 
 		cli.Updates <- form
 	}
 }
 
-func (cli *Client) WriteRoutine(issues []string, done chan struct{}) {
-
-	defer cli.Out.Close()
-	var match bool
+func (cli *Client) WriteRoutine(issue string, done chan struct{}) {
 
 	count := 1
 
 	for {
 
 		form, ok := <-cli.Updates
+
 		if !ok {
+			log.Println("not ok")
 			close(done)
 			return
 		}
 
-		match = false
-		for _, issue := range issues {
-			if form.Issue == issue {
-				match = true
-				break
-			}
-		}
-
-		if !match {
+		if form.Issue != issue {
 			continue
 		}
 
 		w, err := cli.Out.NextWriter(ws.TextMessage)
+
 		if err != nil {
 			log.Println(err.Error())
+
 			close(done)
 			return
 		}
 
-		msg := form.Summary("feed", count)
+		data, _ := json.Marshal(*form)
+
+		w.Write(data)
+
+		log.Println("Wrote message to websocket")
 
 		count++
-
-		w.Write([]byte(msg))
 
 		if len(cli.Updates) > 0 {
 			// process queued forms
 			for form := range cli.Updates {
 
-				match = false
-				for _, issue := range issues {
-					if form.Issue == issue {
-						match = true
-						break
-					}
-				}
-
-				if !match {
+				if form.Issue != issue {
 					continue
 				}
 
-				msg = form.Summary("feed", count)
+				data, _ = json.Marshal(*form)
+
+				w.Write(data)
+
+				log.Println("Wrote message to websocket")
 
 				count++
-
-				w.Write([]byte(msg))
 			}
 		}
 

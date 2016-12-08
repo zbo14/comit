@@ -1,14 +1,9 @@
 package forms
 
 import (
-	"bufio"
-	"bytes"
-	"compress/flate"
-	"encoding/base64"
 	"errors"
 	"fmt"
 	. "github.com/zballs/comit/util"
-	"io/ioutil"
 	"time"
 )
 
@@ -19,47 +14,54 @@ const (
 	ErrFindForm            = 101
 	ErrFormAlreadyResolved = 102
 	ErrDecodingFormID      = 103
-
-	field     = ""
-	miniField = ""
-
-	imageElement = "<img width='240' height='240' id='%s-media-%d' name='%s'><br>"
-	audioElement = "<audio id='%s-media-%d' name='%s' controls></audio><br>"
-	videoElement = "<video width='240' height='240' id='%s-media-%d' name='%s' controls></video><br>"
-
-	mediaScript = `<script type='text/javascript'>
-					var byteChars = atob('%s'); 
-					var byteNums = new Array(byteChars.length);
-					for (var i = 0; i < byteNums.length; i++) {
-						byteNums[i] = byteChars.charCodeAt(i);
-					}
-					var byteArray = new Uint8Array(byteNums);
-					var blob = new Blob([byteArray], {type: '%s'});
-					var media = document.getElementById('%s-media-%d');
-					media.src = window.URL.createObjectURL(blob);
-				  </script>`
 )
 
-var fileFormats = map[string]string{
+// TODO: add more file extensions
+
+var fileTypes = map[string]string{
 	"jpg": "image",
 	"mp3": "audio",
 	"mp4": "video",
 }
 
+// Media
+
+type Media struct {
+	Data      []byte `json:"data"`
+	Type      string `json:"type"`
+	Extension string `json:"extension"`
+
+	// Content IDs
+	TextID string `json:"text_id, omitempty"`
+	NumID  int    `json:"num_id, omitempty"`
+}
+
+func newMedia(data []byte, fileType string, extension string) *Media {
+
+	return &Media{
+		Data:      data,
+		Type:      fileType,
+		Extension: extension,
+	}
+}
+
 type Form struct {
+
+	// Required
 	SubmittedAt string `json:"submitted-at"`
 	Issue       string `json:"issue"`
 	Location    string `json:"location"`
 	Description string `json:"description"`
-	Media       []byte `json:"media"`     //optional
-	Extension   string `json:"extension"` //optional
-	Submitter   string `json:"submitter"` //optional
+
+	// Optional
+	*Media    `json:"media,omitempty"`
+	Submitter string `json:"submitter,omitempty"`
 
 	// -------------------------------- //
 
 	Status     string `json:"status"`
-	ResolvedBy string `json:"resolved-by"`
-	ResolvedAt string `json:"resolved-at"`
+	ResolvedBy string `json:"resolved-by,omitempty"`
+	ResolvedAt string `json:"resolved-at,omitempty"`
 }
 
 // Functional Options
@@ -105,14 +107,24 @@ func setDescription(description string) Item {
 	}
 }
 
-func setMedia(mediaBytes []byte, extension string) Item {
-	compressed := new(bytes.Buffer)
-	compressor, _ := flate.NewWriter(compressed, 9)
-	defer compressor.Close()
-	compressor.Write(mediaBytes)
+func setMedia(data []byte, extension string) Item {
+
 	return func(form *Form) error {
-		form.Media = compressed.Bytes()
-		form.Extension = extension
+
+		if len(data) < 50 {
+			return nil
+		}
+
+		fileType, ok := fileTypes[extension]
+
+		if !ok {
+			return errors.New("Unrecognized file extension")
+		}
+
+		fmt.Printf("Media size: %d\n", len(data))
+
+		form.Media = newMedia(data, fileType, extension)
+
 		return nil
 	}
 }
@@ -124,35 +136,24 @@ func setSubmitter(submitter string) Item {
 	}
 }
 
-func MakeAnonymousForm(issue, location, description string, mediaBytes []byte, extension string) (*Form, error) {
+func MakeForm(issue, location, description string, data []byte, extension, submitter string) (*Form, error) {
+
 	submittedAt := time.Now().Local().String()
+
 	form, err := newForm(
 		setSubmittedAt(submittedAt),
 		setIssue(issue),
 		setLocation(location),
-		setDescription(description))
-	if err != nil {
-		return nil, err
-	}
-	if mediaBytes != nil && len(extension) > 0 {
-		err = setMedia(mediaBytes, extension)(form)
-		if err != nil {
-			return nil, err
-		}
-	}
-	form.Status = "unresolved"
-	return form, nil
-}
+		setDescription(description),
+		setMedia(data, extension),
+		setSubmitter(submitter))
 
-func MakeForm(issue, location, description, submitter string, mediaBytes []byte, extension string) (*Form, error) {
-	form, err := MakeAnonymousForm(issue, location, description, mediaBytes, extension)
 	if err != nil {
 		return nil, err
 	}
-	err = setSubmitter(submitter)(form)
-	if err != nil {
-		return nil, err
-	}
+
+	form.Status = "unresolved"
+
 	return form, nil
 }
 
@@ -161,102 +162,74 @@ func (form *Form) Resolved() bool {
 }
 
 func (form *Form) Resolve(timestr, addr string) error {
+
 	if form.Resolved() {
-		return errors.New("form already resolved")
+		return errors.New("Form already resolved")
 	}
+
 	form.Status = "resolved"
+
 	form.ResolvedAt = timestr
 	form.ResolvedBy = addr
+
 	return nil
 }
 
 func XOR(bytes []byte, items ...string) []byte {
+
 	for _, item := range items {
+
 		for idx, _ := range bytes {
+
 			if idx < len(item) {
 				bytes[idx] ^= byte(item[idx])
+
 			} else {
+
 				break
 			}
 		}
 	}
+
 	return bytes
 }
 
-func (form *Form) hasMedia() bool {
-	if _, ok := fileFormats[form.Extension]; !ok {
-		return false
-	}
+func (form *Form) HasMedia() bool {
 	return form.Media != nil
 }
 
 // TODO: add location
 func (form *Form) ID() []byte {
+
 	bytes := make([]byte, 16)
+
 	daystr := ToTheMinute(form.SubmittedAt)
+
 	bytes = XOR(bytes, daystr, form.Issue)
+
 	return bytes
 }
 
-func (form *Form) Summary(textID string, numID int) string {
-	status := "unresolved"
-	if form.Resolved() {
-		status = Fmt(
-			"resolved at %v by <really-small>%v</really-small>",
-			form.ResolvedAt,
-			form.ResolvedBy)
+func (form *Form) SetContentIDs(textID string, numID int) {
+
+	if !form.HasMedia() {
+		return
 	}
-	submittedAt := ToTheMinute(form.SubmittedAt)
-	var summary bytes.Buffer
-	summary.WriteString(Fmt(field, "submitted", submittedAt))
-	summary.WriteString(Fmt(field, "issue", form.Issue))
-	summary.WriteString(Fmt(field, "location", form.Location))
-	summary.WriteString(Fmt(field, "description", form.Description))
-	summary.WriteString(Fmt(field, "status", status))
-	if len(form.Submitter) == 64 {
-		summary.WriteString(Fmt(miniField, "submitter", form.Submitter))
-	}
-	if form.hasMedia() {
-		decomp, err := form.MediaDecomp()
-		if err != nil {
-			fmt.Println("Error: failed to decompress media bytes")
-			return summary.String()
-		}
-		b64 := base64.StdEncoding.EncodeToString(decomp)
-		switch fileFormats[form.Extension] {
-		case "image":
-			summary.WriteString(
-				Fmt(imageElement, textID, numID, form.Extension))
-		case "audio":
-			summary.WriteString(
-				Fmt(audioElement, textID, numID, form.Extension))
-		case "video":
-			summary.WriteString(
-				Fmt(videoElement, textID, numID, form.Extension))
-		}
-		summary.WriteString(
-			Fmt(mediaScript, b64, form.Extension, textID, numID))
-	}
-	return summary.String()
+
+	form.Media.TextID = textID
+	form.Media.NumID = numID
 }
 
-func (form *Form) MediaContent(textID string, numID int) ([]byte, error) {
+/*
+	if !form.HasMedia() {
+		return
+	}
 
 	var content bytes.Buffer
 
-	if !form.hasMedia() {
-		return nil, errors.New("No media")
-	}
+	b64 := base64.StdEncoding.EncodeToString(form.Media)
 
-	decomp, err := form.MediaDecomp()
-
-	if err != nil {
-		return nil, err
-	}
-
-	b64 := base64.StdEncoding.EncodeToString(decomp)
-
-	switch fileFormats[form.Extension] {
+	switch fileTypes[form.Extension] {
 	case "image":
 		content.WriteString(Fmt(imageElement, textID, numID, form.Extension))
 	case "audio":
@@ -267,18 +240,39 @@ func (form *Form) MediaContent(textID string, numID int) ([]byte, error) {
 
 	content.WriteString(Fmt(mediaScript, b64, form.Extension, textID, numID))
 
-	return content.Bytes(), nil
-}
+	form.Content = content.String()
 
-func (form *Form) MediaDecomp() ([]byte, error) {
-	r := new(bytes.Buffer)
-	r.Write(form.Media)
-	bufr := bufio.NewReader(r)
-	decompressor := flate.NewReader(bufr)
+	form.Media = nil
+	form.Extension = ""
+
+*/
+
+/*
+func (form *Form) MediaDecomp() []byte {
+
+	r := bytes.NewReader(form.Media)
+
+	flate.NewRE
+
+	decompressor := flate.NewReader(r)
 	defer decompressor.Close()
-	decompressed, err := ioutil.ReadAll(decompressor)
-	if err != nil {
-		return nil, err
+
+	decompressed := make([]byte, form.Size)
+
+	read := 0
+
+	for {
+
+		n, _ := decompressor.Read(decompressed[read:])
+		read += n
+
+		if read >= form.Size {
+			break
+		}
 	}
-	return decompressed, nil
+
+	fmt.Printf("Decompressed size = %d\n", read)
+
+	return decompressed
 }
+*/

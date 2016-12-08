@@ -4,9 +4,9 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/hex"
-	// "encoding/json"
+	"encoding/json"
+	"fmt"
 	ws "github.com/gorilla/websocket"
-	. "github.com/tendermint/go-common"
 	"github.com/tendermint/go-crypto"
 	wire "github.com/tendermint/go-wire"
 	tmsp "github.com/tendermint/tmsp/types"
@@ -14,11 +14,14 @@ import (
 	"github.com/zballs/comit/state"
 	"github.com/zballs/comit/types"
 	. "github.com/zballs/comit/util"
-	"log"
+	"io/ioutil"
+	// "log"
 	"net"
 	"net/http"
+	"sync"
 	// "strings"
-	//"time"
+	"net/url"
+	// "time"
 )
 
 const (
@@ -32,12 +35,21 @@ const (
 	QueryKey     byte = 2
 	QueryIndex   byte = 3
 	QueryIssues  byte = 4
+	QuerySearch  byte = 5
 )
+
+var Fmt = fmt.Sprintf
 
 type ActionManager struct {
 	ServerAddr string
 	ChainID    string
 	Issues     []string
+
+	ConnsMtx sync.Mutex
+	Conns    map[string]net.Conn
+
+	FormsMtx sync.Mutex
+	Forms    map[string]chan *forms.Form
 
 	types.Logger
 }
@@ -46,6 +58,8 @@ func CreateActionManager(serverAddr string) *ActionManager {
 
 	am := &ActionManager{
 		ServerAddr: serverAddr,
+		Conns:      make(map[string]net.Conn),
+		Forms:      make(map[string]chan *forms.Form),
 		Logger:     types.NewLogger("action_manager"),
 	}
 
@@ -56,6 +70,7 @@ func CreateActionManager(serverAddr string) *ActionManager {
 }
 
 // Upgrader
+
 var upgrader = ws.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
@@ -65,6 +80,7 @@ var upgrader = ws.Upgrader{
 }
 
 // Queries
+
 func (am *ActionManager) KeyQuery(key []byte) *tmsp.Request {
 	query := make([]byte, wire.ByteSliceSize(key)+1)
 	buf := query
@@ -89,10 +105,32 @@ func (am *ActionManager) IndexQuery(i int) *tmsp.Request {
 	return req
 }
 
-// Write, Read
-func (am *ActionManager) WriteRequest(req *tmsp.Request, conn net.Conn) error {
+func (am *ActionManager) SearchQuery(search []byte) *tmsp.Request {
+	query := make([]byte, wire.ByteSliceSize(search)+1)
+	buf := query
+	buf[0] = QuerySearch
+	buf = buf[1:]
+	wire.PutByteSlice(buf, search)
+	req := tmsp.ToRequestQuery(query)
+	return req
+}
 
-	bufWriter := bufio.NewWriter(conn)
+// Read, Write
+
+func (am *ActionManager) ReadResponse(ws net.Conn) *tmsp.Response {
+
+	bufReader := bufio.NewReader(ws)
+	res := &tmsp.Response{}
+	err := tmsp.ReadMessage(bufReader, res)
+	if err != nil {
+		return nil
+	}
+	return res
+}
+
+func (am *ActionManager) WriteRequest(req *tmsp.Request, ws net.Conn) error {
+
+	bufWriter := bufio.NewWriter(ws)
 	err := tmsp.WriteMessage(req, bufWriter)
 	if err != nil {
 		return err
@@ -103,94 +141,69 @@ func (am *ActionManager) WriteRequest(req *tmsp.Request, conn net.Conn) error {
 	return nil
 }
 
-func (am *ActionManager) ReadResponse(conn net.Conn) *tmsp.Response {
-
-	bufReader := bufio.NewReader(conn)
-	res := &tmsp.Response{}
-	err := tmsp.ReadMessage(bufReader, res)
-	if err != nil {
-		return nil
-	}
-	return res
-}
-
-// Get chainID, issues
+// ChainID
 
 func (am *ActionManager) GetChainID() {
 
-	for {
+	reqQuery := tmsp.ToRequestQuery([]byte{QueryChainID})
+	conn, _ := net.Dial("tcp", am.ServerAddr)
 
-		reqQuery := tmsp.ToRequestQuery([]byte{QueryChainID})
-		c, _ := net.Dial("tcp", am.ServerAddr)
-
-		err := am.WriteRequest(reqQuery, c)
-
-		if err != nil {
-			continue
-		}
-
-		res := am.ReadResponse(c)
-
-		if res == nil {
-			continue
-		}
-
-		resQuery := res.GetQuery()
-
-		if resQuery == nil {
-			continue
-		}
-
-		am.ChainID = resQuery.Log
-		return
-	}
-}
-
-func (am *ActionManager) GetIssues() {
-
-	for {
-
-		reqQuery := tmsp.ToRequestQuery([]byte{QueryIssues})
-		c, _ := net.Dial("tcp", am.ServerAddr)
-
-		err := am.WriteRequest(reqQuery, c)
-
-		if err != nil {
-			continue
-		}
-
-		res := am.ReadResponse(c)
-
-		if res == nil {
-			continue
-		}
-
-		resQuery := res.GetQuery()
-
-		if resQuery == nil {
-			continue
-		}
-
-		var issues []string
-		err = wire.ReadBinaryBytes(resQuery.Data, &issues)
-		if err != nil {
-			panic(err)
-		}
-
-		am.Issues = issues
-		return
-	}
-}
-
-func (am *ActionManager) SendIssues(w http.ResponseWriter, req *http.Request) {
-
-	conn, err := upgrader.Upgrade(w, req, nil)
+	err := am.WriteRequest(reqQuery, conn)
 
 	if err != nil {
 		panic(err)
 	}
 
-	defer conn.Close()
+	res := am.ReadResponse(conn)
+
+	if res == nil {
+		panic(err)
+	}
+
+	resQuery := res.GetQuery()
+
+	if resQuery == nil {
+		panic(err)
+	}
+
+	am.ChainID = resQuery.Log
+}
+
+// Issues
+
+func (am *ActionManager) GetIssues() {
+
+	reqQuery := tmsp.ToRequestQuery([]byte{QueryIssues})
+	conn, _ := net.Dial("tcp", am.ServerAddr)
+
+	err := am.WriteRequest(reqQuery, conn)
+
+	if err != nil {
+		panic(err)
+	}
+
+	res := am.ReadResponse(conn)
+
+	if res == nil {
+		panic(err)
+	}
+
+	resQuery := res.GetQuery()
+
+	if resQuery == nil {
+		panic(err)
+	}
+
+	var issues []string
+	err = wire.ReadBinaryBytes(resQuery.Data, &issues)
+	if err != nil {
+		panic(err)
+	}
+
+	am.Issues = issues
+}
+
+func (am *ActionManager) SendIssues(w http.ResponseWriter, req *http.Request) {
 
 	var buf bytes.Buffer
 	buf.WriteString(Fmt(select_option, "", "select issue"))
@@ -199,545 +212,420 @@ func (am *ActionManager) SendIssues(w http.ResponseWriter, req *http.Request) {
 		buf.WriteString(Fmt(select_option, issue, issue))
 	}
 
-	conn.WriteMessage(ws.TextMessage, buf.Bytes())
+	data := buf.Bytes()
 
-	return
+	// Status OK
+	w.WriteHeader(200)
+
+	w.Write(data)
 }
 
 // Create Account
 func (am *ActionManager) CreateAccount(w http.ResponseWriter, req *http.Request) {
 
-	// Websocket connection
-	conn, err := upgrader.Upgrade(w, req, nil)
+	// Request data
+	data, err := ioutil.ReadAll(req.Body)
 
 	if err != nil {
-		panic(err)
+		http.Error(w, HttpRequestFailure, http.StatusBadRequest)
+		return
 	}
 
-	defer conn.Close()
+	v, _ := url.ParseQuery(string(data))
 
-	// Connect to TMSP server
-	c, _ := net.Dial("tcp", am.ServerAddr)
-	defer c.Close()
+	secret := v.Get("secret")
 
 	// Create Tx
 	var tx types.Tx
 	tx.Type = types.CreateAccountTx
+	tx.Data = []byte(secret)
 
 	// Keys
 	var pubKey crypto.PubKeyEd25519
 	var privKey crypto.PrivKeyEd25519
 
-	for {
+	// Set Sequence, Account, Signature
+	pubKey, privKey = CreateKeys([]byte(secret))
+	tx.SetSequence(0)
+	tx.SetAccount(pubKey)
+	tx.SetSignature(privKey, am.ChainID)
 
-		// Secret
-		_, secret, err := conn.ReadMessage()
+	// TxBytes in AppendTx request
+	txBytes := wire.BinaryBytes(tx)
+	reqAppendTx := tmsp.ToRequestAppendTx(txBytes)
 
-		if err != nil {
-			am.Error(err.Error())
-			return
-		}
+	// Connect to TMSP server
+	conn, _ := net.Dial("tcp", am.ServerAddr)
+	defer conn.Close()
 
-		buf, n, err := new(bytes.Buffer), int(0), error(nil)
-		wire.WriteByteSlice(secret, buf, &n, &err)
-		tx.Data = buf.Bytes()
+	err = am.WriteRequest(reqAppendTx, conn)
 
-		// Set Sequence, Account, Signature
-		pubKey, privKey = CreateKeys(secret)
-		tx.SetSequence(0)
-		tx.SetAccount(pubKey)
-		tx.SetSignature(privKey, am.ChainID)
-
-		// TxBytes in AppendTx request
-		buf = new(bytes.Buffer)
-		wire.WriteBinary(tx, buf, &n, &err)
-		reqAppendTx := tmsp.ToRequestAppendTx(buf.Bytes())
-
-		err = am.WriteRequest(reqAppendTx, c)
-
-		if err != nil {
-			conn.WriteJSON(WriteRequestError)
-			continue
-		}
-
-		res := am.ReadResponse(c)
-
-		resAppendTx := res.GetAppendTx()
-
-		if resAppendTx == nil {
-			conn.WriteJSON(ReadResponseError)
-			continue
-		}
-
-		if resAppendTx.Code != tmsp.CodeType_OK {
-			conn.WriteJSON(CreateAccountFailure)
-			continue
-		}
-
-		pubKeystr := BytesToHexString(pubKey[:])
-		privKeystr := BytesToHexString(privKey[:])
-
-		err = conn.WriteJSON(CreateAccount{"success", pubKeystr, privKeystr})
-
-		log.Println(err)
-
+	if err != nil {
+		http.Error(w, TmspRequestFailure, http.StatusInternalServerError)
 		return
 	}
+
+	resAppendTx := am.ReadResponse(conn).GetAppendTx()
+
+	// Status OK
+	w.WriteHeader(200)
+
+	// Encode JSON
+	enc := json.NewEncoder(w)
+
+	if resAppendTx.Code != tmsp.CodeType_OK {
+		enc.Encode(CreateAccount{Result: "failure"})
+		return
+	}
+
+	pubKeystr := BytesToHexString(pubKey[:])
+	privKeystr := BytesToHexString(privKey[:])
+
+	enc.Encode(CreateAccount{"success", pubKeystr, privKeystr})
 }
 
 func (am *ActionManager) RemoveAccount(w http.ResponseWriter, req *http.Request) {
 
-	// Websocket connection
-	conn, err := upgrader.Upgrade(w, req, nil)
+	// Request data
+	data, err := ioutil.ReadAll(req.Body)
 
 	if err != nil {
-		panic(err)
+		http.Error(w, HttpRequestFailure, http.StatusBadRequest)
+		return
 	}
 
-	defer conn.Close()
+	v, _ := url.ParseQuery(string(data))
 
-	// Connect to TMSP server
-	c, _ := net.Dial("tcp", am.ServerAddr)
-	defer c.Close()
+	pubKeystr := v.Get("public-key")
+	privKeystr := v.Get("private-key")
+
+	// Keys
+	var pubKey crypto.PubKeyEd25519
+	var privKey crypto.PrivKeyEd25519
+
+	// PubKey
+	pubKeyBytes, err := hex.DecodeString(pubKeystr)
+
+	if err != nil || len(pubKeyBytes) != PUBKEY_LENGTH {
+		http.Error(w, InvalidPublicKey, http.StatusUnauthorized)
+		return
+	}
+
+	copy(pubKey[:], pubKeyBytes)
+
+	// PrivKey
+	privKeyBytes, err := hex.DecodeString(privKeystr)
+
+	if err != nil || len(privKeyBytes) != PRIVKEY_LENGTH {
+		http.Error(w, InvalidPrivateKey, http.StatusUnauthorized)
+		return
+	}
+
+	copy(privKey[:], privKeyBytes)
 
 	// Create Tx
 	var tx types.Tx
 	tx.Type = types.RemoveAccountTx
 
+	// Connect to TMSP server
+	conn, _ := net.Dial("tcp", am.ServerAddr)
+	defer conn.Close()
+
+	// Query sequence
+	addr := pubKey.Address()
+	accKey := state.AccountKey(addr)
+	reqQuery := am.KeyQuery(accKey)
+
+	err = am.WriteRequest(reqQuery, conn)
+
+	if err != nil {
+		http.Error(w, TmspRequestFailure, http.StatusInternalServerError)
+		return
+	}
+
+	resQuery := am.ReadResponse(conn).GetQuery()
+
+	var acc *types.Account
+	accBytes := resQuery.Data
+
+	wire.ReadBinaryBytes(accBytes, &acc)
+
+	// Set sequence, account, signature
+	tx.SetSequence(acc.Sequence)
+	tx.SetAccount(pubKey)
+	tx.SetSignature(privKey, am.ChainID)
+
+	// TxBytes in AppendTx request
+	txBytes := wire.BinaryBytes(tx)
+	reqAppendTx := tmsp.ToRequestAppendTx(txBytes)
+
+	err = am.WriteRequest(reqAppendTx, conn)
+
+	if err != nil {
+		http.Error(w, TmspRequestFailure, http.StatusInternalServerError)
+		return
+	}
+
+	resAppendTx := am.ReadResponse(conn).GetAppendTx()
+
+	// Status OK
+	w.WriteHeader(200)
+
+	// Encode JSON
+	enc := json.NewEncoder(w)
+
+	if resAppendTx.Code != tmsp.CodeType_OK {
+		enc.Encode(RemoveAccount{"failure"})
+		return
+	}
+
+	enc.Encode(RemoveAccount{"success"})
+}
+
+func (am *ActionManager) Login(w http.ResponseWriter, req *http.Request) {
+
+	// Request data
+	data, err := ioutil.ReadAll(req.Body)
+
+	if err != nil {
+		http.Error(w, HttpRequestFailure, http.StatusBadRequest)
+		return
+	}
+
+	v, _ := url.ParseQuery(string(data))
+
+	pubKeystr := v.Get("public-key")
+	privKeystr := v.Get("private-key")
+
 	// Keys
 	var pubKey crypto.PubKeyEd25519
 	var privKey crypto.PrivKeyEd25519
 
-	for {
+	// PubKey
+	pubKeyBytes, err := hex.DecodeString(pubKeystr)
 
-		v := &struct {
-			PubKeystr  string `json:"public-key"`
-			PrivKeystr string `json:"private-key"`
-		}{}
-
-		err = conn.ReadJSON(v)
-
-		if err != nil {
-			am.Error(err.Error())
-			return
-		}
-
-		// PubKey
-		pubKeyBytes, err := hex.DecodeString(v.PubKeystr)
-
-		if err != nil || len(pubKey[:]) != PUBKEY_LENGTH {
-			conn.WriteJSON(InvalidPublicKey)
-			continue
-		}
-
-		copy(pubKey[:], pubKeyBytes)
-
-		// PrivKey
-		privKeyBytes, err := hex.DecodeString(v.PrivKeystr)
-
-		if err != nil || len(privKey[:]) != PRIVKEY_LENGTH {
-			conn.WriteJSON(InvalidPrivateKey)
-			continue
-		}
-
-		copy(privKey[:], privKeyBytes)
-
-		// Query sequence
-		addr := pubKey.Address()
-		accKey := state.AccountKey(addr)
-
-		reqQuery := am.KeyQuery(accKey)
-
-		err = am.WriteRequest(reqQuery, c)
-
-		if err != nil {
-			conn.WriteJSON(WriteRequestError)
-			continue
-		}
-
-		res := am.ReadResponse(c)
-
-		if res == nil {
-			conn.WriteJSON(ReadResponseError)
-			continue
-		}
-
-		resQuery := res.GetQuery()
-
-		if resQuery == nil {
-			conn.WriteJSON(ReadResponseError)
-			continue
-		}
-
-		var acc *types.Account
-		accBytes := resQuery.Data
-
-		err = wire.ReadBinaryBytes(accBytes, &acc)
-
-		if err != nil {
-			panic(err)
-		}
-
-		// Set sequence, account, signature
-		tx.SetSequence(acc.Sequence)
-		tx.SetAccount(pubKey)
-		tx.SetSignature(privKey, am.ChainID)
-
-		// TxBytes in AppendTx request
-		txBytes := wire.BinaryBytes(tx)
-		reqAppendTx := tmsp.ToRequestAppendTx(txBytes)
-
-		err = am.WriteRequest(reqAppendTx, c)
-
-		if err != nil {
-			conn.WriteJSON(WriteRequestError)
-			continue
-		}
-
-		res = am.ReadResponse(c)
-
-		if res == nil {
-			conn.WriteJSON(ReadResponseError)
-			continue
-		}
-
-		resAppendTx := res.GetAppendTx()
-
-		if resAppendTx == nil {
-			conn.WriteJSON(ReadResponseError)
-			continue
-		}
-
-		if resAppendTx.Code != tmsp.CodeType_OK {
-			conn.WriteJSON(RemoveAccountFailure)
-			continue
-		}
-
-		conn.WriteJSON(RemoveAccountSuccess)
-
+	if err != nil || len(pubKeyBytes) != PUBKEY_LENGTH {
+		http.Error(w, InvalidPublicKey, http.StatusUnauthorized)
 		return
 	}
-}
 
-func (am *ActionManager) Connect(w http.ResponseWriter, req *http.Request) {
+	copy(pubKey[:], pubKeyBytes)
 
-	conn, err := upgrader.Upgrade(w, req, nil)
+	// PrivKey
+	privKeyBytes, err := hex.DecodeString(privKeystr)
 
-	if err != nil {
-		panic(err)
+	if err != nil || len(privKeyBytes) != PRIVKEY_LENGTH {
+		http.Error(w, InvalidPrivateKey, http.StatusUnauthorized)
+		return
 	}
 
+	copy(privKey[:], privKeyBytes)
+
+	// Create connection to TMSP server
+	conn, _ := net.Dial("tcp", am.ServerAddr)
 	defer conn.Close()
 
 	// Create Tx
 	var tx types.Tx
 	tx.Type = types.ConnectTx
 
-	// Keys
-	var pubKey crypto.PubKeyEd25519
-	var privKey crypto.PrivKeyEd25519
+	// Query sequence
+	addr := pubKey.Address()
+	accKey := state.AccountKey(addr)
+	reqQuery := am.KeyQuery(accKey)
 
-	for {
+	err = am.WriteRequest(reqQuery, conn)
 
-		v := &struct {
-			PubKeystr  string `json:"public-key"`
-			PrivKeystr string `json:"private-key"`
-		}{}
-
-		err = conn.ReadJSON(v)
-
-		if err != nil {
-			am.Error(err.Error())
-			return
-		}
-
-		// PubKey
-		pubKeyBytes, err := hex.DecodeString(v.PubKeystr)
-
-		if err != nil || len(pubKeyBytes) != PUBKEY_LENGTH {
-			conn.WriteJSON(InvalidPublicKey)
-			continue
-		}
-
-		copy(pubKey[:], pubKeyBytes)
-
-		// PrivKey
-		privKeyBytes, err := hex.DecodeString(v.PrivKeystr)
-
-		if err != nil || len(privKeyBytes) != PRIVKEY_LENGTH {
-			conn.WriteJSON(InvalidPrivateKey)
-			continue
-		}
-
-		copy(privKey[:], privKeyBytes)
-
-		// Create connection to TMSP server
-		c, _ := net.Dial("tcp", am.ServerAddr)
-
-		// Query sequence
-		addr := pubKey.Address()
-		accKey := state.AccountKey(addr)
-		reqQuery := am.KeyQuery(accKey)
-
-		err = am.WriteRequest(reqQuery, c)
-
-		if err != nil {
-			conn.WriteJSON(WriteRequestError)
-			continue
-		}
-
-		res := am.ReadResponse(c)
-
-		var acc *types.Account
-		accBytes := res.GetQuery().Data
-
-		err = wire.ReadBinaryBytes(accBytes, &acc)
-
-		if err != nil {
-			panic(err)
-		}
-
-		// Set sequence, account, signature
-		tx.SetSequence(acc.Sequence)
-		tx.SetAccount(pubKey)
-		tx.SetSignature(privKey, am.ChainID)
-
-		// TxBytes in CheckTx request
-		txBytes := wire.BinaryBytes(tx)
-		reqCheckTx := tmsp.ToRequestCheckTx(txBytes)
-
-		err = am.WriteRequest(reqCheckTx, c)
-
-		if err != nil {
-			conn.WriteJSON(WriteRequestError)
-			continue
-		}
-
-		res = am.ReadResponse(c)
-
-		if res == nil {
-			conn.WriteJSON(ReadResponseError)
-			continue
-		}
-
-		resCheckTx := res.GetCheckTx()
-
-		if resCheckTx == nil {
-			conn.WriteJSON(ReadResponseError)
-			continue
-		}
-
-		if resCheckTx.Code != tmsp.CodeType_OK {
-			conn.WriteJSON(ConnectFailure)
-			continue
-		}
-
-		if !acc.IsAdmin() {
-			conn.WriteJSON(ConnectConstituent)
-			return
-		}
-
-		conn.WriteJSON(ConnectAdmin)
+	if err != nil {
+		http.Error(w, TmspRequestFailure, http.StatusInternalServerError)
 		return
 	}
+
+	res := am.ReadResponse(conn)
+
+	var acc *types.Account
+	accBytes := res.GetQuery().Data
+
+	wire.ReadBinaryBytes(accBytes, &acc)
+
+	// Set sequence, account, signature
+	tx.SetSequence(acc.Sequence)
+	tx.SetAccount(pubKey)
+	tx.SetSignature(privKey, am.ChainID)
+
+	// TxBytes in CheckTx request
+	txBytes := wire.BinaryBytes(tx)
+	reqCheckTx := tmsp.ToRequestCheckTx(txBytes)
+
+	err = am.WriteRequest(reqCheckTx, conn)
+
+	if err != nil {
+		http.Error(w, TmspRequestFailure, http.StatusInternalServerError)
+		return
+	}
+
+	resCheckTx := am.ReadResponse(conn).GetCheckTx()
+
+	// Status OK
+	w.WriteHeader(200)
+
+	// Encode JSON
+	enc := json.NewEncoder(w)
+
+	if resCheckTx.Code != tmsp.CodeType_OK {
+		enc.Encode(Connect{Result: "failure"})
+		return
+	}
+
+	if acc.IsAdmin() {
+		enc.Encode(Connect{"success", "admin"})
+		return
+	}
+
+	enc.Encode(Connect{"success", "constituent"})
 }
 
 func (am *ActionManager) SubmitForm(w http.ResponseWriter, req *http.Request) {
 
-	conn, err := upgrader.Upgrade(w, req, nil)
+	data, err := ioutil.ReadAll(req.Body)
 
 	if err != nil {
-		panic(err)
+		http.Error(w, HttpRequestFailure, http.StatusBadRequest)
+		return
 	}
 
-	// defer conn.Close()
-	// don't close if user wants to submit
-	// multiple forms consecutively
+	v, _ := url.ParseQuery(string(data))
 
-	// Connect to TMSP server
-	c, _ := net.Dial("tcp", am.ServerAddr)
-	defer c.Close()
-
-	// Create tx
-	var tx types.Tx
-	tx.Type = types.SubmitTx
+	issue := v.Get("issues")
+	location := v.Get("location")
+	description := v.Get("description")
+	media := []byte(v.Get("media"))
+	extension := v.Get("extension")
+	anonymous := v.Get("anonymous")
+	pubKeystr := v.Get("public-key")
+	privKeystr := v.Get("private-key")
 
 	// Keys
 	var pubKey crypto.PubKeyEd25519
 	var privKey crypto.PrivKeyEd25519
 
+	// PubKey
+	pubKeyBytes, err := hex.DecodeString(pubKeystr)
+
+	if err != nil || len(pubKeyBytes) != PUBKEY_LENGTH {
+		http.Error(w, InvalidPublicKey, http.StatusUnauthorized)
+		return
+	}
+
+	copy(pubKey[:], pubKeyBytes)
+
+	// PrivKey
+	privKeyBytes, err := hex.DecodeString(privKeystr)
+
+	if err != nil || len(privKeyBytes) != PRIVKEY_LENGTH {
+		http.Error(w, InvalidPrivateKey, http.StatusUnauthorized)
+		return
+	}
+
+	copy(privKey[:], privKeyBytes)
+
 	// Form
 	var form *forms.Form
 
-	for {
+	// TODO: field validation
+	if anonymous == "on" {
 
-		_, media, err := conn.ReadMessage()
+		form, _ = forms.MakeForm(
+			issue, location, description,
+			media, extension, "")
 
-		if err != nil {
-			panic(err)
-		}
+	} else {
 
-		v := &struct {
-			Issue       string `json:"issue"`
-			Location    string `json:"location"`
-			Description string `json:"description"`
-			Extension   string `json:"extension"`
-			Anonymous   bool   `json:"anonymous"`
-			PubKeystr   string `json:"public-key"`
-			PrivKeystr  string `json:"private-key"`
-		}{}
-
-		err = conn.ReadJSON(v)
-
-		if err != nil {
-			panic(err)
-		}
-
-		// PubKey
-		pubKeyBytes, err := hex.DecodeString(v.PubKeystr)
-
-		if err != nil || len(pubKeyBytes) != PUBKEY_LENGTH {
-			conn.WriteJSON(InvalidPublicKey)
-			continue
-		}
-
-		copy(pubKey[:], pubKeyBytes)
-
-		// PrivKey
-		privKeyBytes, err := hex.DecodeString(v.PrivKeystr)
-
-		if err != nil || len(privKeyBytes) != PRIVKEY_LENGTH {
-			conn.WriteJSON(InvalidPrivateKey)
-			continue
-		}
-
-		copy(privKey[:], privKeyBytes)
-
-		// TODO: field validation
-		if v.Anonymous {
-			form, err = forms.MakeAnonymousForm(
-				// Text
-				v.Issue,
-				v.Location,
-				v.Description,
-				// Media
-				media,
-				v.Extension)
-		} else {
-			form, err = forms.MakeForm(
-				// Text
-				v.Issue,
-				v.Location,
-				v.Description,
-				v.PubKeystr,
-				// Media
-				media,
-				v.Extension)
-		}
-
-		if err != nil {
-			am.Error(err.Error())
-			return
-		}
-
-		tx.Data = wire.BinaryBytes(*form)
-
-		// Query sequence
-		addr := pubKey.Address()
-		accKey := state.AccountKey(addr)
-		reqQuery := am.KeyQuery(accKey)
-
-		err = am.WriteRequest(reqQuery, c)
-
-		if err != nil {
-			conn.WriteJSON(WriteRequestError)
-			continue
-		}
-
-		res := am.ReadResponse(c)
-
-		if res == nil {
-			conn.WriteJSON(ReadResponseError)
-			continue
-		}
-
-		resQuery := res.GetQuery()
-
-		if resQuery == nil {
-			conn.WriteJSON(ReadResponseError)
-			continue
-		}
-
-		var acc *types.Account
-		accBytes := resQuery.Data
-
-		err = wire.ReadBinaryBytes(accBytes, &acc)
-
-		if err != nil {
-			panic(err)
-		}
-
-		// Set sequence, account, signature
-		tx.SetSequence(acc.Sequence)
-		tx.SetAccount(pubKey)
-		tx.SetSignature(privKey, am.ChainID)
-
-		// TxBytes in AppendTx
-		txBytes := wire.BinaryBytes(tx)
-		reqAppendTx := tmsp.ToRequestAppendTx(txBytes)
-
-		err = am.WriteRequest(reqAppendTx, c)
-
-		if err != nil {
-			conn.WriteJSON(WriteRequestError)
-			continue
-		}
-
-		res = am.ReadResponse(c)
-
-		if res == nil {
-			conn.WriteJSON(ReadResponseError)
-			continue
-		}
-
-		resAppendTx := res.GetAppendTx()
-
-		if resAppendTx == nil {
-			conn.WriteJSON(ReadResponseError)
-			continue
-		}
-
-		if resAppendTx.Code != tmsp.CodeType_OK {
-			conn.WriteJSON(SubmitFormFailure)
-			continue
-		}
-
-		formID := BytesToHexString(form.ID())
-
-		conn.WriteJSON(SubmitForm{"success", formID})
-
-		// return
-		// dont' return if user wants to submit
-		// multiple forms consecutively
+		form, _ = forms.MakeForm(
+			issue, location, description,
+			media, extension,
+			pubKeystr)
 	}
+
+	// Create tx
+	var tx types.Tx
+	tx.Type = types.SubmitTx
+	tx.Data = wire.BinaryBytes(*form)
+
+	// Query sequence
+	addr := pubKey.Address()
+	accKey := state.AccountKey(addr)
+	reqQuery := am.KeyQuery(accKey)
+
+	// Connect to TMSP server
+	conn, _ := net.Dial("tcp", am.ServerAddr)
+	defer conn.Close()
+
+	err = am.WriteRequest(reqQuery, conn)
+
+	if err != nil {
+		http.Error(w, TmspRequestFailure, http.StatusInternalServerError)
+		return
+	}
+
+	resQuery := am.ReadResponse(conn).GetQuery()
+
+	var acc *types.Account
+	accBytes := resQuery.Data
+
+	wire.ReadBinaryBytes(accBytes, &acc)
+
+	// Set sequence, account, signature
+	tx.SetSequence(acc.Sequence)
+	tx.SetAccount(pubKey)
+	tx.SetSignature(privKey, am.ChainID)
+
+	// TxBytes in AppendTx
+	txBytes := wire.BinaryBytes(tx)
+	reqAppendTx := tmsp.ToRequestAppendTx(txBytes)
+
+	err = am.WriteRequest(reqAppendTx, conn)
+
+	if err != nil {
+		http.Error(w, TmspRequestFailure, http.StatusInternalServerError)
+		return
+	}
+
+	resAppendTx := am.ReadResponse(conn).GetAppendTx()
+
+	// Status OK
+	w.WriteHeader(200)
+
+	// Encode JSON
+	enc := json.NewEncoder(w)
+
+	if resAppendTx.Code != tmsp.CodeType_OK {
+		enc.Encode(SubmitForm{Result: "failure"})
+		return
+	}
+
+	formID := BytesToHexString(form.ID())
+
+	enc.Encode(SubmitForm{"success", formID})
 }
 
+/*
 // Resolve form
 
 func (am *ActionManager) ResolveForm(w http.ResponseWriter, req *http.Request) {
 
-	// Websocket connection
-	conn, err := upgrader.Upgrade(w, req, nil)
+	// Websocket wsection
+	ws, err := upgrader.Upgrade(w, req, nil)
 
 	if err != nil {
 		panic(err)
 	}
 
-	defer conn.Close()
+	defer ws.Close()
 
 	// Connect to TMSP server
-	c, _ := net.Dial("tcp", am.ServerAddr)
-	defer c.Close()
+	conn,_ := net.Dial("tcp", am.ServerAddr)
+	defer conn.Close()
 
 	// Create Tx
 	var tx types.Tx
@@ -755,7 +643,7 @@ func (am *ActionManager) ResolveForm(w http.ResponseWriter, req *http.Request) {
 			PrivKeystr string `json:"private-key"`
 		}{}
 
-		err = conn.ReadJSON(v)
+		err = ws.ReadJSON(v)
 
 		if err != nil {
 			panic(err)
@@ -765,7 +653,7 @@ func (am *ActionManager) ResolveForm(w http.ResponseWriter, req *http.Request) {
 		formID, err := hex.DecodeString(v.FormID)
 
 		if err != nil || len(formID) != FORM_ID_LENGTH {
-			conn.WriteJSON(InvalidFormID)
+			ws.WriteJSON(InvalidFormID)
 			continue
 		}
 
@@ -773,7 +661,7 @@ func (am *ActionManager) ResolveForm(w http.ResponseWriter, req *http.Request) {
 		pubKeyBytes, err := hex.DecodeString(v.PubKeystr)
 
 		if err != nil || len(pubKeyBytes) != PUBKEY_LENGTH {
-			conn.WriteJSON(InvalidPublicKey)
+			ws.WriteJSON(InvalidPublicKey)
 			continue
 		}
 
@@ -783,7 +671,7 @@ func (am *ActionManager) ResolveForm(w http.ResponseWriter, req *http.Request) {
 		privKeyBytes, err := hex.DecodeString(v.PrivKeystr)
 
 		if err != nil || len(privKeyBytes) != PRIVKEY_LENGTH {
-			conn.WriteJSON(InvalidPrivateKey)
+			ws.WriteJSON(InvalidPrivateKey)
 			continue
 		}
 
@@ -794,24 +682,24 @@ func (am *ActionManager) ResolveForm(w http.ResponseWriter, req *http.Request) {
 		accKey := state.AccountKey(addr)
 		reqQuery := am.KeyQuery(accKey)
 
-		err = am.WriteRequest(reqQuery, c)
+		err = am.WriteRequest(reqQuery, conn)
 
 		if err != nil {
-			conn.WriteJSON(WriteRequestError)
+			ws.WriteJSON(WriteRequestError)
 			continue
 		}
 
-		res := am.ReadResponse(c)
+		res := am.ReadResponse(conn)
 
 		if res == nil {
-			conn.WriteJSON(ReadResponseError)
+			ws.WriteJSON(ReadResponseError)
 			continue
 		}
 
 		resQuery := res.GetQuery()
 
 		if resQuery == nil {
-			conn.WriteJSON(ReadResponseError)
+			ws.WriteJSON(ReadResponseError)
 			continue
 		}
 
@@ -834,324 +722,379 @@ func (am *ActionManager) ResolveForm(w http.ResponseWriter, req *http.Request) {
 		wire.WriteBinary(tx, buf, &n, &err)
 		reqAppendTx := tmsp.ToRequestAppendTx(buf.Bytes())
 
-		err = am.WriteRequest(reqAppendTx, c)
+		err = am.WriteRequest(reqAppendTx, conn)
 
 		if err != nil {
-			conn.WriteJSON(WriteRequestError)
+			ws.WriteJSON(WriteRequestError)
 			continue
 		}
 
-		res = am.ReadResponse(c)
+		res = am.ReadResponse(conn)
 
 		if res == nil {
-			conn.WriteJSON(ReadResponseError)
+			ws.WriteJSON(ReadResponseError)
 			continue
 		}
 
 		resAppendTx := res.GetAppendTx()
 
 		if resAppendTx == nil {
-			conn.WriteJSON(ReadResponseError)
+			ws.WriteJSON(ReadResponseError)
 			continue
 		}
 
 		if resAppendTx.Code != tmsp.CodeType_OK {
-			conn.WriteJSON(ResolveFormFailure)
+			ws.WriteJSON(ResolveFormFailure)
 			continue
 		}
 
-		conn.WriteJSON(ResolveFormSuccess)
+		ws.WriteJSON(ResolveFormSuccess)
 
 		return
 	}
 }
 
+*/
+
 func (am *ActionManager) FindForm(w http.ResponseWriter, req *http.Request) {
 
-	// Websocket connection
-	conn, err := upgrader.Upgrade(w, req, nil)
+	// Request data
+	data, err := ioutil.ReadAll(req.Body)
+
+	if err != nil {
+		http.Error(w, HttpRequestFailure, http.StatusBadRequest)
+		return
+	}
+
+	v, _ := url.ParseQuery(string(data))
+
+	formID := v.Get("form-ID")
+	pubKeystr := v.Get("public-key")
+
+	formIDBytes, err := hex.DecodeString(formID)
+	if err != nil || len(formIDBytes) != FORM_ID_LENGTH {
+		http.Error(w, InvalidFormID, http.StatusNotFound)
+		return
+	}
+
+	buf, n, err := new(bytes.Buffer), int(0), error(nil)
+	wire.WriteByteSlice(formIDBytes, buf, &n, &err)
+	key := buf.Bytes()
+
+	reqQuery := am.KeyQuery(key)
+
+	// Connect to TMSP server
+	conn, _ := net.Dial("tcp", am.ServerAddr)
+	defer conn.Close()
+
+	err = am.WriteRequest(reqQuery, conn)
+
+	if err != nil {
+		http.Error(w, TmspRequestFailure, http.StatusInternalServerError)
+		return
+	}
+
+	resQuery := am.ReadResponse(conn).GetQuery()
+
+	// Status OK
+	w.WriteHeader(200)
+
+	// Encode JSON
+	enc := json.NewEncoder(w)
+
+	if resQuery.Code != tmsp.CodeType_OK {
+		enc.Encode(FindForm{"failure"})
+		return
+	}
+
+	// Form
+	var form forms.Form
+
+	value := resQuery.Data
+	wire.ReadBinaryBytes(value, &form)
+	form.SetContentIDs("found", 0)
+
+	am.FormsMtx.Lock()
+	defer am.FormsMtx.Lock()
+
+	ch, ok := am.Forms[pubKeystr]
+
+	if !ok {
+		am.Forms[pubKeystr] = make(chan *forms.Form)
+		am.Forms[pubKeystr] <- &form
+	}
+
+	ch <- &form
+
+	enc.Encode(FindForm{"success"})
+}
+
+func (am *ActionManager) Form(w http.ResponseWriter, req *http.Request) {
+
+	ws, err := upgrader.Upgrade(w, req, nil)
 
 	if err != nil {
 		panic(err)
 	}
 
-	// defer conn.Close
-	// no close if user wants to query
-	// multiple forms consecutively
+	defer ws.Close()
 
-	// Connect to TMSP server
-	c, _ := net.Dial("tcp", am.ServerAddr)
-	defer c.Close()
+	_, data, err := ws.ReadMessage()
 
-	// Form
-	var form forms.Form
+	if err != nil {
+		panic(err)
+	}
 
-	for {
+	pubKeystr := string(data)
 
-		// Form ID
-		_, hexBytes, err := conn.ReadMessage()
+	am.FormsMtx.Lock()
+	ch, ok := am.Forms[pubKeystr]
+	am.FormsMtx.Unlock()
 
-		if err != nil {
-			am.Error(err.Error())
-			return
-		}
+	if !ok {
+		// shouldn't happen because we created chan
+		// if there wasn't already one..
+	}
 
-		formIDBytes := make([]byte, FORM_ID_LENGTH)
+	form := *<-ch //get one form
 
-		n, err := hex.Decode(formIDBytes, hexBytes)
-		if err != nil || n != FORM_ID_LENGTH {
-			conn.WriteJSON(InvalidFormID)
-		}
+	err = ws.WriteJSON(form)
 
-		buf, n, err := new(bytes.Buffer), int(0), error(nil)
-		wire.WriteByteSlice(formIDBytes, buf, &n, &err)
-		key := buf.Bytes()
-
-		reqQuery := am.KeyQuery(key)
-		err = am.WriteRequest(reqQuery, c)
-
-		if err != nil {
-			conn.WriteJSON(WriteRequestError)
-			continue
-		}
-
-		res := am.ReadResponse(c)
-
-		if res == nil {
-			conn.WriteJSON(ReadResponseError)
-			continue
-		}
-
-		resQuery := res.GetQuery()
-
-		if resQuery == nil {
-			conn.WriteJSON(ReadResponseError)
-			continue
-		}
-
-		if resQuery.Code != tmsp.CodeType_OK {
-			conn.WriteJSON(FindFormFailure)
-			continue
-		}
-
-		value := resQuery.Data
-		wire.ReadBinaryBytes(value, &form)
-
-		conn.WriteJSON(FindForm{"success", form})
+	if err != nil {
+		panic(err)
 	}
 }
 
 func (am *ActionManager) UpdateFeed(w http.ResponseWriter, req *http.Request) {
 
-	// Websocket connection
-	conn, err := upgrader.Upgrade(w, req, nil)
+	// Request data
+	data, err := ioutil.ReadAll(req.Body)
 
 	if err != nil {
-		panic(err)
+		http.Error(w, HttpRequestFailure, http.StatusBadRequest)
+		return
 	}
 
-	defer conn.Close()
+	v, _ := url.ParseQuery(string(data))
 
-	// Create connection to TMSP server
-	c, _ := net.Dial("tcp", am.ServerAddr)
-	defer c.Close()
-
-	// Create Tx
-	var tx types.Tx
-	tx.Type = types.UpdateTx
+	issue := v.Get("issues")
+	pubKeystr := v.Get("public-key")
+	privKeystr := v.Get("private-key")
 
 	// Keys
 	var pubKey crypto.PubKeyEd25519
 	var privKey crypto.PrivKeyEd25519
 
-	for {
+	// PubKey
+	pubKeyBytes, err := hex.DecodeString(pubKeystr)
 
-		v := &struct {
-			Issues     []string `json:"issues"`
-			PubKeystr  string   `json:"public-key"`
-			PrivKeystr string   `json:"private-key"`
-		}{}
-
-		err = conn.ReadJSON(v)
-
-		if err != nil {
-			panic(err)
-		}
-
-		log.Printf("%v\n", v)
-
-		// PubKey
-		pubKeyBytes, err := hex.DecodeString(v.PubKeystr)
-
-		if err != nil || len(pubKeyBytes) != PUBKEY_LENGTH {
-			conn.WriteJSON(InvalidPublicKey)
-			continue
-		}
-
-		copy(pubKey[:], pubKeyBytes)
-
-		// PrivKey
-		privKeyBytes, err := hex.DecodeString(v.PrivKeystr)
-
-		if err != nil || len(privKeyBytes) != PRIVKEY_LENGTH {
-			conn.WriteJSON(InvalidPrivateKey)
-			continue
-		}
-
-		copy(privKey[:], privKeyBytes)
-
-		// Query sequence
-		addr := pubKey.Address()
-		accKey := state.AccountKey(addr)
-		reqQuery := am.KeyQuery(accKey)
-
-		err = am.WriteRequest(reqQuery, c)
-
-		if err != nil {
-			conn.WriteJSON(WriteRequestError)
-			continue
-		}
-
-		res := am.ReadResponse(c)
-
-		var acc *types.Account
-		accBytes := res.GetQuery().Data
-
-		err = wire.ReadBinaryBytes(accBytes, &acc)
-
-		if err != nil {
-			panic(err)
-		}
-
-		// Set sequence, account, signature
-		tx.SetSequence(acc.Sequence)
-		tx.SetAccount(pubKey)
-		tx.SetSignature(privKey, am.ChainID)
-
-		// TxBytes in CheckTx request
-		txBytes := wire.BinaryBytes(tx)
-		reqCheckTx := tmsp.ToRequestCheckTx(txBytes)
-
-		am.WriteRequest(reqCheckTx, c)
-
-		// --------------------------------------- //
-
-		am.Info("Updating feed...")
-
-		cli := NewClient(c, conn)
-
-		done := make(chan struct{})
-
-		// Read updates from TMSP server conn
-		// Write updates to websocket...
-		go cli.WriteRoutine(v.Issues, done)
-		go cli.ReadRoutine()
-
-		<-done
-		break
+	if err != nil || len(pubKeyBytes) != PUBKEY_LENGTH {
+		http.Error(w, InvalidPublicKey, http.StatusUnauthorized)
+		return
 	}
+
+	copy(pubKey[:], pubKeyBytes)
+
+	// PrivKey
+	privKeyBytes, err := hex.DecodeString(privKeystr)
+
+	if err != nil || len(privKeyBytes) != PRIVKEY_LENGTH {
+		http.Error(w, InvalidPrivateKey, http.StatusUnauthorized)
+		return
+	}
+
+	copy(privKey[:], privKeyBytes)
+
+	// Create connection to TMSP server
+	conn, _ := net.Dial("tcp", am.ServerAddr)
+
+	// Do not close conn!
+
+	// Query sequence
+	addr := pubKey.Address()
+	accKey := state.AccountKey(addr)
+	reqQuery := am.KeyQuery(accKey)
+
+	err = am.WriteRequest(reqQuery, conn)
+
+	if err != nil {
+		http.Error(w, TmspRequestFailure, http.StatusInternalServerError)
+		return
+	}
+
+	res := am.ReadResponse(conn)
+
+	var acc *types.Account
+	accBytes := res.GetQuery().Data
+
+	wire.ReadBinaryBytes(accBytes, &acc)
+
+	// Create Tx
+	var tx types.Tx
+	tx.Type = types.UpdateTx
+
+	// Set sequence, account, signature
+	tx.SetSequence(acc.Sequence)
+	tx.SetAccount(pubKey)
+	tx.SetSignature(privKey, am.ChainID)
+
+	// TxBytes in CheckTx request
+	txBytes := wire.BinaryBytes(tx)
+	reqCheckTx := tmsp.ToRequestCheckTx(txBytes)
+
+	err = am.WriteRequest(reqCheckTx, conn)
+
+	if err != nil {
+		http.Error(w, TmspRequestFailure, http.StatusInternalServerError)
+		return
+	}
+
+	// Save conn
+	am.ConnsMtx.Lock()
+	am.Conns[pubKeystr] = conn
+	am.ConnsMtx.Unlock()
+
+	// Status OK
+	w.WriteHeader(200)
+
+	// Encode JSON
+	enc := json.NewEncoder(w)
+
+	enc.Encode(struct {
+		Issue     string `json:"issue"`
+		PubKeystr string `json:"public-key"`
+	}{issue, pubKeystr})
+
 }
 
-/*
+func (am *ActionManager) Updates(w http.ResponseWriter, req *http.Request) {
 
-NO SEARCH FORMS FOR NOW
-
-func (am *ActionManager) SearchForms(w http.ResponseWriter, req *http.Request) {
-
-	// Websocket connection
-	conn, err := upgrader.Upgrade(w, req, nil)
+	// Websocket
+	ws, err := upgrader.Upgrade(w, req, nil)
 
 	if err != nil {
 		panic(err)
 	}
 
+	defer ws.Close()
+
+	v := &struct {
+		Issue     string `json:"issue"`
+		PubKeystr string `json:"public-key"`
+	}{}
+
+	// Read from websocket
+	err = ws.ReadJSON(v)
+
+	if err != nil {
+		panic(err) //for now
+	}
+
+	// Get conn to TMSP server
+
+	am.ConnsMtx.Lock()
+	conn, ok := am.Conns[v.PubKeystr]
+	am.ConnsMtx.Unlock()
+
+	defer conn.Close()
+
+	if !ok {
+		panic("Could not find conn") //for now
+	}
+
+	am.Info("Updating feed...")
+
+	cli := NewClient(conn, ws)
+
+	done := make(chan struct{})
+
+	// Read updates from TMSP server connection
+	// Write updates to websocket
+	go cli.WriteRoutine(v.Issue, done)
+	go cli.ReadRoutine()
+
+	<-done
+
+	am.Info("Done")
+}
+
+/*
+func (am *ActionManager) SearchForms(w http.ResponseWriter, req *http.Request) {
+
+	// Websocket wsection
+	ws, err := upgrader.Upgrade(w, req, nil)
+
+	if err != nil {
+		panic(err)
+	}
+
+	defer ws.Close()
+
 	// Create connection to TMSP server
-	c, _ := net.Dial("tcp", am.ServerAddr)
-	defer c.Close()
-
-	// Times
-	var afterTime time.Time
-	var beforeTime time.Time
-
-	count := 1
+	conn,_ := net.Dial("tcp", am.ServerAddr)
+	defer conn.Close()
 
 	for {
 
-		afterTime = time.Time{}
-		beforeTime = time.Time{}
-
-		_, afterBytes, err := conn.ReadMessage()
-		if err != nil {
-			am.Error(err.Error())
-			return
-		}
-
-		after := string(afterBytes)
-		if len(after) >= MOMENT_LENGTH {
-			afterTime = ParseMomentString(after)
-		}
-
-		_, beforeBytes, err := conn.ReadMessage()
-		if err != nil {
-			am.Error(err.Error())
-			return
-		}
-
-		before := string(beforeBytes)
-		if len(before) >= MOMENT_LENGTH {
-			beforeTime = ParseMomentString(before)
-		}
-
-		var filters []string
-
-		_, issueBytes, err := conn.ReadMessage()
-		if err != nil {
-			am.Error(err.Error())
-			return
-		}
-
-		issue := string(issueBytes)
-		if len(issue) > 0 {
-			filters = append(filters, issue)
-		}
-
 		// TODO: add location
 
-		_, statusBytes, err := conn.ReadMessage()
-		if err != nil {
-			log.Println(err.Error())
-			return
-		}
+		v := &struct {
+			After  string `json:"after"`
+			Before string `json:"before"`
+			Issue  string `json:"issue"`
+		}{}
 
-		status := string(statusBytes)
-
-		if status == "resolved" {
-			filters = append(filters, "resolved")
-		}
-
-		reqQuery := am.FilterQuery(filters)
-		err = am.WriteRequest(reqQuery, c)
+		err = ws.ReadJSON(v)
 
 		if err != nil {
-			//
+			panic(err)
 		}
 
-		res := am.ReadResponse(c)
+		// Search
+		s := struct {
+			AfterTime  time.Time
+			BeforeTime time.Time
+			Issue      string
+		}{}
+
+		s.AfterTime = ParseMomentString(v.After)
+		s.BeforeTime = ParseMomentString(v.Before)
+		s.Issue = v.Issue
+
+		log.Println(v.After)
+		log.Printf("%v\n", s.AfterTime)
+
+		search := wire.BinaryBytes(s)
+		reqQuery := am.SearchQuery(search)
+
+		err = am.WriteRequest(reqQuery, conn)
+
+		if err != nil {
+			panic(err)
+		}
+
+		res := am.ReadResponse(conn)
 
 		if res == nil {
-			//
+			panic(err)
 		}
 
 		resQuery := res.GetQuery()
 
 		if resQuery == nil {
-			//
+			panic(err)
 		}
 
-		log.Println("Search finished")
+		am.Info("Search finished")
+
+		var datas [][]byte
+		wire.ReadBinaryBytes(resQuery.Data, &datas)
+
+		log.Printf("%v\n", datas)
 	}
 }
 
+/*
 fun1 := am.FilterFunc(filters, includes)
 
 		fun2 := func(data []byte) bool {
@@ -1190,7 +1133,7 @@ fun1 := am.FilterFunc(filters, includes)
 					continue
 				}
 				msg := (&form).Summary("search", count)
-				conn.WriteMessage(ws.TextMessage, []byte(msg))
+				ws.WriteMessage(ws.TextMessage, []byte(msg))
 				count++
 			} else {
 				break
@@ -1202,7 +1145,7 @@ NO MESSAGES FOR NOW
 
 func (am *ActionManager) CheckMessages(w http.ResponseWriter, req *http.Request) {
 
-	conn, err := upgrader.Upgrade(w, req, nil)
+	ws, err := upgrader.Upgrade(w, req, nil)
 	if err != nil {
 		panic(err)
 	}
@@ -1210,21 +1153,21 @@ func (am *ActionManager) CheckMessages(w http.ResponseWriter, req *http.Request)
 	for {
 
 		var pubKey crypto.PubKeyEd25519
-		_, pubKeyBytes, err := conn.ReadMessage()
+		_, pubKeyBytes, err := ws.ReadMessage()
 		if err != nil {
 			log.Println(err.Error())
 			return
 		}
 		n, err := hex.Decode(pubKey[:], pubKeyBytes)
 		if err != nil || n != PUBKEY_LENGTH {
-			conn.WriteMessage(ws.TextMessage, []byte(invalid_public_key))
+			ws.WriteMessage(ws.TextMessage, []byte(invalid_public_key))
 			return
 		}
 
 		log.Println("Getting messages...")
 
 		// Create client
-		cli := NewClient(conn, pubKey)
+		cli := NewClient(ws, pubKey)
 
 		// Get messages
 		go am.GetMessages(cli)
@@ -1241,7 +1184,7 @@ func (am *ActionManager) CheckMessages(w http.ResponseWriter, req *http.Request)
 
 func (am *ActionManager) SendMessage(w http.ResponseWriter, req *http.Request) {
 
-	conn, err := upgrader.Upgrade(w, req, nil)
+	ws, err := upgrader.Upgrade(w, req, nil)
 	if err != nil {
 		panic(err)
 	}
@@ -1250,44 +1193,44 @@ func (am *ActionManager) SendMessage(w http.ResponseWriter, req *http.Request) {
 
 		message := NewMessage()
 
-		_, recipientBytes, err := conn.ReadMessage()
+		_, recipientBytes, err := ws.ReadMessage()
 		if err != nil {
 			log.Println(err.Error())
 			return
 		}
 		n, err := hex.Decode(message.recipient[:], recipientBytes)
 		if err != nil || n != PUBKEY_LENGTH {
-			conn.WriteMessage(ws.TextMessage, []byte(invalid_public_key))
+			ws.WriteMessage(ws.TextMessage, []byte(invalid_public_key))
 			continue
 		}
 
-		_, contentBytes, err := conn.ReadMessage()
+		_, contentBytes, err := ws.ReadMessage()
 		if err != nil {
 			log.Println(err.Error())
 			return
 		}
 		message.content = contentBytes
 
-		_, senderBytes, err := conn.ReadMessage()
+		_, senderBytes, err := ws.ReadMessage()
 		if err != nil {
 			log.Println(err.Error())
 			return
 		}
 		n, err = hex.Decode(message.sender[:], senderBytes)
 		if err != nil || n != PUBKEY_LENGTH {
-			conn.WriteMessage(ws.TextMessage, []byte(invalid_public_key))
+			ws.WriteMessage(ws.TextMessage, []byte(invalid_public_key))
 			continue
 		}
 
 		err = am.sendMessage(message)
 		if err != nil {
-			conn.WriteMessage(ws.TextMessage, []byte("Could not send message"))
-			conn.Close()
+			ws.WriteMessage(ws.TextMessage, []byte("Could not send message"))
+			ws.Close()
 			return
 		}
 
-		conn.WriteMessage(ws.TextMessage, []byte("Message sent!"))
-		// conn.Close()
+		ws.WriteMessage(ws.TextMessage, []byte("Message sent!"))
+		// ws.Close()
 		// return
 	}
 }
@@ -1297,7 +1240,7 @@ NO ADMIN FOR NOW
 // Create Admin
 func (am *ActionManager) CreateAdmin(w http.ResponseWriter, req *http.Request) {
 
-	conn, err := upgrader.Upgrade(w, req, nil)
+	ws, err := upgrader.Upgrade(w, req, nil)
 	if err != nil {
 		panic(err)
 	}
@@ -1313,7 +1256,7 @@ func (am *ActionManager) CreateAdmin(w http.ResponseWriter, req *http.Request) {
 	for {
 
 		// Secret
-		_, secret, err := conn.ReadMessage()
+		_, secret, err := ws.ReadMessage()
 		if err != nil {
 			log.Println(err.Error())
 			return
@@ -1324,26 +1267,26 @@ func (am *ActionManager) CreateAdmin(w http.ResponseWriter, req *http.Request) {
 		tx.Data = buf.Bytes()
 
 		// PubKey
-		_, pubKeyBytes, err := conn.ReadMessage()
+		_, pubKeyBytes, err := ws.ReadMessage()
 		if err != nil {
 			log.Println(err.Error())
 			return
 		}
 		n, err = hex.Decode(pubKey[:], pubKeyBytes)
 		if err != nil || n != PUBKEY_LENGTH {
-			conn.WriteMessage(ws.TextMessage, []byte(invalid_public_key))
+			ws.WriteMessage(ws.TextMessage, []byte(invalid_public_key))
 			continue
 		}
 
 		// PrivKey
-		_, privKeyBytes, err := conn.ReadMessage()
+		_, privKeyBytes, err := ws.ReadMessage()
 		if err != nil {
 			log.Println(err.Error())
 			return
 		}
 		n, err = hex.Decode(privKey[:], privKeyBytes)
 		if err != nil || n != PRIVKEY_LENGTH {
-			conn.WriteMessage(ws.TextMessage, []byte(invalid_private_key))
+			ws.WriteMessage(ws.TextMessage, []byte(invalid_private_key))
 			continue
 		}
 
@@ -1358,7 +1301,7 @@ func (am *ActionManager) CreateAdmin(w http.ResponseWriter, req *http.Request) {
 		res, err := am.WriteRequest(reqQuery)
 
 		if err != nil {
-			conn.WriteMessage(ws.TextMessage, []byte(read_response_failure))
+			ws.WriteMessage(ws.TextMessage, []byte(read_response_failure))
 			continue
 		}
 
@@ -1376,7 +1319,7 @@ func (am *ActionManager) CreateAdmin(w http.ResponseWriter, req *http.Request) {
 		res, err = am.WriteRequest(reqQuery)
 
 		if err != nil {
-			conn.WriteMessage(ws.TextMessage, []byte(read_response_failure))
+			ws.WriteMessage(ws.TextMessage, []byte(read_response_failure))
 			continue
 		}
 
@@ -1392,7 +1335,7 @@ func (am *ActionManager) CreateAdmin(w http.ResponseWriter, req *http.Request) {
 		resAppendTx := res.GetAppendTx()
 
 		if resAppendTx.Code != tmsp.CodeType_OK {
-			conn.WriteMessage(ws.TextMessage, []byte(create_admin_failure))
+			ws.WriteMessage(ws.TextMessage, []byte(create_admin_failure))
 			continue
 		}
 
@@ -1406,8 +1349,8 @@ func (am *ActionManager) CreateAdmin(w http.ResponseWriter, req *http.Request) {
 		}
 		log.Printf("SUCCESS created admin with pubKey %X\n", pubKey[:])
 		msg := Fmt(create_admin_success, pubKeyBytes, privKeyBytes)
-		conn.WriteMessage(ws.TextMessage, []byte(msg))
-		conn.Close()
+		ws.WriteMessage(ws.TextMessage, []byte(msg))
+		ws.Close()
 		return
 	}
 }
@@ -1416,7 +1359,7 @@ func (am *ActionManager) CreateAdmin(w http.ResponseWriter, req *http.Request) {
 
 func (am *ActionManager) RemoveAdmin(w http.ResponseWriter, req *http.Request) {
 
-	conn, err := upgrader.Upgrade(w, req, nil)
+	ws, err := upgrader.Upgrade(w, req, nil)
 	if err != nil {
 		panic(err)
 	}
@@ -1432,7 +1375,7 @@ func (am *ActionManager) RemoveAdmin(w http.ResponseWriter, req *http.Request) {
 	for {
 
 		// PubKey
-		_, pubKeyBytes, err := conn.ReadMessage()
+		_, pubKeyBytes, err := ws.ReadMessage()
 		if err != nil {
 			log.Println(err.Error())
 			return
@@ -1440,12 +1383,12 @@ func (am *ActionManager) RemoveAdmin(w http.ResponseWriter, req *http.Request) {
 
 		n, err := hex.Decode(pubKey[:], pubKeyBytes)
 		if err != nil || n != PUBKEY_LENGTH {
-			conn.WriteMessage(ws.TextMessage, []byte(invalid_public_key))
+			ws.WriteMessage(ws.TextMessage, []byte(invalid_public_key))
 			continue
 		}
 
 		// PrivKey
-		_, privKeyBytes, err := conn.ReadMessage()
+		_, privKeyBytes, err := ws.ReadMessage()
 		if err != nil {
 			log.Println(err.Error())
 			return
@@ -1453,7 +1396,7 @@ func (am *ActionManager) RemoveAdmin(w http.ResponseWriter, req *http.Request) {
 
 		n, err = hex.Decode(privKey[:], privKeyBytes)
 		if err != nil || n != PRIVKEY_LENGTH {
-			conn.WriteMessage(ws.TextMessage, []byte(invalid_private_key))
+			ws.WriteMessage(ws.TextMessage, []byte(invalid_private_key))
 			continue
 		}
 
@@ -1468,7 +1411,7 @@ func (am *ActionManager) RemoveAdmin(w http.ResponseWriter, req *http.Request) {
 		res, err := am.WriteRequest(reqQuery)
 
 		if err != nil {
-			conn.WriteMessage(ws.TextMessage, []byte(read_response_failure))
+			ws.WriteMessage(ws.TextMessage, []byte(read_response_failure))
 			continue
 		}
 
@@ -1486,7 +1429,7 @@ func (am *ActionManager) RemoveAdmin(w http.ResponseWriter, req *http.Request) {
 		res, err = am.WriteRequest(reqQuery)
 
 		if err != nil {
-			conn.WriteMessage(ws.TextMessage, []byte(read_response_failure))
+			ws.WriteMessage(ws.TextMessage, []byte(read_response_failure))
 			continue
 		}
 
@@ -1500,7 +1443,7 @@ func (am *ActionManager) RemoveAdmin(w http.ResponseWriter, req *http.Request) {
 		res, err = am.WriteRequest(reqAppendTx)
 
 		if err != nil {
-			conn.WriteMessage(ws.TextMessage, []byte(read_response_failure))
+			ws.WriteMessage(ws.TextMessage, []byte(read_response_failure))
 			continue
 		}
 
@@ -1508,14 +1451,14 @@ func (am *ActionManager) RemoveAdmin(w http.ResponseWriter, req *http.Request) {
 
 		if resAppendTx.Code != tmsp.CodeType_OK {
 			msg := Fmt(remove_admin_failure, pubKeyBytes)
-			conn.WriteMessage(ws.TextMessage, []byte(msg))
+			ws.WriteMessage(ws.TextMessage, []byte(msg))
 			continue
 		}
 
 		log.Printf("SUCCESS removed admin with pubKey %X\n", pubKeyBytes)
 		msg := Fmt(remove_admin_success, pubKeyBytes)
-		conn.WriteMessage(ws.TextMessage, []byte(msg))
-		conn.Close()
+		ws.WriteMessage(ws.TextMessage, []byte(msg))
+		ws.Close()
 		return
 	}
 }

@@ -154,23 +154,16 @@ func RunSubmitTx(state *State, data []byte) (res tmsp.Result) {
 		return tmsp.ErrEncodingError.SetLog(
 			Fmt("Error: could not decode form data: %v", data))
 	}
-	// issue := form.Issue
+	issue := form.Issue
 	formID := (&form).ID()
 	buf, n, err := new(bytes.Buffer), int(0), error(nil)
 	wire.WriteByteSlice(formID, buf, &n, &err)
 	state.Set(buf.Bytes(), data)
 
-	/*
-		err = state.AddToFilter(buf.Bytes(), issue)
-		if err != nil {
-			// False positive
-			// May happen if form is submitted
-			// and then form with same type, location
-			// is submitted a minute later...
-			// print for now
-			fmt.Println(err.Error())
-		}
-	*/
+	err = state.AddToFilter(buf.Bytes(), issue)
+	if err != nil {
+		// False positive
+	}
 
 	formBytes := wire.BinaryBytes(form)
 	data = make([]byte, wire.ByteSliceSize(formBytes)+1)
@@ -218,8 +211,6 @@ func RunResolveTx(state *State, pubKey crypto.PubKeyEd25519, data []byte) (res t
 		err = state.AddToFilter(data, "resolved")
 		if err != nil {
 			// False positive
-			// print for now
-			fmt.Println(err.Error())
 		}
 	*/
 

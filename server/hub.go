@@ -101,7 +101,7 @@ func (hub *Hub) Run() {
 				}
 
 				bufWriter.Flush()
-				fmt.Printf("%X\n", update)
+				fmt.Print("Sent update")
 			}
 		}
 	}

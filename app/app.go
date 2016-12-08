@@ -4,12 +4,16 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	. "github.com/tendermint/go-common"
 	"github.com/tendermint/go-wire"
 	tmsp "github.com/tendermint/tmsp/types"
+	"github.com/zballs/comit/forms"
 	sm "github.com/zballs/comit/state"
 	"github.com/zballs/comit/types"
+	. "github.com/zballs/comit/util"
 	"strings"
+	"time"
 )
 
 const (
@@ -21,6 +25,7 @@ const (
 	QueryKey     byte = 2
 	QueryIndex   byte = 3
 	QueryIssues  byte = 4
+	QuerySearch  byte = 5
 )
 
 type App struct {
@@ -38,6 +43,8 @@ func NewApp(cli *Client) *App {
 		cacheState: nil,
 	}
 }
+
+// Get
 
 func (app *App) GetChainID() string {
 	return app.state.GetChainID()
@@ -57,6 +64,27 @@ func (app *App) GetSize() int {
 	return int(s)
 }
 
+// Filter
+
+func (app *App) FilterFunc(filters []string) func(data []byte) bool {
+	return app.state.FilterFunc(filters)
+}
+
+func (app *App) SetFilters(filters []string) {
+	app.state.SetBloomFilters(filters)
+}
+
+// Query
+
+func (app *App) QueryByKey(key []byte) tmsp.Result {
+	query := make([]byte, wire.ByteSliceSize(key)+1)
+	buf := query
+	buf[0] = QueryKey
+	buf = buf[1:]
+	wire.PutByteSlice(buf, key)
+	return app.Query(query)
+}
+
 func (app *App) QueryByIndex(i int) tmsp.Result {
 	query := make([]byte, 100)
 	buf := query
@@ -70,46 +98,51 @@ func (app *App) QueryByIndex(i int) tmsp.Result {
 	return app.Query(query)
 }
 
-func (app *App) FilterFunc(filters []string) func(data []byte) bool {
-	return app.state.FilterFunc(filters)
-}
+func (app *App) IterQueryIndex(fun func([]byte) bool, in chan []byte) {
 
-func (app *App) SetFilters(filters []string) {
-	app.state.SetBloomFilters(filters)
-}
-
-/*
-// Run in goroutine
-func (app *App) Iterate(fun func(data []byte) bool, in chan []byte) { //errs chan error
 	for i := 0; i < app.GetSize(); i++ {
-		res := app.QueryByIndex(i)
-		if res.IsErr() {
-			fmt.Println(res.Error())
-			// errs <- errors.New(res.Error())
+
+		result := app.QueryByIndex(i)
+
+		if result.IsErr() {
+			panic(result.Error())
 		}
-		if fun(res.Data) {
-			in <- res.Data
+
+		if fun(result.Data) {
+			fmt.Printf("%X\n", result.Data)
+			in <- result.Data
 		}
 	}
+
 	close(in)
-	// close(errs)
 }
 
-func (app *App) IterateNext(fun func(data []byte) bool, in, out chan []byte) {
+func (app *App) IterQueryKey(fun func([]byte) bool, in, out chan []byte) {
+
 	for {
+
 		data, more := <-in
-		if more {
-			if fun(data) {
-				// fmt.Printf("%X\n", data)
-				out <- data
-			}
-		} else {
+
+		if !more {
 			break
 		}
+
+		result := app.QueryByKey(data)
+
+		if result.IsErr() {
+			panic(result.Error())
+		}
+
+		if fun(result.Data) {
+			fmt.Printf("%X\n", data)
+			out <- data
+		}
 	}
+
 	close(out)
 }
-*/
+
+// Issues
 
 func (app *App) Issues() []string {
 	return app.issues
@@ -124,9 +157,35 @@ func (app *App) IsIssue(issue string) bool {
 	return false
 }
 
+// Admin
+
 func (app *App) IsAdmin(addr []byte) bool {
 	acc := app.state.GetAccount(addr)
 	return acc.IsAdmin()
+}
+
+// Check if time's in range
+
+func TimeRangeFunc(afterTime, beforeTime time.Time) func([]byte) bool {
+
+	return func(data []byte) bool {
+
+		var form forms.Form
+
+		err := wire.ReadBinaryBytes(data, &form)
+
+		if err != nil {
+			panic(err)
+		}
+
+		t := ParseMinuteString(form.SubmittedAt)
+
+		if t.After(afterTime) && t.Before(beforeTime) {
+			return true
+		}
+
+		return false
+	}
 }
 
 // TMSP requests
@@ -252,6 +311,64 @@ func (app *App) Query(query []byte) tmsp.Result {
 		buf, n, err := new(bytes.Buffer), int(0), error(nil)
 		wire.WriteBinary(app.issues, buf, &n, &err)
 		return tmsp.NewResultOK(buf.Bytes(), "")
+
+	case QuerySearch:
+
+		fmt.Println("search query")
+
+		search, _, err := wire.GetByteSlice(query[1:])
+
+		if err != nil {
+			panic(err)
+		}
+
+		s := struct {
+			AfterTime  time.Time
+			BeforeTime time.Time
+			Issue      string
+		}{}
+
+		err = wire.ReadBinaryBytes(search, &s)
+
+		if err != nil {
+			return tmsp.ErrEncodingError
+		}
+
+		fmt.Printf("%v\n", s)
+
+		// Checks if forms are in filters..
+		// for now, just check if forms have issue
+		fun1 := app.FilterFunc([]string{s.Issue})
+
+		// Checks if forms are in time range
+		fun2 := TimeRangeFunc(s.AfterTime, s.BeforeTime)
+
+		in := make(chan []byte)
+		out := make(chan []byte)
+
+		go app.IterQueryIndex(fun1, in)
+		go app.IterQueryKey(fun2, in, out)
+
+		var datas [][]byte
+
+		for {
+
+			data, ok := <-out
+
+			if !ok {
+				break
+			}
+
+			datas = append(datas, data)
+		}
+
+		if len(datas) == 0 {
+			return tmsp.NewResultOK(nil, "")
+		}
+
+		data := wire.BinaryBytes(datas)
+
+		return tmsp.NewResultOK(data, "")
 
 	default:
 		return app.cli.QuerySync(query)

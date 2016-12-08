@@ -1,0 +1,571 @@
+{{define "head"}}
+  <title>{{ .Title}}</title>
+{{end}}
+
+{{define "body"}}
+<style type="text/css">
+
+  div.update-feed {
+    width: 325px;
+    height: 155px;
+    font-family: source sans pro;
+    font-size: 7px;
+    font-style: normal;
+    text-align: center;
+    color: #4ea3b7;
+    background-color: white;
+    border-style: solid;
+    border-width: thin;
+    padding-top: 5px;
+    padding-bottom: 8px;
+    margin: 2px;
+    border-color: #cccccc;
+    position: absolute;
+    left: 300px;
+    top: 75px;
+  }
+
+  button {
+    background-color: #e6f4ee;
+    border-style: solid;
+    border-width: thin;
+    border-color: #4ea3b7;
+    color: #4EA3B7;
+    padding: 8px 38px;
+    font-family: Source Sans Pro;
+    font-size: 9pt;
+    text-align: center;
+    display: inline-block;
+    margin: 2px 2px;
+    margin-top: 3px;
+  }
+
+  .update:hover {
+    background-color: #4ea3b7;
+    color: white;
+  }
+
+  div.submit-form {
+    width: 325px;
+    font-family: source sans pro;
+    font-size: 7px;
+    font-style: normal;
+    text-align: center;
+    color: #4ea3b7;
+    background-color: white;
+    border-style: solid;
+    border-width: thin;
+    padding-top: 5px;
+    padding-bottom: 130px;
+    margin: 2px;
+    border-color: #cccccc;
+    position: absolute;
+    left: 300px;
+    top: 255px;
+  }
+
+  ul {
+    align-content: center;
+    font-size: 10px;
+    background-color: white;
+    border-style: solid;
+    border-color: #4ea3b7;
+    border-width: thin;
+    margin-left: 45px;
+    margin-right: 45px;
+    padding: 5px;
+  }
+
+  .issue-dropdown {
+    align-content: center;
+    width: 100px;
+    position: fixed;
+    font-size: 10px;
+    background-color: e6f4ee;
+    border-style: solid;
+    border-color: #4ea3b7;
+    border-width: thin;
+    margin: 5px;
+    padding: 8px 38px;
+  }
+
+  .issue-dropdown {
+    position: relative;
+    display: inline-block;
+  }
+
+  .issue-content {
+    display: none;
+    position: absolute;
+    background-color: #e6f4ee;
+    width: 100%;
+    box-shadow: 0px 8px 16px 0px rgba(0, 0, 0, 0.2);
+  }
+
+  .issue-content a {
+    color: #4ea3b7;
+    padding: 5px 38px;
+    text-decoration: none;
+    display: block;
+  }
+
+  .issue-content a:hover {
+    background-color: #4ea3b7;
+    color: white;
+  }
+
+  .dropdown:hover .issue-content {
+    display: block;
+  }
+
+  .dropdown:hover .issue-dropdown {
+    background-color: #4ea3b7;
+    color: white;
+  }
+
+  .location-dropdown {
+    width: 100px;
+    position: fixed;
+    font-size: 10px;
+    background-color: e6f4ee;
+    border-style: solid;
+    border-color: #4ea3b7;
+    border-width: thin;
+    margin: 5px;
+    padding: 8px 38px;
+  }
+
+  .location-dropdown {
+    position: relative;
+    display: inline-block;
+  }
+
+  .location-content {
+    display: none;
+    position: absolute;
+    background-color: #e6f4ee;
+    width: 100%;
+    box-shadow: 0px 8px 16px 0px rgba(0, 0, 0, 0.2);
+  }
+
+  .location-content a {
+    color: #4ea3b7;
+    padding: 5px 38px;
+    text-decoration: none;
+    display: block;
+  }
+
+  .location-content a:hover {
+    background-color: #4ea3b7;
+    color: white;
+  }
+
+  .dropdown:hover .location-content {
+    display: block;
+  }
+
+  .dropdown:hover .location-dropdown {
+    background-color: #4ea3b7;
+    color: white;
+  }
+
+  div.findforms {
+    width: 325px;
+    font-family: source sans pro;
+    font-size: 7px;
+    font-style: normal;
+    text-align: center;
+    color: #4ea3b7;
+    background-color: white;
+    border-style: solid;
+    border-width: thin;
+    padding-top: 5px;
+    padding-bottom: 130px;
+    margin: 2px;
+    border-color: #cccccc;
+    position: absolute;
+    left: 300px;
+    top: 440px;
+  }
+
+  div.feed {
+    width: 400px;
+    height: 450px;
+    font-family: source sans pro;
+    font-size: 7px;
+    font-style: normal;
+    color: #4ea3b7;
+    background-color: white;
+    border-style: solid;
+    border-width: thin;
+    padding-top: 5px;
+    padding-bottom: 130px;
+    padding-left: 25px;
+    margin: 2px;
+    border-color: #cccccc;
+    position: absolute;
+    right: 40px;
+    top: 75px;
+  }
+
+  div.p {
+    font-size: 10px;
+  }
+
+
+  .my-input {
+    font-family: source sans pro;
+    color: #4ea3b7;
+    font-style: italic;
+    font-size: 12px;
+    padding-left: 10px;
+    padding-right: 10px;
+    margin-bottom: 15px;
+    text-align: center;
+  }
+
+  /* ------------------------------------- */
+
+  header {
+    font-size: 20px;
+    color: #4ea3b7;
+  }
+
+  .my-btn {
+    background-color: #e6f4ee;
+    border-style: solid;
+    border-width: thin;
+    border-color: #4ea3b7;
+    color: #4EA3B7;
+    font-family: Source Sans Pro;
+    text-align: center;
+    margin: 20px;
+    width: 32%;
+    padding: 8px;
+  }
+
+  .my-btn:hover {
+    background-color: #4ea3b7;
+    color: white;
+  }
+
+  .left {
+    float: left;
+  }
+
+  .right {
+    float: right;
+  }
+
+  .content {
+    position:relative;
+    display: block;
+    overflow: hidden;
+    white-space: normal;
+    font-size: 14px;
+
+    margin: 24px;
+    padding: 8px;
+    text-align: center;
+
+    font-family: source sans pro;
+    background-color: e6f4ee;
+    border-style: solid;
+    border-color: #4ea3b7;
+    border-radius: 2px;
+    border-width: thin;
+  }
+
+  .component {
+    margin: 20px;
+    width: 50%;
+    padding: 8px;
+  }
+ 
+</style>
+  
+  <div class="left col-md-6 container">
+    <header>submit a form</header>
+    <form id="submit-form" class="content">
+      <select name="issues" form="submit-form" class="component" required></select>
+      <input type="text"  name="location" class="component" placeholder="location" required />
+      <input type="text" name="description" class="component" placeholder="description" required />
+      <input type="hidden" name="MAX_FILE_SIZE" value=10000000 />
+      <input type="file" onchange="openFile(event)" class="component" />
+      <p><input type="checkbox" name="anonymous" />&nbsp&nbspanonymous</p>
+      <input type="submit" class="my-btn" value="submit" />
+    </form>
+
+    <header>find a form</header>
+    <form id="find-form" class="content">
+      <input type="text" name="form-ID" class="component" placeholder="form ID" required/>
+      <input type="submit" class="my-btn" value="find" />
+    </form>
+    <div id="found" class="content"></div>
+  </div>
+
+  <div class="right col-md-6 container">
+    <header>update feed</header>
+    <form id="feed-form" class="content">
+      <select name="issues" form="feed-form" class="component" required></select>
+      <input type="submit" class="my-btn" value="update" />
+    </form>
+    <div id="feed" class="content"></div>
+  </div>
+
+  <script type="text/javascript">
+
+    var feed = document.getElementById("feed");
+
+    String.prototype.format = function () {
+        var args = [].slice.call(arguments);
+        return this.replace(/(\{\d+\})/g, function (a){
+            return args[+(a.substr(1,a.length-2))||0];
+        });
+    };
+
+    function httpGetAsync(addr, callback) {
+
+      var xhr = new XMLHttpRequest ();
+
+      xhr.onreadystatechange = function() {
+        if (xhr.readyState == 4) {
+          if (xhr.status == 200) {
+            callback(xhr.responseText);
+          } else {
+            alert(xhr.responseText);
+          }
+        }
+      };
+
+      xhr.open("GET", addr, true); 
+      xhr.send();
+    };
+
+    function httpPostAsync(addr, data, callback) {
+     
+      var xhr = new XMLHttpRequest ();
+
+      xhr.onreadystatechange = function() {
+        if (xhr.readyState == 4) {
+          if (xhr.status == 200) {
+            callback(xhr.responseText);
+          } else {
+            alert(xhr.responseText);
+          }
+        }
+      };
+
+      xhr.open("POST", addr, true); 
+      xhr.send(data);
+    };
+
+    function appendFeed(item) {
+      var doScroll = feed.scrollTop === feed.scrollHeight - feed.clientHeight;
+      feed.appendChild(item);
+      if (doScroll) {
+        feed.scrollTop = feed.scrollHeight - feed.clientHeight;
+      }
+    };
+
+    function selectedValues(select) {
+      var result = [];
+      var options = select && select.options;
+      var opt;
+
+      for (var i=0; i < options.length; i++) {
+        opt = options[i];
+
+        if (opt.selected) {
+          result.push(opt.value);
+        }
+      }
+      return result;
+    };
+
+    var media, extension;
+
+    var openFile = function(event){
+
+      var reader = new FileReader();
+      var file = event.target.files[0];
+
+      reader.onloadend = function(e){
+
+       var u8 = new Uint8Array(e.target.result);
+
+       media = "";
+
+       for (var i = 0; i < u8.length; i++) {
+          media += String.fromCharCode(u8[i])
+       }
+
+       media = escape(media);
+      };
+
+      reader.readAsArrayBuffer(file);
+      extension = (file.name).split(".")[1]
+    };
+
+    window.onload = function() {
+
+      // Keys
+
+      var pubKey = sessionStorage.getItem("public-key");
+      var privKey = sessionStorage.getItem("private-key");
+
+      // Issues
+
+      var issuesCallback = function(responseText) {
+        var elems = document.getElementsByName("issues"); 
+        for (var i = 0; i < elems.length; i++) {
+          elems[i].innerHTML = responseText;
+        }
+      };
+
+      httpGetAsync("http://localhost:8888/issues", issuesCallback);
+
+      // Feed
+      
+      var feedForm = document.getElementById("feed-form");
+      var wsFeed = new WebSocket("wsFeed://localhost:8888/updates");
+
+      var updateFeedCallback = function(responseText) {
+
+        wsFeed.send(responseText);
+
+        wsFeed.onmessage = function(msg) {
+
+          var update = msg.data;
+
+          var item = document.createElement("pre");
+          item.innerHTML = update;
+
+          appendFeed(item);
+        };
+
+        wsFeed.onclose = function() {
+          console.log("websocket closed");
+        };
+      };
+
+      feedForm.onsubmit = function(event) {
+
+        event.preventDefault();
+
+        var formData = $("#feed-form").serialize();
+
+        formData += "&public-key=" + pubKey + "&private-key=" + privKey;
+
+        httpPostAsync("http://localhost:8888/update-feed", formData, updateFeedCallback);
+
+      };
+  
+      // Submit 
+
+      var submitForm = document.getElementById("submit-form");
+
+      var submitFormCallback = function(responseText) {
+
+        var json = JSON.parse(responseText);
+
+        console.log(json);
+
+      };
+
+      submitForm.onsubmit = function(event) {
+
+        event.preventDefault();
+
+        var formData = $("#submit-form").serialize();
+
+        formData += "&media=" + media + "&extension=" + extension + "&public-key=" + pubKey + "&private-key=" + privKey;
+
+        httpPostAsync("http://localhost:8888/submit-form", formData, submitFormCallback);
+      };
+
+      // Find 
+
+      var findForm = document.getElementById("find-form");
+      var found = document.getElementById("found");
+      var wsFind = new WebSocket("ws://localhost:8888/form");
+
+      var findFormCallback = function(responseText) {
+
+        var json = JSON.parse(responseText);
+
+        if (json["find form"] == "success") {
+
+
+
+          var media = json.form.media;
+
+          switch (media.type) {
+
+            case "video":
+
+              found.innerHTML = "<video width='240' height='240' id='{0}-media-{1}' controls></video><br>".format(media.text_id, media.num_id);
+              break;
+
+
+            case "image":
+
+              found.innerHTML = "<img width='240' height='240' id='{0}-media-{1}'><br>".format(media.text_id, media.num_id);
+              break;
+
+            case "audio":
+
+              // TODO;
+              break;
+
+          }
+
+          var byteChars = atob(media.data); 
+
+          var byteNums = new Array(byteChars.length);
+
+          for (var i = 0; i < byteNums.length; i++) {
+            byteNums[i] = byteChars.charCodeAt(i);
+          }
+
+          var byteArray = new Uint8Array(byteNums);
+
+          var blob = new Blob([byteArray], {type: media.type});
+
+          var media = document.getElementById('{0}-media-{1}'.format(media.text_id, media.num_id));
+          
+          media.src = window.URL.createObjectURL(blob);
+        }
+      };
+
+      findForm.onsubmit = function(event) {
+
+        event.preventDefault();
+
+        var formData = $("#find-form").serialize();
+
+        httpPostAsync("http://localhost:8888/find-form", formData, findFormCallback);
+      };
+
+      /*
+      imageElement = "<img width='240' height='240' id='%s-media-%d' name='%s'><br>"
+      audioElement = "<audio id='%s-media-%d' name='%s' controls></audio><br>"
+      videoElement = 
+
+      mediaScript = `<script type='text/javascript'>
+      var byteChars = atob('%s'); 
+      var byteNums = new Array(byteChars.length);
+      for (var i = 0; i < byteNums.length; i++) {
+      byteNums[i] = byteChars.charCodeAt(i);
+      }
+      var byteArray = new Uint8Array(byteNums);
+      var blob = new Blob([byteArray], {type: '%s'});
+      var media = document.getElementById('%s-media-%d');
+      media.src = window.URL.createObjectURL(blob);`
+      */
+      }
+  </script>
+{{end}}
+
+
+

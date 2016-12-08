@@ -14,11 +14,12 @@ import (
 )
 
 const (
-	QUERY_CHAIN_ID byte = 0
-	QUERY_SIZE     byte = 1
-	QUERY_BY_KEY   byte = 2
-	QUERY_BY_INDEX byte = 3
-	QUERY_ISSUES   byte = 4
+	QueryChainID byte = 0
+	QuerySize    byte = 1
+	QueryKey     byte = 2
+	QueryIndex   byte = 3
+	QueryIssues  byte = 4
+	QuerySearch  byte = 5
 )
 
 // var maxNumberConnections = 2

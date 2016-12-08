@@ -35,11 +35,11 @@ var months = map[string]int{
 }
 
 func ParseMomentString(momentstr string) time.Time {
-	yr, _ := strconv.Atoi(momentstr[11:15])
-	mo, _ := months[momentstr[4:7]]
+	yr, _ := strconv.Atoi(momentstr[:4])
+	mo, _ := months[momentstr[5:7]]
 	d, _ := strconv.Atoi(momentstr[8:10])
-	hr, _ := strconv.Atoi(momentstr[16:18])
-	min, _ := strconv.Atoi(momentstr[19:21])
+	hr, _ := strconv.Atoi(momentstr[11:13])
+	min, _ := strconv.Atoi(momentstr[14:16])
 	return time.Date(yr, time.Month(mo), d, hr, min, 0, 0, time.Local)
 }
 
