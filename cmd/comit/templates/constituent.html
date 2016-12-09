@@ -286,19 +286,21 @@
   
   <div class="left col-md-6 container">
     <header>submit a form</header>
-    <form id="submit-form" class="content">
-      <select name="issues" form="submit-form" class="component" required></select>
+    <form id="submit-form" name="submit-form" enctype="multipart/form-data" method="POST" class="content">
+      <select name="issue" form="submit-form" class="component" required></select>
       <input type="text"  name="location" class="component" placeholder="location" required />
       <input type="text" name="description" class="component" placeholder="description" required />
-      <input type="hidden" name="MAX_FILE_SIZE" value=10000000 />
-      <input type="file" onchange="openFile(event)" class="component" />
-      <p><input type="checkbox" name="anonymous" />&nbsp&nbspanonymous</p>
+      <input type="hidden" name="MAX_FILE_SIZE" value=1000000000000 />
+      <input type="file" name="media" class="component" required />
+      <input type="hidden" name="public-key" required/>
+      <input type="hidden" name="private-key" required/>
       <input type="submit" class="my-btn" value="submit" />
     </form>
 
     <header>find a form</header>
-    <form id="find-form" class="content">
+    <form id="find-form" name="find-form" class="content">
       <input type="text" name="form-ID" class="component" placeholder="form ID" required/>
+        <input type="hidden" name="public-key" required/>
       <input type="submit" class="my-btn" value="find" />
     </form>
     <div id="found" class="content"></div>
@@ -306,13 +308,14 @@
 
   <div class="right col-md-6 container">
     <header>update feed</header>
-    <form id="feed-form" class="content">
-      <select name="issues" form="feed-form" class="component" required></select>
+    <form id="feed-form" name="feed-form" class="content">
+      <select name="issue" form="feed-form" class="component" required></select>
+      <input type="hidden" name="public-key" required/>
+      <input type="hidden" name="private-key" required/>
       <input type="submit" class="my-btn" value="update" />
     </form>
     <div id="feed" class="content"></div>
   </div>
-
   <script type="text/javascript">
 
     var feed = document.getElementById("feed");
@@ -383,28 +386,130 @@
       return result;
     };
 
-    var media, extension;
+    function b64toBlob(b64, contentType, sliceSize) {
 
-    var openFile = function(event){
+      var byteChars = atob(b64);
 
-      var reader = new FileReader();
-      var file = event.target.files[0];
+      var byteArrays = [];
 
-      reader.onloadend = function(e){
+      for (var offset = 0; offset < byteChars.length; offset += sliceSize) {
+        var slice = byteChars.slice(offset, offset+sliceSize);
 
-       var u8 = new Uint8Array(e.target.result);
+         var byteNums = new Array(slice.length);
 
-       media = "";
+         for (var i = 0; i < slice.length; i++) {
+          byteNums[i] = slice.charCodeAt(i);
+         }
 
-       for (var i = 0; i < u8.length; i++) {
-          media += String.fromCharCode(u8[i])
-       }
+         var byteArray = new Uint8Array(byteNums);
 
-       media = escape(media);
-      };
+         byteArrays.push(byteArray);
+      }
 
-      reader.readAsArrayBuffer(file);
-      extension = (file.name).split(".")[1]
+      var blob = new Blob(byteArrays, {type: contentType});
+
+      return blob;
+    }
+
+    // Number ID 
+
+    var num_id = 0;
+
+    // Websocket
+
+    var ws = new WebSocket("ws://localhost:8888/updates");
+
+    ws.onmessage = function(msg) {
+
+      var form = JSON.parse(msg.data);
+
+      var media;
+
+      switch (form.content_type.split("/")[0]) {
+
+        case "video":
+
+          media = document.createElement("video");
+          break;
+
+        case "image":
+
+          media = document.createElement("img");
+          break;
+
+        case "audio":
+
+          // TODO;
+          break;
+      }
+
+      var blob = b64toBlob(form.data, form.content_type, 512);
+      
+      media.src = window.URL.createObjectURL(blob);
+      media.height = 240;
+      media.width = 240;
+
+      media.id = "feed-media-" + num_id;
+
+      num_id++;;
+
+      appendFeed(media);
+
+    };
+
+    ws.onclose = function() {
+      console.log("websocket closed");
+    };
+
+    // Callbacks
+
+    function issuesCb(responseText) {
+      var elems = document.getElementsByName("issue"); 
+      for (var i = 0; i < elems.length; i++) {
+        elems[i].innerHTML = responseText;
+      }
+    };
+
+    function submitFormCb(responseText) {
+      console.log(responseText);
+    };
+
+    function findFormCb(responseText) {
+
+      var form = JSON.parse(responseText).form;
+
+      switch (form.content_type.split("/")[0]) {
+
+        case "video":
+
+          $("#found").innerHTML = "<video width='240' height='240' id='found-media' controls></video>";
+          break;
+
+        case "image":
+
+          $("#found").innerHTML = "<img width='240' height='240' id='found-media' />";
+          break;
+
+        case "audio":
+
+          // TODO;
+          break;
+      }
+
+      var blob = b64toBlob(form.data, form.content_type, 512);
+
+      var media = $("#found-media");
+      
+      media.src = window.URL.createObjectURL(blob);
+
+      num_id++;
+
+   };
+
+    function updateFeedCb(responseText) {
+
+      ws.send(responseText);
+
     };
 
     window.onload = function() {
@@ -414,156 +519,55 @@
       var pubKey = sessionStorage.getItem("public-key");
       var privKey = sessionStorage.getItem("private-key");
 
+      var pubKeys = $("[name='public-key']")
+      var privKeys = $("[name='private-key']")
+
+      for (var i = 0; i < pubKeys.length; i++) {
+        pubKeys[i].value = pubKey;
+      }
+
+      for (var j = 0; j < privKeys.length; j++) {
+        privKeys[j].value = privKey;
+      }
+
       // Issues
 
-      var issuesCallback = function(responseText) {
-        var elems = document.getElementsByName("issues"); 
-        for (var i = 0; i < elems.length; i++) {
-          elems[i].innerHTML = responseText;
-        }
-      };
-
-      httpGetAsync("http://localhost:8888/issues", issuesCallback);
+      httpGetAsync("http://localhost:8888/issues", issuesCb);
 
       // Feed
-      
-      var feedForm = document.getElementById("feed-form");
-      var wsFeed = new WebSocket("wsFeed://localhost:8888/updates");
 
-      var updateFeedCallback = function(responseText) {
-
-        wsFeed.send(responseText);
-
-        wsFeed.onmessage = function(msg) {
-
-          var update = msg.data;
-
-          var item = document.createElement("pre");
-          item.innerHTML = update;
-
-          appendFeed(item);
-        };
-
-        wsFeed.onclose = function() {
-          console.log("websocket closed");
-        };
-      };
-
-      feedForm.onsubmit = function(event) {
+      $("#feed-form").submit(function(event) {
 
         event.preventDefault();
 
         var formData = $("#feed-form").serialize();
 
-        formData += "&public-key=" + pubKey + "&private-key=" + privKey;
+        httpPostAsync("http://localhost:8888/update-feed", formData, updateFeedCb);
 
-        httpPostAsync("http://localhost:8888/update-feed", formData, updateFeedCallback);
+      });
 
-      };
-  
       // Submit 
 
-      var submitForm = document.getElementById("submit-form");
-
-      var submitFormCallback = function(responseText) {
-
-        var json = JSON.parse(responseText);
-
-        console.log(json);
-
-      };
-
-      submitForm.onsubmit = function(event) {
+      $("#submit-form").submit(function(event) {
 
         event.preventDefault();
 
-        var formData = $("#submit-form").serialize();
+        var formData = new FormData(event.target);
 
-        formData += "&media=" + media + "&extension=" + extension + "&public-key=" + pubKey + "&private-key=" + privKey;
-
-        httpPostAsync("http://localhost:8888/submit-form", formData, submitFormCallback);
-      };
+        httpPostAsync("http://localhost:8888/submit-form", formData, submitFormCb)
+      });
 
       // Find 
 
-      var findForm = document.getElementById("find-form");
-      var found = document.getElementById("found");
-      var wsFind = new WebSocket("ws://localhost:8888/form");
-
-      var findFormCallback = function(responseText) {
-
-        var json = JSON.parse(responseText);
-
-        if (json["find form"] == "success") {
-
-
-
-          var media = json.form.media;
-
-          switch (media.type) {
-
-            case "video":
-
-              found.innerHTML = "<video width='240' height='240' id='{0}-media-{1}' controls></video><br>".format(media.text_id, media.num_id);
-              break;
-
-
-            case "image":
-
-              found.innerHTML = "<img width='240' height='240' id='{0}-media-{1}'><br>".format(media.text_id, media.num_id);
-              break;
-
-            case "audio":
-
-              // TODO;
-              break;
-
-          }
-
-          var byteChars = atob(media.data); 
-
-          var byteNums = new Array(byteChars.length);
-
-          for (var i = 0; i < byteNums.length; i++) {
-            byteNums[i] = byteChars.charCodeAt(i);
-          }
-
-          var byteArray = new Uint8Array(byteNums);
-
-          var blob = new Blob([byteArray], {type: media.type});
-
-          var media = document.getElementById('{0}-media-{1}'.format(media.text_id, media.num_id));
-          
-          media.src = window.URL.createObjectURL(blob);
-        }
-      };
-
-      findForm.onsubmit = function(event) {
+     $("#find-form").submit(function(event) {
 
         event.preventDefault();
 
         var formData = $("#find-form").serialize();
 
-        httpPostAsync("http://localhost:8888/find-form", formData, findFormCallback);
-      };
-
-      /*
-      imageElement = "<img width='240' height='240' id='%s-media-%d' name='%s'><br>"
-      audioElement = "<audio id='%s-media-%d' name='%s' controls></audio><br>"
-      videoElement = 
-
-      mediaScript = `<script type='text/javascript'>
-      var byteChars = atob('%s'); 
-      var byteNums = new Array(byteChars.length);
-      for (var i = 0; i < byteNums.length; i++) {
-      byteNums[i] = byteChars.charCodeAt(i);
-      }
-      var byteArray = new Uint8Array(byteNums);
-      var blob = new Blob([byteArray], {type: '%s'});
-      var media = document.getElementById('%s-media-%d');
-      media.src = window.URL.createObjectURL(blob);`
-      */
-      }
+        httpPostAsync("http://localhost:8888/find-form", formData, findFormCb);
+      });
+    }
   </script>
 {{end}}
 

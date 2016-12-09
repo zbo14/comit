@@ -1,5 +1,9 @@
 package actions
 
+import (
+	"github.com/zballs/comit/forms"
+)
+
 // Error messages
 
 const (
@@ -18,8 +22,8 @@ const (
 
 type CreateAccount struct {
 	Result     string `json:"create account"`
-	PubKeystr  string `json:"public key"`
-	PrivKeystr string `json:"private key"`
+	PubKeystr  string `json:"public key, omitempty"`
+	PrivKeystr string `json:"private key, omitempty"`
 }
 
 type RemoveAccount struct {
@@ -28,8 +32,8 @@ type RemoveAccount struct {
 
 type CreateAdmin struct {
 	Result     string `json:"create admin"`
-	PubKeystr  string `json:"public key"`
-	PrivKeystr string `json:"private key"`
+	PubKeystr  string `json:"public key, omitempty"`
+	PrivKeystr string `json:"private key, omitempty"`
 }
 
 type RemoveAdmin struct {
@@ -38,12 +42,12 @@ type RemoveAdmin struct {
 
 type Connect struct {
 	Result string `json:"login"`
-	Type   string `json:"type"`
+	Type   string `json:"type, omitempty"`
 }
 
 type SubmitForm struct {
 	Result string `json:"submit form"`
-	FormID string `json:"form ID"`
+	FormID string `json:"form ID, omitempty"`
 }
 
 type ResolveForm struct {
@@ -51,7 +55,8 @@ type ResolveForm struct {
 }
 
 type FindForm struct {
-	Result string `json:"find form"`
+	Result string      `json:"find form"`
+	Form   *forms.Form `json:"form, omitempty"`
 }
 
 var select_option = `<option value="%s">%s</option>`

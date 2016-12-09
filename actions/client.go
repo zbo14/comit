@@ -51,8 +51,6 @@ func (cli *Client) ReadRoutine() {
 
 	for {
 
-		log.Println("Reading...")
-
 		err := ReadForm(bufReader, form)
 
 		if err != nil {
@@ -63,7 +61,7 @@ func (cli *Client) ReadRoutine() {
 			continue
 		}
 
-		log.Printf("%v\n", form)
+		log.Println("Reading...")
 
 		cli.Updates <- form
 	}
@@ -78,7 +76,6 @@ func (cli *Client) WriteRoutine(issue string, done chan struct{}) {
 		form, ok := <-cli.Updates
 
 		if !ok {
-			log.Println("not ok")
 			close(done)
 			return
 		}
@@ -90,13 +87,18 @@ func (cli *Client) WriteRoutine(issue string, done chan struct{}) {
 		w, err := cli.Out.NextWriter(ws.TextMessage)
 
 		if err != nil {
+
 			log.Println(err.Error())
 
 			close(done)
 			return
 		}
 
-		data, _ := json.Marshal(*form)
+		data, err := json.Marshal(form)
+
+		if err != nil {
+			panic(err)
+		}
 
 		w.Write(data)
 
@@ -112,7 +114,7 @@ func (cli *Client) WriteRoutine(issue string, done chan struct{}) {
 					continue
 				}
 
-				data, _ = json.Marshal(*form)
+				data, _ = json.Marshal(form)
 
 				w.Write(data)
 

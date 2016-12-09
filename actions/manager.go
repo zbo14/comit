@@ -14,17 +14,23 @@ import (
 	"github.com/zballs/comit/state"
 	"github.com/zballs/comit/types"
 	. "github.com/zballs/comit/util"
+	// "io"
+	// "compress/flate"
 	"io/ioutil"
-	// "log"
+	"log"
+	"mime"
+	"mime/multipart"
 	"net"
 	"net/http"
-	"sync"
-	// "strings"
 	"net/url"
-	// "time"
+	"strings"
+	"sync"
+	"time"
 )
 
 const (
+	MAX_MEMORY int64 = 1000000000000
+
 	PUBKEY_LENGTH  = 32
 	PRIVKEY_LENGTH = 64
 	MOMENT_LENGTH  = 32
@@ -48,8 +54,8 @@ type ActionManager struct {
 	ConnsMtx sync.Mutex
 	Conns    map[string]net.Conn
 
-	FormsMtx sync.Mutex
-	Forms    map[string]chan *forms.Form
+	// FormsMtx sync.Mutex
+	// Forms    map[string]chan *forms.Form
 
 	types.Logger
 }
@@ -59,8 +65,7 @@ func CreateActionManager(serverAddr string) *ActionManager {
 	am := &ActionManager{
 		ServerAddr: serverAddr,
 		Conns:      make(map[string]net.Conn),
-		Forms:      make(map[string]chan *forms.Form),
-		Logger:     types.NewLogger("action_manager"),
+		Logger:     types.NewLogger("action-manager"),
 	}
 
 	am.GetChainID()
@@ -487,29 +492,41 @@ func (am *ActionManager) Login(w http.ResponseWriter, req *http.Request) {
 
 func (am *ActionManager) SubmitForm(w http.ResponseWriter, req *http.Request) {
 
-	data, err := ioutil.ReadAll(req.Body)
+	mediaType, params, err := mime.ParseMediaType(req.Header.Get("Content-Type"))
 
-	if err != nil {
-		http.Error(w, HttpRequestFailure, http.StatusBadRequest)
+	if err != nil || !strings.HasPrefix(mediaType, "multipart/") {
+		http.Error(w, "", http.StatusBadRequest)
 		return
 	}
 
-	v, _ := url.ParseQuery(string(data))
+	mr := multipart.NewReader(req.Body, params["boundary"])
 
-	issue := v.Get("issues")
-	location := v.Get("location")
-	description := v.Get("description")
-	media := []byte(v.Get("media"))
-	extension := v.Get("extension")
-	anonymous := v.Get("anonymous")
-	pubKeystr := v.Get("public-key")
-	privKeystr := v.Get("private-key")
+	f, err := mr.ReadForm(MAX_MEMORY)
+
+	if err != nil {
+		http.Error(w, "", http.StatusBadRequest)
+		return
+	}
+
+	// Form // TODO: field validation
+
+	form := forms.Form{}
+
+	// Info
+
+	form.SubmittedAt = time.Now().Local().String()
+	form.Issue = f.Value["issue"][0]
+	form.Location = f.Value["location"][0]
+	form.Description = f.Value["description"][0]
 
 	// Keys
+
 	var pubKey crypto.PubKeyEd25519
 	var privKey crypto.PrivKeyEd25519
 
-	// PubKey
+	pubKeystr := f.Value["public-key"][0]
+	privKeystr := f.Value["private-key"][0]
+
 	pubKeyBytes, err := hex.DecodeString(pubKeystr)
 
 	if err != nil || len(pubKeyBytes) != PUBKEY_LENGTH {
@@ -519,7 +536,6 @@ func (am *ActionManager) SubmitForm(w http.ResponseWriter, req *http.Request) {
 
 	copy(pubKey[:], pubKeyBytes)
 
-	// PrivKey
 	privKeyBytes, err := hex.DecodeString(privKeystr)
 
 	if err != nil || len(privKeyBytes) != PRIVKEY_LENGTH {
@@ -529,28 +545,30 @@ func (am *ActionManager) SubmitForm(w http.ResponseWriter, req *http.Request) {
 
 	copy(privKey[:], privKeyBytes)
 
-	// Form
-	var form *forms.Form
+	form.Submitter = pubKeystr
 
-	// TODO: field validation
-	if anonymous == "on" {
+	// Media
 
-		form, _ = forms.MakeForm(
-			issue, location, description,
-			media, extension, "")
+	media := f.File["media"][0]
 
-	} else {
+	form.ContentType = media.Header.Get("Content-Type")
 
-		form, _ = forms.MakeForm(
-			issue, location, description,
-			media, extension,
-			pubKeystr)
+	file, err := media.Open()
+
+	if err != nil {
+		panic(err)
+	}
+
+	form.Data, err = ioutil.ReadAll(file)
+
+	if err != nil {
+		panic(err)
 	}
 
 	// Create tx
 	var tx types.Tx
 	tx.Type = types.SubmitTx
-	tx.Data = wire.BinaryBytes(*form)
+	tx.Data = wire.BinaryBytes(form)
 
 	// Query sequence
 	addr := pubKey.Address()
@@ -768,17 +786,26 @@ func (am *ActionManager) FindForm(w http.ResponseWriter, req *http.Request) {
 
 	v, _ := url.ParseQuery(string(data))
 
-	formID := v.Get("form-ID")
-	pubKeystr := v.Get("public-key")
+	formIDstr := v.Get("form-ID")
+	// pubKeystr := v.Get("public-key")
 
-	formIDBytes, err := hex.DecodeString(formID)
-	if err != nil || len(formIDBytes) != FORM_ID_LENGTH {
+	am.Info(formIDstr)
+
+	formID, err := hex.DecodeString(formIDstr)
+	if err != nil {
+		am.Error(err.Error())
+		http.Error(w, InvalidFormID, http.StatusNotFound)
+		return
+	}
+
+	if len(formID) != FORM_ID_LENGTH {
+		am.Info("Form ID", "length", len(formID))
 		http.Error(w, InvalidFormID, http.StatusNotFound)
 		return
 	}
 
 	buf, n, err := new(bytes.Buffer), int(0), error(nil)
-	wire.WriteByteSlice(formIDBytes, buf, &n, &err)
+	wire.WriteByteSlice(formID, buf, &n, &err)
 	key := buf.Bytes()
 
 	reqQuery := am.KeyQuery(key)
@@ -796,73 +823,24 @@ func (am *ActionManager) FindForm(w http.ResponseWriter, req *http.Request) {
 
 	resQuery := am.ReadResponse(conn).GetQuery()
 
-	// Status OK
+	// Status OK // Form text
 	w.WriteHeader(200)
 
 	// Encode JSON
 	enc := json.NewEncoder(w)
 
 	if resQuery.Code != tmsp.CodeType_OK {
-		enc.Encode(FindForm{"failure"})
+		enc.Encode(FindForm{Result: "failure"})
 		return
 	}
 
 	// Form
-	var form forms.Form
+	form := &forms.Form{}
 
 	value := resQuery.Data
-	wire.ReadBinaryBytes(value, &form)
-	form.SetContentIDs("found", 0)
+	wire.ReadBinaryBytes(value, form)
 
-	am.FormsMtx.Lock()
-	defer am.FormsMtx.Lock()
-
-	ch, ok := am.Forms[pubKeystr]
-
-	if !ok {
-		am.Forms[pubKeystr] = make(chan *forms.Form)
-		am.Forms[pubKeystr] <- &form
-	}
-
-	ch <- &form
-
-	enc.Encode(FindForm{"success"})
-}
-
-func (am *ActionManager) Form(w http.ResponseWriter, req *http.Request) {
-
-	ws, err := upgrader.Upgrade(w, req, nil)
-
-	if err != nil {
-		panic(err)
-	}
-
-	defer ws.Close()
-
-	_, data, err := ws.ReadMessage()
-
-	if err != nil {
-		panic(err)
-	}
-
-	pubKeystr := string(data)
-
-	am.FormsMtx.Lock()
-	ch, ok := am.Forms[pubKeystr]
-	am.FormsMtx.Unlock()
-
-	if !ok {
-		// shouldn't happen because we created chan
-		// if there wasn't already one..
-	}
-
-	form := *<-ch //get one form
-
-	err = ws.WriteJSON(form)
-
-	if err != nil {
-		panic(err)
-	}
+	enc.Encode(FindForm{"success", form})
 }
 
 func (am *ActionManager) UpdateFeed(w http.ResponseWriter, req *http.Request) {
@@ -877,7 +855,7 @@ func (am *ActionManager) UpdateFeed(w http.ResponseWriter, req *http.Request) {
 
 	v, _ := url.ParseQuery(string(data))
 
-	issue := v.Get("issues")
+	issue := v.Get("issue")
 	pubKeystr := v.Get("public-key")
 	privKeystr := v.Get("private-key")
 
@@ -989,6 +967,8 @@ func (am *ActionManager) Updates(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		panic(err) //for now
 	}
+
+	log.Printf("%v\n", v)
 
 	// Get conn to TMSP server
 

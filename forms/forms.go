@@ -1,21 +1,57 @@
 package forms
 
 import (
-	"errors"
-	"fmt"
 	. "github.com/zballs/comit/util"
-	"time"
 )
-
-var Fmt = fmt.Sprintf
 
 const (
 	ErrDecodeForm          = 100
 	ErrFindForm            = 101
 	ErrFormAlreadyResolved = 102
-	ErrDecodingFormID      = 103
+	ErrDecodeFormID        = 103
 )
 
+type Form struct {
+	ContentType string `json:"content_type"`
+	Data        []byte `json:"data, omitempty"`
+	Description string `json:"description"`
+	Issue       string `json:"issue"`
+	Location    string `json:"location"`
+	SubmittedAt string `json:"submitted_at"`
+	Submitter   string `json:"submitter"`
+}
+
+func XOR(bytes []byte, items ...string) []byte {
+
+	for _, item := range items {
+
+		for idx, _ := range bytes {
+
+			if idx < len(item) {
+				bytes[idx] ^= byte(item[idx])
+
+			} else {
+
+				break
+			}
+		}
+	}
+
+	return bytes
+}
+
+func (form Form) ID() []byte {
+
+	bytes := make([]byte, 16)
+
+	minstr := ToTheMinute(form.SubmittedAt)
+
+	bytes = XOR(bytes, minstr, form.Issue, form.Location)
+
+	return bytes
+}
+
+/*
 // TODO: add more file extensions
 
 var fileTypes = map[string]string{
@@ -27,9 +63,9 @@ var fileTypes = map[string]string{
 // Media
 
 type Media struct {
-	Data      []byte `json:"data"`
-	Type      string `json:"type"`
-	Extension string `json:"extension"`
+	Data     []byte
+	Mimetype string `json:"mimetype"`
+	Size     int    `json:"size"`
 
 	// Content IDs
 	TextID string `json:"text_id, omitempty"`
@@ -38,10 +74,12 @@ type Media struct {
 
 func newMedia(data []byte, fileType string, extension string) *Media {
 
+	mimetype := fileType + "/" + extension
+
 	return &Media{
-		Data:      data,
-		Type:      fileType,
-		Extension: extension,
+		Data:     data,
+		Mimetype: mimetype,
+		Size:     len(data),
 	}
 }
 
@@ -54,7 +92,7 @@ type Form struct {
 	Description string `json:"description"`
 
 	// Optional
-	*Media    `json:"media,omitempty"`
+	Media     *Media `json:"media,omitempty"`
 	Submitter string `json:"submitter,omitempty"`
 
 	// -------------------------------- //
@@ -69,13 +107,18 @@ type Form struct {
 type Item func(*Form) error
 
 func newForm(items ...Item) (*Form, error) {
+
 	form := &Form{}
+
 	for _, item := range items {
+
 		err := item(form)
+
 		if err != nil {
 			return nil, err
 		}
 	}
+
 	return form, nil
 }
 
@@ -120,8 +163,6 @@ func setMedia(data []byte, extension string) Item {
 		if !ok {
 			return errors.New("Unrecognized file extension")
 		}
-
-		fmt.Printf("Media size: %d\n", len(data))
 
 		form.Media = newMedia(data, fileType, extension)
 
@@ -194,10 +235,6 @@ func XOR(bytes []byte, items ...string) []byte {
 	return bytes
 }
 
-func (form *Form) HasMedia() bool {
-	return form.Media != nil
-}
-
 // TODO: add location
 func (form *Form) ID() []byte {
 
@@ -212,7 +249,7 @@ func (form *Form) ID() []byte {
 
 func (form *Form) SetContentIDs(textID string, numID int) {
 
-	if !form.HasMedia() {
+	if form.Media == nil {
 		return
 	}
 
@@ -220,32 +257,14 @@ func (form *Form) SetContentIDs(textID string, numID int) {
 	form.Media.NumID = numID
 }
 
-/*
-	if !form.HasMedia() {
-		return
+func (form *Form) MediaData() []byte {
+
+	if form.Media == nil {
+		return nil
 	}
 
-	var content bytes.Buffer
-
-	b64 := base64.StdEncoding.EncodeToString(form.Media)
-
-	switch fileTypes[form.Extension] {
-	case "image":
-		content.WriteString(Fmt(imageElement, textID, numID, form.Extension))
-	case "audio":
-		content.WriteString(Fmt(audioElement, textID, numID, form.Extension))
-	case "video":
-		content.WriteString(Fmt(videoElement, textID, numID, form.Extension))
-	}
-
-	content.WriteString(Fmt(mediaScript, b64, form.Extension, textID, numID))
-
-	form.Content = content.String()
-
-	form.Media = nil
-	form.Extension = ""
-
-*/
+	return form.Media.Data
+}
 
 /*
 func (form *Form) MediaDecomp() []byte {

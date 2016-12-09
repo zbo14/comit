@@ -3,7 +3,7 @@ package state
 import (
 	"bytes"
 	. "github.com/tendermint/go-common"
-	"github.com/tendermint/go-crypto"
+	// "github.com/tendermint/go-crypto"
 	"github.com/tendermint/go-wire"
 	tmsp "github.com/tendermint/tmsp/types"
 	"github.com/zballs/comit/forms"
@@ -84,13 +84,15 @@ func ExecTx(state *State, tx types.Tx, isCheckTx bool) (res tmsp.Result) {
 		}
 	case types.SubmitTx:
 		res = RunSubmitTx(cacheState, tx.Data)
-	case types.ResolveTx:
-		if !inAcc.PermissionToResolve() {
-			res = tmsp.ErrUnauthorized
-		} else {
-			pubKey := inAcc.PubKey.(crypto.PubKeyEd25519)
-			res = RunResolveTx(cacheState, pubKey, tx.Data)
-		}
+		/*
+			case types.ResolveTx:
+				if !inAcc.PermissionToResolve() {
+					res = tmsp.ErrUnauthorized
+				} else {
+					pubKey := inAcc.PubKey.(crypto.PubKeyEd25519)
+					res = RunResolveTx(cacheState, pubKey, tx.Data)
+				}
+		*/
 	default:
 		res = tmsp.ErrUnknownRequest.SetLog(
 			Fmt("Error unrecognized tx type: %v", tx.Type))
@@ -155,9 +157,8 @@ func RunSubmitTx(state *State, data []byte) (res tmsp.Result) {
 			Fmt("Error: could not decode form data: %v", data))
 	}
 	issue := form.Issue
-	formID := (&form).ID()
 	buf, n, err := new(bytes.Buffer), int(0), error(nil)
-	wire.WriteByteSlice(formID, buf, &n, &err)
+	wire.WriteByteSlice(form.ID(), buf, &n, &err)
 	state.Set(buf.Bytes(), data)
 
 	err = state.AddToFilter(buf.Bytes(), issue)
@@ -175,11 +176,12 @@ func RunSubmitTx(state *State, data []byte) (res tmsp.Result) {
 	return tmsp.NewResultOK(data, "")
 }
 
+/*
 func RunResolveTx(state *State, pubKey crypto.PubKeyEd25519, data []byte) (res tmsp.Result) {
 	formID, _, err := wire.GetByteSlice(data)
 	if err != nil {
 		return tmsp.NewResult(
-			forms.ErrDecodingFormID, nil, "")
+			forms.ErrDecodeFormID, nil, "")
 	}
 	value := state.Get(data)
 	if len(value) == 0 {
@@ -207,12 +209,10 @@ func RunResolveTx(state *State, pubKey crypto.PubKeyEd25519, data []byte) (res t
 	}
 	state.Set(data, buf.Bytes())
 
-	/*
 		err = state.AddToFilter(data, "resolved")
 		if err != nil {
 			// False positive
 		}
-	*/
 
 	data = make([]byte, wire.ByteSliceSize(buf.Bytes())+1)
 	bz := data
@@ -222,8 +222,9 @@ func RunResolveTx(state *State, pubKey crypto.PubKeyEd25519, data []byte) (res t
 
 	return tmsp.NewResultOK(data, "")
 }
+*/
 
-//===============================================================================================//
+//=======================================================================================//
 
 func validateInputAdvanced(acc *types.Account, signBytes []byte, in types.TxInput) (res tmsp.Result) {
 	// Check sequence
