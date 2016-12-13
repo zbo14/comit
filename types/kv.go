@@ -1,8 +1,6 @@
 package types
 
-import (
-	. "github.com/zballs/comit/util"
-)
+import . "github.com/zballs/comit/util"
 
 type KVNode struct {
 	key        []byte

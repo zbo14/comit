@@ -1,13 +1,11 @@
 package types
 
-import (
-	. "github.com/zballs/comit/util"
-)
+import . "github.com/zballs/comit/util"
 
 const FORM_ID_LENGTH = 16
 
 type Form struct {
-	ContentType string `json:"content_type"`
+	ContentType string `json:"content_type, omitempty"`
 	Data        []byte `json:"data, omitempty"`
 	Description string `json:"description"`
 	Issue       string `json:"issue"`

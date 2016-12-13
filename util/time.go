@@ -1,9 +1,7 @@
 package util
 
-import (
-	"strconv"
-	"time"
-)
+import "strconv"
+import "time"
 
 const MomentLength = 32
 

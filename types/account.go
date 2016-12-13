@@ -1,9 +1,7 @@
 package types
 
-import (
-	"github.com/tendermint/go-crypto"
-	. "github.com/zballs/comit/util"
-)
+import "github.com/tendermint/go-crypto"
+import . "github.com/zballs/comit/util"
 
 type Account struct {
 	FormIDs  []string      `json:"form_ids"`
@@ -21,13 +19,12 @@ func NewAccount(pubKey crypto.PubKey, username string) *Account {
 }
 
 func (acc *Account) Addform(form Form) {
-	formIDstr := BytesToHexstr(form.ID())
-	acc.FormIDs = append(acc.FormIDs, formIDstr)
+	formID := BytesToHexstr(form.ID())
+	acc.FormIDs = append(acc.FormIDs, formID)
 }
 
 func (acc *Account) Copy() *Account {
-	accCopy := *acc
-	return &accCopy
+	return &*acc
 }
 
 type PrivAccount struct {

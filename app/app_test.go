@@ -23,7 +23,7 @@ const (
 	LOCATION_1    = "somewhere"
 	DESCRIPTION_1 = "something happened"
 
-	ISSUE_2       = "constituent concern"
+	ISSUE_2       = "incident report"
 	LOCATION_2    = "somewhere else"
 	DESCRIPTION_2 = "something else happened"
 

@@ -14,11 +14,12 @@ import (
 )
 
 func main() {
-
+	// App
 	tmspPtr := flag.String("tmsp", "tcp://0.0.0.0:46658", "Address for tmsp server to listen")
+	cliPtr := flag.String("cli", "local", "Client address, or 'local' for embedded")
+	// User
 	rpcPtr := flag.String("rpc", "tcp://0.0.0.0:46657", "Address of tendermint core rpc server")
 	wsPtr := flag.String("ws", "ws://0.0.0.0:46656", "Address of proxy websocket")
-	cliPtr := flag.String("cli", "local", "Client address, or 'local' for embedded")
 	genFilePath := flag.String("genesis", "genesis.json", "Genesis file, if any")
 	flag.Parse()
 
@@ -50,12 +51,12 @@ func main() {
 		Exit("tmsp server: " + err.Error())
 	}
 
-	RegisterTemplates("index.html", "citizen.html")
-	CreatePages("index", "citizen")
+	RegisterTemplates("home.html", "citizen.html")
+	CreatePages("home", "citizen")
 
 	// Create request multiplexer
 	mux := http.NewServeMux()
-	mux.HandleFunc("/index", TemplateHandler("index.html"))
+	mux.HandleFunc("/home", TemplateHandler("home.html"))
 	mux.HandleFunc("/citizen", TemplateHandler("citizen.html"))
 
 	// Create proxy manager

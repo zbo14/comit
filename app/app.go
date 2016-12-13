@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-const version = "0.1"
+const version = "1.0.0"
 
 type App struct {
 	cli        *Client

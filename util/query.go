@@ -1,8 +1,6 @@
 package util
 
-import (
-	"github.com/tendermint/go-wire"
-)
+import "github.com/tendermint/go-wire"
 
 const (
 	QueryChainID byte = 0
