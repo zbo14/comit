@@ -102,7 +102,7 @@ func (a Action) StringIndented(indent string) string {
 		%s Type: %v
 		%s %v 
 		%s Data: %x
-		%s}`,
+		}`,
 		indent, a.Type,
 		indent, a.Input,
 		indent, a.Data,

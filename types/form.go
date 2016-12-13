@@ -1,5 +1,6 @@
 package types
 
+import "fmt"
 import . "github.com/zballs/comit/util"
 
 const FORM_ID_LENGTH = 16
@@ -32,4 +33,27 @@ func (form Form) ID() []byte {
 	minutestr := ToTheMinute(form.SubmittedAt)
 	bytes = xor(bytes, minutestr, form.Issue, form.Location)
 	return bytes
+}
+
+func (form Form) String() string {
+	return form.StringIndented("")
+}
+
+func (form Form) StringIndented(indent string) string {
+	return fmt.Sprintf(`Form{
+	%s ContentType: %v
+	%s DataSize: %v
+	%s Description: %v 
+	%s Issue: %v
+	%s Location: %v 
+	%s SubmittedAt: %v 
+	%s Submitter: %v
+	}`,
+		indent, form.ContentType,
+		indent, len(form.Data),
+		indent, form.Description,
+		indent, form.Issue,
+		indent, form.Location,
+		indent, form.SubmittedAt,
+		indent, form.Submitter)
 }

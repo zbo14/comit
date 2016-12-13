@@ -2,7 +2,6 @@ package app
 
 import (
 	"bytes"
-	"fmt"
 	. "github.com/tendermint/go-common"
 	"github.com/tendermint/go-wire"
 	tmsp "github.com/tendermint/tmsp/types"
@@ -149,7 +148,7 @@ func (app *App) SetOption(key string, value string) (log string) {
 	case "issue":
 		app.Issues = append(app.Issues, value)
 		return "Success"
-	case "admin":
+	case "account":
 		var err error
 		var acc *Account
 		wire.ReadJSONPtr(&acc, []byte(value), &err)
@@ -163,7 +162,6 @@ func (app *App) SetOption(key string, value string) (log string) {
 }
 
 func (app *App) AppendTx(tx []byte) tmsp.Result {
-	fmt.Println("AppendTx")
 	var action Action
 	err := wire.ReadBinaryBytes(tx, &action)
 	if err != nil {

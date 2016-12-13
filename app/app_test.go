@@ -2,35 +2,34 @@ package app
 
 import (
 	"bufio"
-	"bytes"
 	"flag"
+	"fmt"
 	. "github.com/tendermint/go-common"
-	crypto "github.com/tendermint/go-crypto"
+	"github.com/tendermint/go-crypto"
 	"github.com/tendermint/go-wire"
 	"github.com/tendermint/tmsp/server"
 	tmsp "github.com/tendermint/tmsp/types"
-	"github.com/zballs/comit/lib"
-	"github.com/zballs/comit/types"
+	"github.com/zballs/comit/state"
+	. "github.com/zballs/comit/types"
 	. "github.com/zballs/comit/util"
 	"reflect"
 	"testing"
+	"time"
 )
 
 const (
-	CHAIN_ID = "testing"
+	chainID = "testing"
 
-	ISSUE_1       = "citizen complaint"
-	LOCATION_1    = "somewhere"
-	DESCRIPTION_1 = "something happened"
+	username = "someone"
+	password = "canyouguess?"
 
-	ISSUE_2       = "incident report"
-	LOCATION_2    = "somewhere else"
-	DESCRIPTION_2 = "something else happened"
+	issue1       = "citizen complaint"
+	location1    = "somewhere"
+	description1 = "something happened"
 
-	PUBKEY_LENGTH  = 32
-	PRIVKEY_LENGTH = 64
-	MOMENT_LENGTH  = 32
-	FORM_ID_LENGTH = 16
+	issue2       = "incident report"
+	location2    = "somewhere else"
+	description2 = "something else happened"
 )
 
 func TestStream(t *testing.T) {
@@ -46,26 +45,7 @@ func TestStream(t *testing.T) {
 
 	// Create comit app
 	app := NewApp(cli)
-	app.SetOption("base/chainID", CHAIN_ID)
-	app.state.PrintStore()
-
-	// Constituent
-	privKey := crypto.GenPrivKeyEd25519()
-	pubKey := privKey.PubKey().(crypto.PubKeyEd25519)
-	account := types.NewAccount(pubKey, 0)
-	app.state.SetAccount(account.PubKey.Address(), account)
-
-	privKeyString := BytesToHexString(privKey[:])
-	pubKeyString := BytesToHexString(pubKey[:])
-
-	// Admin
-	adminPrivKey := crypto.GenPrivKeyEd25519()
-	adminPubKey := adminPrivKey.PubKey().(crypto.PubKeyEd25519)
-	admin := types.NewAdmin(adminPubKey)
-	app.state.SetAccount(admin.PubKey.Address(), admin)
-
-	adminPrivKeyString := BytesToHexString(adminPrivKey[:])
-	adminPubKeyString := BytesToHexString(adminPubKey[:])
+	app.SetOption("base/chainID", chainID)
 
 	// Start listener
 	server, err := server.NewSocketServer("unix://test.sock", app)
@@ -78,17 +58,18 @@ func TestStream(t *testing.T) {
 		Exit(err.Error())
 	}
 
-	numTxs := 4
+	numReqs := 7
 
-	//-------- Read Responses --------//
+	// Read responses
 
 	go func() {
 		r := bufio.NewReader(conn)
-		for i := 0; i < numTxs; i++ {
+		for i := 0; i < numReqs; i++ {
 			var res = &tmsp.Response{}
 			err := tmsp.ReadMessage(r, res)
 			if err != nil {
-				Exit(err.Error())
+				t.Error("Error reading response", err)
+				continue
 			}
 			switch r := res.Value.(type) {
 			case *tmsp.Response_AppendTx:
@@ -107,146 +88,135 @@ func TestStream(t *testing.T) {
 		}
 	}()
 
-	//-------- Execute Requests, Write Responses --------//
+	// Execute requests // Write responses
 
 	w := bufio.NewWriter(conn)
 
-	// SubmitTxs
-	formID_1 := SubmitTx(ISSUE_1, LOCATION_1, DESCRIPTION_1,
-		pubKeyString, privKeyString, app, w, t)
+	// (1) Create account
+	pubKey, privKey := CreateAccount(username, password, app, w, t)
 
-	formID_2 := SubmitTx(ISSUE_2, LOCATION_2, DESCRIPTION_2,
-		pubKeyString, privKeyString, app, w, t)
+	// (2) Query account
+	acc := QueryAccount(pubKey, app, w, t)
 
-	// ResolveTx
-	ResolveTx(formID_1, adminPubKeyString, adminPrivKeyString, app, w, t)
-	ResolveTx(formID_2, adminPubKeyString, adminPrivKeyString, app, w, t)
+	// Create private account
+	privAcc := NewPrivAccount(acc, privKey)
 
-	// Send final flush message
+	// Increment sequence for next appendTx request
+	privAcc.Sequence++
+
+	// (3,4) Submit forms
+	formID1 := SubmitForm(issue1, location1, description1, privAcc, app, w, t)
+	fmt.Printf("%X\n", formID1)
+	privAcc.Sequence++
+	formID2 := SubmitForm(issue2, location2, description2, privAcc, app, w, t)
+	fmt.Printf("%X\n", formID2)
+
+	// (5,6) Query forms
+	form1 := QueryForm(formID1, app, w, t)
+	form2 := QueryForm(formID2, app, w, t)
+	fmt.Println(form1)
+	fmt.Println(form2)
+
+	// (7) Send flush message
 	err = tmsp.WriteMessage(tmsp.ToRequestFlush(), conn)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
 }
 
-func CreateAccountTx(secret string, app *App, w *bufio.Writer, t *testing.T) (string, string) {
+func CreateAccount(username, password string, app *App, w *bufio.Writer, t *testing.T) (crypto.PubKey, crypto.PrivKey) {
 
-	// Create tx
-	var tx = types.Tx{}
-	tx.Type = types.CreateAccountTx
-
-	// Secret
-	tx.Data = []byte(secret)
-
-	// Set Sequence, Account, Signature
-	pubKey, privKey := CreateKeys(tx.Data)
-	tx.SetSequence(0)
-	tx.SetAccount(pubKey)
-	tx.SetSignature(privKey, CHAIN_ID)
-
-	// TxBytes in AppendTx request
-	buf, n, err := new(bytes.Buffer), int(0), error(nil)
-	wire.WriteBinary(tx, buf, &n, &err)
-	result := app.AppendTx(buf.Bytes())
-	res := tmsp.ToResponseAppendTx(result.Code, result.Data, result.Log)
-	err = tmsp.WriteMessage(res, w)
+	// Create keys
+	pubKey, privKey, err := GenerateKeypair(password)
 	if err != nil {
 		t.Fatal(err)
 	}
-	pubKeyString := BytesToHexString(pubKey[:])
-	privKeyString := BytesToHexString(privKey[:])
-	return pubKeyString, privKeyString
+
+	// Create action
+	data := []byte(username)
+	action := NewAction(ActionCreateAccount, data)
+
+	// Prepare and sign action
+	action.Prepare(pubKey, 1)
+	action.Sign(privKey, chainID)
+
+	result := app.AppendTx(action.Tx())
+	response := tmsp.ToResponseAppendTx(result.Code, result.Data, result.Log)
+	err = tmsp.WriteMessage(response, w)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return pubKey, privKey
 }
 
-func SubmitTx(issue, location, description, pubKeyString, privKeyString string,
-	app *App, w *bufio.Writer, t *testing.T) string {
+func QueryAccount(pubKey crypto.PubKey, app *App, w *bufio.Writer, t *testing.T) *Account {
 
-	// Create tx
-	var tx = types.Tx{}
-	tx.Type = types.SubmitTx
+	// Create query
+	accKey := state.AccountKey(pubKey.Address())
+	query := KeyQuery(accKey)
 
-	// Keys
-	var pubKey = crypto.PubKeyEd25519{}
-	pubKeyBytes, _ := HexStringToBytes(pubKeyString)
-	copy(pubKey[:], pubKeyBytes)
-
-	var privKey = crypto.PrivKeyEd25519{}
-	privKeyBytes, _ := HexStringToBytes(privKeyString)
-	copy(privKey[:], privKeyBytes)
-
-	// Form
-	form, _ := lib.MakeForm(issue, location, description, pubKeyString)
-	buf, n, err := new(bytes.Buffer), int(0), error(nil)
-	wire.WriteBinary(*form, buf, &n, &err)
-	tx.Data = buf.Bytes()
-
-	// Set Sequence, Account, Signature
-	addr := pubKey.Address()
-	seq, err := app.GetSequence(addr)
+	// Query account
+	result := app.Query(query)
+	response := tmsp.ToResponseQuery(result.Code, result.Data, result.Log)
+	err := tmsp.WriteMessage(response, w)
 	if err != nil {
 		t.Fatal(err)
 	}
-	tx.SetSequence(seq)
-	tx.SetAccount(pubKey)
-	tx.SetSignature(privKey, app.GetChainID())
 
-	// TxBytes in AppendTx
-	buf = new(bytes.Buffer)
-	wire.WriteBinary(tx, buf, &n, &err)
-	result := app.AppendTx(buf.Bytes())
-	res := tmsp.ToResponseAppendTx(result.Code, result.Data, result.Log)
-	err = tmsp.WriteMessage(res, w)
+	var acc *Account
+	err = wire.ReadBinaryBytes(result.Data, &acc)
 	if err != nil {
 		t.Fatal(err)
 	}
-	formID := BytesToHexString(form.ID())
-	return formID
+
+	return acc
 }
 
-func ResolveTx(formID, pubKeyString, privKeyString string,
-	app *App, w *bufio.Writer, t *testing.T) {
+func SubmitForm(issue, location, description string, privAcc *PrivAccount, app *App, w *bufio.Writer, t *testing.T) []byte {
 
-	// Create Tx
-	var tx = types.Tx{}
-	tx.Type = types.ResolveTx
-
-	// FormID
-	IDbytes, err := HexStringToBytes(formID)
-	if err != nil {
-		t.Fatal(err.Error())
+	// Create form
+	form := Form{
+		Description: description,
+		Issue:       issue,
+		Location:    location,
+		SubmittedAt: time.Now().Local().String(),
+		Submitter:   PubKeytoHexstr(privAcc.PubKey),
 	}
-	buf, n, err := new(bytes.Buffer), int(0), error(nil)
-	wire.WriteByteSlice(IDbytes, buf, &n, &err)
-	tx.Data = buf.Bytes()
 
-	// PubKey
-	var pubKey = crypto.PubKeyEd25519{}
-	pubKeyBytes, _ := HexStringToBytes(pubKeyString)
-	copy(pubKey[:], pubKeyBytes)
+	// Create action
+	data := wire.BinaryBytes(form)
+	action := NewAction(ActionSubmitForm, data)
 
-	// PrivKey
-	var privKey = crypto.PrivKeyEd25519{}
-	privKeyBytes, _ := HexStringToBytes(privKeyString)
-	copy(privKey[:], privKeyBytes)
+	// Prepare and sign action
+	action.Prepare(privAcc.PubKey, privAcc.Sequence)
+	action.Sign(privAcc.PrivKey, chainID)
 
-	addr := pubKey.Address()
-	seq, err := app.GetSequence(addr)
+	result := app.AppendTx(action.Tx())
+	response := tmsp.ToResponseAppendTx(result.Code, result.Data, result.Log)
+	err := tmsp.WriteMessage(response, w)
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Set Sequence, Account, Signature
-	tx.SetSequence(seq)
-	tx.SetAccount(pubKey)
-	tx.SetSignature(privKey, CHAIN_ID)
+	return form.ID()
+}
 
-	// TxBytes in AppendTx request
-	buf = new(bytes.Buffer)
-	wire.WriteBinary(tx, buf, &n, &err)
-	result := app.AppendTx(buf.Bytes())
-	res := tmsp.ToResponseAppendTx(result.Code, result.Data, result.Log)
-	err = tmsp.WriteMessage(res, w)
+func QueryForm(formID []byte, app *App, w *bufio.Writer, t *testing.T) Form {
+
+	// Create query
+	query := KeyQuery(formID)
+
+	// Query form
+	result := app.Query(query)
+	response := tmsp.ToResponseQuery(result.Code, result.Data, result.Log)
+	err := tmsp.WriteMessage(response, w)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return
+
+	var form Form
+	err = wire.ReadBinaryBytes(result.Data, &form)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return form
 }
