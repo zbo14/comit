@@ -8,13 +8,8 @@ import (
 	"github.com/zballs/comit/types"
 )
 
-const (
-	ErrSet = 10
-
-	// For bloom filter
-	iter    uint64 = 3
-	members uint64 = 1000
-)
+const iter uint64 = 3
+const members uint64 = 10000000
 
 type State struct {
 	chainID string
@@ -49,7 +44,7 @@ func (s *State) GetChainID() string {
 func (s *State) SetBloomFilters(filters []string) {
 	blooms := make(map[string]*types.BloomFilter)
 	for _, f := range filters {
-		blooms[f] = types.MakeBloomFilter(members)
+		blooms[f] = types.NewBloomFilter(members)
 	}
 	s.blooms = blooms
 }

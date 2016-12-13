@@ -81,6 +81,7 @@ func TestStream(t *testing.T) {
 	numTxs := 4
 
 	//-------- Read Responses --------//
+
 	go func() {
 		r := bufio.NewReader(conn)
 		for i := 0; i < numTxs; i++ {

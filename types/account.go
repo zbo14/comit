@@ -1,31 +1,28 @@
 package types
 
 import (
-	"fmt"
 	"github.com/tendermint/go-crypto"
-)
-
-const (
-	adminPerm      = 1
-	superAdminPerm = 2
+	. "github.com/zballs/comit/util"
 )
 
 type Account struct {
-	PubKey     crypto.PubKey `json:"pub_key"`
-	Sequence   int           `json:"sequence"`
-	Permission int           `json:"permission"`
+	FormIDs  []string      `json:"form_ids"`
+	PubKey   crypto.PubKey `json:"pub_key"`
+	Sequence int           `json:"sequence"`
+	Username string        `json:"username"`
 }
 
-func NewAccount(pubKey crypto.PubKey, permission int) *Account {
+func NewAccount(pubKey crypto.PubKey, username string) *Account {
 	return &Account{
-		PubKey:     pubKey,
-		Sequence:   0,
-		Permission: permission,
+		PubKey:   pubKey,
+		Sequence: 0,
+		Username: username,
 	}
 }
 
-func NewAdmin(pubKey crypto.PubKey) *Account {
-	return NewAccount(pubKey, 1)
+func (acc *Account) Addform(form Form) {
+	formIDstr := BytesToHexstr(form.ID())
+	acc.FormIDs = append(acc.FormIDs, formIDstr)
 }
 
 func (acc *Account) Copy() *Account {
@@ -33,35 +30,13 @@ func (acc *Account) Copy() *Account {
 	return &accCopy
 }
 
-func (acc *Account) String() string {
-	if acc == nil {
-		return "nil-Account"
-	}
-	return fmt.Sprintf("Account {%X %v}",
-		acc.PubKey, acc.Sequence)
-}
-
-func (acc *Account) IsAdmin() bool {
-	return acc.Permission >= adminPerm
-}
-
-func (acc *Account) IsSuperAdmin() bool {
-	return acc.Permission >= superAdminPerm
-}
-
-func (acc *Account) PermissionToResolve() bool {
-	return acc.IsAdmin()
-}
-
-func (acc *Account) PermissionToCreateAdmin() bool {
-	return acc.IsSuperAdmin()
-}
-
-//--------------------------------------------
-
 type PrivAccount struct {
-	crypto.PrivKey
-	Account
+	*Account
+	PrivKey crypto.PrivKey
+}
+
+func NewPrivAccount(acc *Account, privKey crypto.PrivKey) *PrivAccount {
+	return &PrivAccount{acc, privKey}
 }
 
 type AccountGetter interface {

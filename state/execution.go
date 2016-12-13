@@ -1,125 +1,148 @@
 package state
 
 import (
-	"bytes"
 	. "github.com/tendermint/go-common"
-	// "github.com/tendermint/go-crypto"
 	"github.com/tendermint/go-wire"
 	tmsp "github.com/tendermint/tmsp/types"
-	"github.com/zballs/comit/forms"
-	"github.com/zballs/comit/types"
-	. "github.com/zballs/comit/util"
+	. "github.com/zballs/comit/types"
 )
 
-// If the tx is invalid, a TMSP error will be returned.
-func ExecTx(state *State, tx types.Tx, isCheckTx bool) (res tmsp.Result) {
+// Logger
+var log = NewLogger("execution")
+
+// If the action is invalid, TMSP error will be returned.
+func ExecuteAction(state *State, action Action, isCheckTx bool) (res tmsp.Result) {
 
 	chainID := state.GetChainID()
 
 	// Validate Input Basic
-	res = tx.Input.ValidateBasic()
+	res = action.Input.ValidateBasic()
 	if res.IsErr() {
 		return res
 	}
 
-	var inAcc *types.Account
+	var acc *Account
 
-	if tx.Type == types.CreateAccountTx {
-		// Create new account
-		// Must have txIn pubKey
-		inAcc = types.NewAccount(tx.Input.PubKey, 0)
+	if action.Type == ActionCreateAccount {
+		// Create new account // Must have input pubKey
+		var username string
+		data, _, err := wire.GetByteSlice(action.Data)
+		if err == nil {
+			username = string(data)
+		} else {
+			// No username
+		}
+		acc = NewAccount(action.Input.PubKey, username)
 	} else {
 		// Get input account
-		inAcc = state.GetAccount(tx.Input.Address)
-		if inAcc == nil {
+		acc = state.GetAccount(action.Input.Address)
+		if acc == nil {
 			return tmsp.ErrBaseUnknownAddress
 		}
-		if tx.Input.PubKey != nil {
-			inAcc.PubKey = tx.Input.PubKey
+		if action.Input.PubKey != nil {
+			acc.PubKey = action.Input.PubKey
 		}
 	}
 
 	// Validate input, advanced
-	signBytes := tx.SignBytes(chainID)
-	res = validateInputAdvanced(inAcc, signBytes, tx.Input)
+	signBytes := action.SignBytes(chainID)
+	res = validateInputAdvanced(acc, signBytes, action.Input)
 	if res.IsErr() {
-		log.Info(Fmt("validateInputAdvanced failed on %X: %v", tx.Input.Address, res))
+		log.Info(Fmt("validateInputAdvanced failed on %X: %v", action.Input.Address, res))
 		return res.PrependLog("in validateInputAdvanced()")
 	}
 
-	inAcc.Sequence += 1
-
-	// If CheckTx, we are done.
 	if isCheckTx {
-		state.SetAccount(tx.Input.Address, inAcc)
+		// CheckTx does not set state
+		// Ok, we are done
 		return tmsp.OK
 	}
 
-	// Create inAcc checkpoint
-	inAccCopy := inAcc.Copy()
+	// Increment sequence and create checkpoint
+	acc.Sequence += 1
+	accCopy := acc.Copy()
 
-	// Run the tx.
-	cacheState := state.CacheWrap()
-	cacheState.SetAccount(tx.Input.Address, inAcc)
-	switch tx.Type {
-	case types.CreateAccountTx:
-		res = RunCreateAccountTx()
-	case types.RemoveAccountTx:
-		if inAcc.IsAdmin() {
-			res = tmsp.ErrUnauthorized
-		} else {
-			res = RunRemoveAccountTx(cacheState, tx.Input.Address)
-		}
-	case types.CreateAdminTx:
-		if !inAcc.PermissionToCreateAdmin() {
-			res = tmsp.ErrUnauthorized
-		} else {
-			res = RunCreateAdminTx(cacheState, tx.Data)
-		}
-	case types.RemoveAdminTx:
-		if !inAcc.IsAdmin() {
-			res = tmsp.ErrUnauthorized
-		} else {
-			res = RunRemoveAdminTx(cacheState, tx.Input.Address)
-		}
-	case types.SubmitTx:
-		res = RunSubmitTx(cacheState, tx.Data)
-		/*
-			case types.ResolveTx:
-				if !inAcc.PermissionToResolve() {
-					res = tmsp.ErrUnauthorized
-				} else {
-					pubKey := inAcc.PubKey.(crypto.PubKeyEd25519)
-					res = RunResolveTx(cacheState, pubKey, tx.Data)
-				}
-		*/
+	// Run the action.
+	cache := state.CacheWrap()
+	switch action.Type {
+	case ActionCreateAccount:
+		res = RunCreateAccount(cache, acc)
+	case ActionRemoveAccount:
+		res = RunRemoveAccount(cache, acc)
+	case ActionSubmitForm:
+		res = RunSubmitForm(cache, acc, action.Data)
 	default:
 		res = tmsp.ErrUnknownRequest.SetLog(
-			Fmt("Error unrecognized tx type: %v", tx.Type))
+			Fmt("Error unrecognized tx type: %v", action.Type))
 	}
 	if res.IsOK() {
-		cacheState.CacheSync()
-		log.Info("Successful execution")
+		//log.Info("Success")
+		cache.CacheSync()
 	} else {
 		log.Info("AppTx failed", "error", res)
-		cacheState.SetAccount(tx.Input.Address, inAccCopy)
+		cache.SetAccount(action.Input.Address, accCopy)
 	}
 	return res
 }
 
 //=====================================================================//
 
-func RunCreateAccountTx() tmsp.Result {
-	// Just return OK
+func RunCreateAccount(accSetter AccountSetter, acc *Account) tmsp.Result {
+	// Set address to new account
+	addr := acc.PubKey.Address()
+	accSetter.SetAccount(addr, acc)
 	return tmsp.OK
 }
 
-func RunRemoveAccountTx(state *State, address []byte) tmsp.Result {
-	// Return key so we can remove in AppendTx
-	key := AccountKey(address)
-	return tmsp.NewResultOK(key, "")
+func RunRemoveAccount(accSetter AccountSetter, acc *Account) tmsp.Result {
+	// Set address to nil
+	addr := acc.PubKey.Address()
+	accSetter.SetAccount(addr, nil)
+	return tmsp.OK
 }
 
+func RunSubmitForm(state *State, acc *Account, data []byte) (res tmsp.Result) {
+	var form Form
+	err := wire.ReadBinaryBytes(data, &form)
+	if err != nil {
+		return tmsp.ErrEncodingError.SetLog(Fmt("Failed to decode form data: %v", data))
+	}
+	formID := form.ID()
+	state.Set(formID, data)
+	err = state.AddToFilter(formID, form.Issue) // TODO: add location filter
+	if err != nil {
+		// False positive
+	} else {
+		log.Info("Added to filter", "filter", form.Issue)
+	}
+	acc.Addform(form)
+	addr := acc.PubKey.Address()
+	state.SetAccount(addr, acc)
+	return tmsp.OK
+}
+
+//=======================================================================================//
+
+func validateInputAdvanced(acc *Account, signBytes []byte, in *ActionInput) (res tmsp.Result) {
+	if in == nil {
+		// shouldn't happen
+	}
+	// Check sequence
+	seq := acc.Sequence
+	if seq+1 != in.Sequence {
+		return tmsp.ErrBaseInvalidSequence.AppendLog(
+			Fmt("Got %v, expected %v. (acc.seq=%v)", in.Sequence, seq+1, acc.Sequence))
+	}
+	// Check signature
+	if !acc.PubKey.VerifyBytes(signBytes, in.Signature) {
+		return tmsp.ErrBaseInvalidSignature.AppendLog(Fmt("SignBytes: %X", signBytes))
+	}
+	return tmsp.OK
+}
+
+//=======================================================================================//
+
+/*
 func RunCreateAdminTx(state *State, data []byte) tmsp.Result {
 
 	// Get secret
@@ -133,7 +156,7 @@ func RunCreateAdminTx(state *State, data []byte) tmsp.Result {
 	pubKey, privKey := CreateKeys(secret)
 
 	// Create new admin
-	newAcc := types.NewAdmin(pubKey)
+	newAcc := NewAdmin(pubKey)
 	state.SetAccount(pubKey.Address(), newAcc)
 
 	// Return PubKeyBytes
@@ -149,46 +172,18 @@ func RunRemoveAdminTx(state *State, address []byte) tmsp.Result {
 	return tmsp.NewResultOK(key, "account")
 }
 
-func RunSubmitTx(state *State, data []byte) (res tmsp.Result) {
-	var form forms.Form
-	err := wire.ReadBinaryBytes(data, &form)
-	if err != nil {
-		return tmsp.ErrEncodingError.SetLog(
-			Fmt("Error: could not decode form data: %v", data))
-	}
-	issue := form.Issue
-	buf, n, err := new(bytes.Buffer), int(0), error(nil)
-	wire.WriteByteSlice(form.ID(), buf, &n, &err)
-	state.Set(buf.Bytes(), data)
-
-	err = state.AddToFilter(buf.Bytes(), issue)
-	if err != nil {
-		// False positive
-	}
-
-	formBytes := wire.BinaryBytes(form)
-	data = make([]byte, wire.ByteSliceSize(formBytes)+1)
-	bz := data
-	bz[0] = types.SubmitTx
-	bz = bz[1:]
-	wire.PutByteSlice(bz, formBytes)
-
-	return tmsp.NewResultOK(data, "")
-}
-
-/*
 func RunResolveTx(state *State, pubKey crypto.PubKeyEd25519, data []byte) (res tmsp.Result) {
 	formID, _, err := wire.GetByteSlice(data)
 	if err != nil {
 		return tmsp.NewResult(
-			forms.ErrDecodeFormID, nil, "")
+			ErrDecodeFormID, nil, "")
 	}
 	value := state.Get(data)
 	if len(value) == 0 {
 		return tmsp.NewResult(
-			forms.ErrFindForm, nil, Fmt("Error cannot find form with ID: %X", formID))
+			ErrFindForm, nil, Fmt("Error cannot find form with ID: %X", formID))
 	}
-	var form forms.Form
+	var form Form
 	err = wire.ReadBinaryBytes(value, &form)
 	if err != nil {
 		return tmsp.ErrEncodingError.SetLog(
@@ -199,7 +194,7 @@ func RunResolveTx(state *State, pubKey crypto.PubKeyEd25519, data []byte) (res t
 	err = (&form).Resolve(minuteString, pubKeyString)
 	if err != nil {
 		return tmsp.NewResult(
-			forms.ErrFormAlreadyResolved, nil, Fmt("Error already resolved form with ID: %v", formID))
+			ErrFormAlreadyResolved, nil, Fmt("Error already resolved form with ID: %v", formID))
 	}
 	buf, n, err := new(bytes.Buffer), int(0), error(nil)
 	wire.WriteBinary(form, buf, &n, &err)
@@ -216,7 +211,7 @@ func RunResolveTx(state *State, pubKey crypto.PubKeyEd25519, data []byte) (res t
 
 	data = make([]byte, wire.ByteSliceSize(buf.Bytes())+1)
 	bz := data
-	bz[0] = types.ResolveTx
+	bz[0] = ResolveTx
 	bz = bz[1:]
 	wire.PutByteSlice(bz, buf.Bytes())
 
@@ -224,19 +219,24 @@ func RunResolveTx(state *State, pubKey crypto.PubKeyEd25519, data []byte) (res t
 }
 */
 
-//=======================================================================================//
-
-func validateInputAdvanced(acc *types.Account, signBytes []byte, in types.TxInput) (res tmsp.Result) {
-	// Check sequence
-	seq := acc.Sequence
-	if seq+1 != in.Sequence {
-		return tmsp.ErrBaseInvalidSequence.AppendLog(
-			Fmt("Got %v, expected %v. (acc.seq=%v)", in.Sequence, seq+1, acc.Sequence))
-	}
-	// Check signatures
-	if !acc.PubKey.VerifyBytes(signBytes, in.Signature) {
-		return tmsp.ErrBaseInvalidSignature.AppendLog(
-			Fmt("SignBytes: %X", signBytes))
-	}
-	return tmsp.OK
-}
+/*
+	case CreateAdminTx:
+		if !acc.PermissionToCreateAdmin() {
+			res = tmsp.ErrUnauthorized
+		} else {
+			res = RunCreateAdminTx(cacheState, action.Data)
+		}
+	case RemoveAdminTx:
+		if !acc.IsAdmin() {
+			res = tmsp.ErrUnauthorized
+		} else {
+			res = RunRemoveAdminTx(cacheState, action.Input.Address)
+		}
+	case ResolveTx:
+		if !acc.PermissionToResolve() {
+			res = tmsp.ErrUnauthorized
+		} else {
+			pubKey := acc.PubKey.(crypto.PubKeyEd25519)
+			res = RunResolveTx(cacheState, pubKey, action.Data)
+		}
+*/

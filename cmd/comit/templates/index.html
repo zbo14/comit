@@ -151,8 +151,8 @@
  <form id="login-form" class="container">
   <div class="section">
     <h2>login</h2>
-    <input class="my-input" type="text" name="public-key" placeholder="public key" required />
-    <input class="my-input" type="password" name="private-key" placeholder="private key" required />
+    <input class="my-input" type="text" name="pub_key" placeholder="public key" required />
+    <input class="my-input" type="password" name="priv_key" placeholder="private key" required />
     <input class="btn-2" type="submit" value="enter" />
   </div> 
   </form>
@@ -162,13 +162,16 @@
    <form id="create-account-form" class="container">
     <div class="section" style="margin-left: 720px;"> <!-- better way to right align this? -->
       <h2>create an account</h2>
-      <input class="my-input" type="password" name="secret" placeholder="secret" required />
+      <input class="my-input" type="text" name="username" placeholder="username" required /><br>
+      <input class="my-input" type="password" name="password" placeholder="password" required />
       <input class="btn-2" type="submit" value="create"/>
     </div>
   </form>
 </div>
 
 <script type="text/javascript">
+
+// TODO: javascript -> JQuery 
 
 function httpPostAsync(addr, data, callback) {
    
@@ -203,35 +206,36 @@ window.onclick = function(event) {
   };
 }
 
+// Callbacks
+
+var loginCallback = function(responseText) {
+
+  var json = JSON.parse(responseText);
+
+  if (json.action == "login" && json.result.ok)  {
+
+    window.location.replace("http://localhost:8888/citizen");
+
+  } else {
+
+    console.log(json);
+
+  };
+};
+
+var createAccountCallback = function(responseText) {
+
+  var json = JSON.parse(responseText);
+
+  console.log(json); //for now
+};
+
+
 window.onload = function(){
 
     // Login
 
     var loginForm = document.getElementById("login-form");
-
-    var loginCallback = function(responseText) {
-
-      var json = JSON.parse(responseText);
-
-      var pubKey = document.getElementsByName("public-key")[0].value;
-      var privKey = document.getElementsByName("private-key")[0].value;
-
-      if (json.login == "success" && json.type == "constituent")  {
-
-        sessionStorage.setItem("public-key", pubKey);
-        sessionStorage.setItem("private-key", privKey);
-
-        window.location.replace("http://localhost:8888/constituent");
-
-      } else if (json.login == "success" && json.type == "admin") {
-
-        // TODO
-
-      } else {
-
-        // TODO
-      };
-    };
 
     loginForm.onsubmit = function(event) {
 
@@ -247,13 +251,6 @@ window.onload = function(){
     // Create account 
 
     var createAccountForm = document.getElementById("create-account-form");
-    
-    var createAccountCallback = function(responseText) {
-
-      var json = JSON.parse(responseText);
-
-      console.log(json); //for now
-    };
 
     createAccountForm.onsubmit = function(event) {
 
@@ -261,7 +258,7 @@ window.onload = function(){
 
       var formData = $("#create-account-form").serialize();    
 
-      httpPostAsync("http://localhost:8888/create-account", formData, createAccountCallback); 
+      httpPostAsync("http://localhost:8888/create_account", formData, createAccountCallback); 
 
     };
 }

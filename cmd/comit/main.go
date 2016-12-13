@@ -5,26 +5,27 @@ import (
 	"flag"
 	"fmt"
 	. "github.com/tendermint/go-common"
-	"github.com/zballs/comit/actions"
+	"github.com/tendermint/tmsp/server"
 	"github.com/zballs/comit/app"
-	"github.com/zballs/comit/server"
-	"github.com/zballs/comit/web"
+	"github.com/zballs/comit/manager"
+	. "github.com/zballs/comit/util"
 	"net/http"
 	"reflect"
-	"strings"
 )
 
 func main() {
 
-	addrPtr := flag.String("addr", "tcp://0.0.0.0:46658", "Listen address")
+	tmspPtr := flag.String("tmsp", "tcp://0.0.0.0:46658", "Address for tmsp server to listen")
+	rpcPtr := flag.String("rpc", "tcp://0.0.0.0:46657", "Address of tendermint core rpc server")
+	wsPtr := flag.String("ws", "ws://0.0.0.0:46656", "Address of proxy websocket")
 	cliPtr := flag.String("cli", "local", "Client address, or 'local' for embedded")
 	genFilePath := flag.String("genesis", "genesis.json", "Genesis file, if any")
 	flag.Parse()
 
-	// Connect to Client
+	// Create app client
 	cli, err := app.NewClient(*cliPtr, "socket")
 	if err != nil {
-		Exit("connect to client: " + err.Error())
+		Exit("app client: " + err.Error())
 	}
 
 	// Create comit app
@@ -39,74 +40,36 @@ func main() {
 		}
 	}
 
-	// Set State filters
-	// Just Issues for now..
-	// TODO: add location, maybe status..
-	comitApp.SetFilters(comitApp.Issues())
+	// Set state filters
+	// Just issues for now // TODO: add location
+	comitApp.SetFilters(comitApp.Issues)
 
 	// Start the listener
-	_, err = server.NewSocketServer(*addrPtr, comitApp)
+	_, err = server.NewSocketServer(*tmspPtr, comitApp)
 	if err != nil {
-		Exit("create listener: " + err.Error())
+		Exit("tmsp server: " + err.Error())
 	}
 
-	web.RegisterTemplates(
-		"account.html",
-		"forms.html",
-		"network.html",
-		"admin.html",
-		"index.html",
-		"constituent.html",
-	)
+	RegisterTemplates("index.html", "citizen.html")
+	CreatePages("index", "citizen")
 
-	web.CreatePages(
-		"account",
-		"forms",
-		"network",
-		"admin",
-		"index",
-		"constituent",
-	)
+	// Create request multiplexer
+	mux := http.NewServeMux()
+	mux.HandleFunc("/index", TemplateHandler("index.html"))
+	mux.HandleFunc("/citizen", TemplateHandler("citizen.html"))
 
-	// Create action manager
-	addr := strings.Split(*addrPtr, "//")[1]
-	am := actions.CreateActionManager(addr)
+	// Create proxy manager
+	m := manager.CreateManager(*rpcPtr, *wsPtr)
 
-	js := web.JustFiles{http.Dir("static/")}
+	// Add routes to multiplexer
+	m.AddRoutes(mux)
 
-	http.HandleFunc("/index", web.TemplateHandler("index.html"))
-	http.HandleFunc("/constituent", web.TemplateHandler("constituent.html"))
+	// File server
+	js := JustFiles{http.Dir("static/")}
+	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(js)))
 
-	http.HandleFunc("/account", web.TemplateHandler("account.html"))
-	http.HandleFunc("/create-account", am.CreateAccount)
-	http.HandleFunc("/remove-account", am.RemoveAccount)
-	http.HandleFunc("/login", am.Login)
-	http.HandleFunc("/submit-form", am.SubmitForm)
-
-	http.HandleFunc("/issues", am.SendIssues)
-	http.HandleFunc("/update-feed", am.UpdateFeed)
-	http.HandleFunc("/updates", am.Updates)
-	http.HandleFunc("/find-form", am.FindForm)
-
-	/*
-		http.HandleFunc("/network", web.TemplateHandler("network.html"))
-		http.HandleFunc("/resolve-form", am.ResolveForm)
-
-		http.HandleFunc("/forms", web.TemplateHandler("forms.html"))
-		http.HandleFunc("/search_forms", am.SearchForms)
-	*/
-
-	/*
-		http.HandleFunc("/check_messages", am.CheckMessages)
-		http.HandleFunc("/send_message", am.SendMessage)
-
-		http.HandleFunc("/admin", web.TemplateHandler("admin.html"))
-		http.HandleFunc("/create_admin", am.CreateAdmin)
-		http.HandleFunc("/remove_admin", am.RemoveAdmin)
-	*/
-
-	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(js)))
-	http.ListenAndServe(":8888", nil)
+	// Start HTTP server with multiplexer
+	http.ListenAndServe(":8888", mux)
 
 	// Wait forever
 	TrapSignal(func() {

@@ -5,6 +5,8 @@ import (
 	"time"
 )
 
+const MomentLength = 32
+
 func TimeString() string {
 	return time.Now().UTC().String()
 }

@@ -63,7 +63,7 @@ func NewKVMap() *KVMap {
 }
 
 func (kvm *KVMap) Set(key []byte, value []byte) {
-	keystr := BytesToHexString(key)
+	keystr := BytesToHexstr(key)
 	kvn := kvm.m[keystr]
 	if kvn == nil {
 		kvm.m[keystr] = kvm.KVList.Push(key, value)
@@ -73,7 +73,7 @@ func (kvm *KVMap) Set(key []byte, value []byte) {
 }
 
 func (kvm *KVMap) Get(key []byte) []byte {
-	keystr := BytesToHexString(key)
+	keystr := BytesToHexstr(key)
 	kvn := kvm.m[keystr]
 	if kvn != nil {
 		return kvn.value

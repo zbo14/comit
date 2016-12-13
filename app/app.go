@@ -2,37 +2,24 @@ package app
 
 import (
 	"bytes"
-	"encoding/binary"
-	"errors"
 	"fmt"
 	. "github.com/tendermint/go-common"
 	"github.com/tendermint/go-wire"
 	tmsp "github.com/tendermint/tmsp/types"
-	"github.com/zballs/comit/forms"
 	sm "github.com/zballs/comit/state"
-	"github.com/zballs/comit/types"
+	. "github.com/zballs/comit/types"
 	. "github.com/zballs/comit/util"
 	"strings"
 	"time"
 )
 
-const (
-	version = "0.1"
-	//maxTxSize = 10240
-
-	QueryChainID byte = 0
-	QuerySize    byte = 1
-	QueryKey     byte = 2
-	QueryIndex   byte = 3
-	QueryIssues  byte = 4
-	QuerySearch  byte = 5
-)
+const version = "0.1"
 
 type App struct {
 	cli        *Client
 	state      *sm.State
 	cacheState *sm.State
-	issues     []string
+	Issues     []string
 }
 
 func NewApp(cli *Client) *App {
@@ -44,33 +31,7 @@ func NewApp(cli *Client) *App {
 	}
 }
 
-// Get
-
-func (app *App) GetChainID() string {
-	return app.state.GetChainID()
-}
-
-func (app *App) GetSequence(addr []byte) (int, error) {
-
-	acc := app.state.GetAccount(addr)
-
-	if acc == nil {
-		return 0, errors.New("Error could not find account")
-	}
-
-	return acc.Sequence, nil
-}
-
-func (app *App) GetSize() int {
-
-	res := app.Query([]byte{QuerySize})
-
-	s := binary.BigEndian.Uint32(res.Data)
-
-	return int(s)
-}
-
-// Filter
+// State filters
 
 func (app *App) FilterFunc(filters []string) func(data []byte) bool {
 	return app.state.FilterFunc(filters)
@@ -80,52 +41,41 @@ func (app *App) SetFilters(filters []string) {
 	app.state.SetBloomFilters(filters)
 }
 
-// Query
+// Search pipeline
+// Iterate through indices 0 <= i < merkle_tree.size()
+// If key k at index i is in bloom filter(s), send k to 'in'
+// Iterate through selected keys
+// If value v at key k is in time range, send v to 'out'
 
-func (app *App) QueryByKey(key []byte) tmsp.Result {
+// More efficient than querying values by index, decoding data,
+// and checking issue, location, submission date? Probably if forms
+// have image/video data and we need to decode all of this..
 
-	query := make([]byte, wire.ByteSliceSize(key)+1)
-
-	buf := query
-	buf[0] = QueryKey
-	buf = buf[1:]
-
-	wire.PutByteSlice(buf, key)
-
-	return app.Query(query)
-}
-
-func (app *App) QueryByIndex(i int) tmsp.Result {
-
-	query := make([]byte, 100)
-
-	buf := query
-	buf[0] = QueryIndex
-	buf = buf[1:]
-
-	n, err := wire.PutVarint(buf, i)
-
-	if err != nil {
-		return tmsp.ErrEncodingError
-	}
-
-	query = query[:n+1]
-
-	return app.Query(query)
-}
+// TODO: test
 
 func (app *App) IterQueryIndex(fun func([]byte) bool, in chan []byte) {
 
-	for i := 0; i < app.GetSize(); i++ {
+	query := EmptyQuery(QuerySize)
+	result := app.Query(query)
 
-		result := app.QueryByIndex(i)
+	if result.IsErr() {
+		panic(result.Error())
+	}
+	var size int
+	wire.ReadBinaryBytes(result.Data, &size)
+
+	for i := 0; i < size; i++ {
+
+		query := IndexQuery(i)
+
+		result := app.Query(query)
 
 		if result.IsErr() {
-			panic(result.Error())
+			// handle
+			continue
 		}
 
 		if fun(result.Data) {
-			fmt.Printf("%X\n", result.Data)
 			in <- result.Data
 		}
 	}
@@ -143,34 +93,21 @@ func (app *App) IterQueryKey(fun func([]byte) bool, in, out chan []byte) {
 			break
 		}
 
-		result := app.QueryByKey(data)
+		query := KeyQuery(data)
+
+		result := app.Query(query)
 
 		if result.IsErr() {
-			panic(result.Error())
+			// handle
+			continue
 		}
 
 		if fun(result.Data) {
-			fmt.Printf("%X\n", data)
 			out <- data
 		}
 	}
 
 	close(out)
-}
-
-// Issues
-
-func (app *App) Issues() []string {
-	return app.issues
-}
-
-// Admin
-
-func (app *App) IsAdmin(addr []byte) bool {
-
-	acc := app.state.GetAccount(addr)
-
-	return acc.IsAdmin()
 }
 
 // Check if time's in range
@@ -179,7 +116,7 @@ func TimeRangeFunc(afterTime, beforeTime time.Time) func([]byte) bool {
 
 	return func(data []byte) bool {
 
-		var form forms.Form
+		var form Form
 
 		err := wire.ReadBinaryBytes(data, &form)
 
@@ -204,137 +141,77 @@ func (app *App) Info() string {
 }
 
 func (app *App) SetOption(key string, value string) (log string) {
-
 	_, key = splitKey(key)
-
 	switch key {
-
 	case "chainID":
-
 		app.state.SetChainID(value)
 		return "Success"
-
 	case "issue":
-
-		app.issues = append(app.issues, value)
+		app.Issues = append(app.Issues, value)
 		return "Success"
-
 	case "admin":
-
 		var err error
-		var acc *types.Account
-
+		var acc *Account
 		wire.ReadJSONPtr(&acc, []byte(value), &err)
-
 		if err != nil {
 			return "Error decoding acc message: " + err.Error()
 		}
-
 		app.state.SetAccount(acc.PubKey.Address(), acc)
-
 		return "Success"
 	}
-
 	return "Unrecognized option key " + key
 }
 
-func (app *App) AppendTx(txBytes []byte) tmsp.Result {
-
-	// Create tx
-	var tx types.Tx
-
-	// Decode Tx
-	err := wire.ReadBinaryBytes(txBytes, &tx)
-
+func (app *App) AppendTx(tx []byte) tmsp.Result {
+	fmt.Println("AppendTx")
+	var action Action
+	err := wire.ReadBinaryBytes(tx, &action)
 	if err != nil {
 		return tmsp.ErrBaseEncodingError.AppendLog("Error decoding tx: " + err.Error())
 	}
-
-	// Validate and exec tx
-	res := sm.ExecTx(app.state, tx, false)
-
+	// Validate and exec action tx
+	res := sm.ExecuteAction(app.state, action, false)
 	if res.IsErr() {
 		return res.PrependLog("Error in AppendTx")
 	}
-
-	switch tx.Type {
-
-	case types.RemoveAccountTx:
-
-		key := res.Data
-		app.cli.Remove(key)
-
-	case types.RemoveAdminTx:
-
-		key := res.Data
-		app.cli.Remove(key)
-
-	default:
-	}
-
 	return res
 }
 
-func (app *App) CheckTx(txBytes []byte) tmsp.Result {
-
-	// Decode tx
-	var tx types.Tx
-
-	err := wire.ReadBinaryBytes(txBytes, &tx)
-
+func (app *App) CheckTx(tx []byte) tmsp.Result {
+	var action Action
+	err := wire.ReadBinaryBytes(tx, &action)
 	if err != nil {
 		return tmsp.ErrBaseEncodingError.AppendLog("Error decoding tx: " + err.Error())
 	}
-
-	// Validate and exec tx
-	res := sm.ExecTx(app.state, tx, true)
-
+	// Validate and exec action tx
+	res := sm.ExecuteAction(app.state, action, true)
 	if res.IsErr() {
 		return res.PrependLog("Error in CheckTx")
 	}
-
-	switch tx.Type {
-
-	case types.ConnectTx:
-
-		return tmsp.OK
-
-	case types.UpdateTx:
-
-		data := make([]byte, wire.ByteSliceSize(tx.Input.Address)+1)
-
-		buf := data
-		buf[0] = types.UpdateTx
-		buf = buf[1:]
-
-		wire.PutByteSlice(buf, tx.Input.Address)
-
-		return tmsp.NewResultOK(data, "")
-
-	default:
-		return tmsp.ErrUnknownRequest
-
-	}
+	return res
 }
 
 func (app *App) Query(query []byte) tmsp.Result {
 
-	switch query[0] {
+	queryType := query[0]
 
-	case QueryChainID:
+	switch queryType {
 
-		return tmsp.NewResultOK(nil, app.GetChainID())
+	case QueryKey, QueryIndex, QuerySize: // merkle-cli
+		return app.cli.QuerySync(query)
 
 	case QueryIssues:
 
 		buf, n, err := new(bytes.Buffer), int(0), error(nil)
-		wire.WriteBinary(app.issues, buf, &n, &err)
-		return tmsp.NewResultOK(buf.Bytes(), "")
+		wire.WriteBinary(app.Issues, buf, &n, &err)
+		if err != nil {
+			return tmsp.ErrEncodingError.AppendLog("Failed to encode issues data")
+		}
+		data := buf.Bytes()
+		return tmsp.NewResultOK(data, "")
 
 	case QuerySearch:
-
 		search, _, err := wire.GetByteSlice(query[1:])
-
 		if err != nil {
 			panic(err)
 		}
@@ -346,15 +223,11 @@ func (app *App) Query(query []byte) tmsp.Result {
 		}{}
 
 		err = wire.ReadBinaryBytes(search, &s)
-
 		if err != nil {
 			return tmsp.ErrEncodingError
 		}
 
-		fmt.Printf("%v\n", s)
-
-		// Checks if forms are in filters..
-		// for now, just check if forms have issue
+		// Checks if forms are in filters
 		fun1 := app.FilterFunc([]string{s.Issue})
 
 		// Checks if forms are in time range
@@ -388,7 +261,7 @@ func (app *App) Query(query []byte) tmsp.Result {
 		return tmsp.NewResultOK(data, "")
 
 	default:
-		return app.cli.QuerySync(query)
+		return tmsp.ErrUnknownRequest.AppendLog("Unrecognized query type")
 	}
 }
 

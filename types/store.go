@@ -20,9 +20,9 @@ func NewMemStore() *MemStore {
 }
 
 func (mstore *MemStore) Set(key []byte, value []byte) {
-	mstore.m[BytesToHexString(key)] = value
+	mstore.m[BytesToHexstr(key)] = value
 }
 
 func (mstore *MemStore) Get(key []byte) (value []byte) {
-	return mstore.m[BytesToHexString(key)]
+	return mstore.m[BytesToHexstr(key)]
 }

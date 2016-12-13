@@ -1,10 +1,5 @@
 package types
 
-import (
-	// "fmt"
-	. "github.com/tendermint/go-common"
-)
-
 type Cache struct {
 	*KVMap
 	store Store
@@ -23,19 +18,16 @@ func (c *Cache) Reset() {
 }
 
 func (c *Cache) Set(key []byte, value []byte) {
-	// fmt.Println("Set [Cache]", formatBytes(key, "hex"), "=", formatBytes(value, "hex"))
 	c.KVMap.Set(key, value)
 }
 
 func (c *Cache) Get(key []byte) (value []byte) {
 	value = c.KVMap.Get(key)
 	if value != nil {
-		// fmt.Println("GET [Cache, hit]", formatBytes(key, "hex"), "=", formatBytes(value, "hex"))
 		return
 	}
 	value = c.store.Get(key)
 	c.Set(key, value)
-	// fmt.Println("GET [Cache, miss]", formatBytes(key, "hex"), "=", formatBytes(value, "hex"))
 	return
 }
 
@@ -44,19 +36,4 @@ func (c *Cache) Sync() {
 		c.store.Set(kvn.key, kvn.value)
 	}
 	c.Reset()
-}
-
-func formatBytes(data []byte, mode string) (str string) {
-	if mode == "string" {
-		for _, b := range data {
-			if 0x21 <= b && b < 0x7F {
-				str += Green(string(b))
-			} else {
-				str += " "
-			}
-		}
-	} else if mode == "hex" {
-		str = Blue(Fmt("%X", data))
-	}
-	return
 }

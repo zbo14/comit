@@ -1,0 +1,26 @@
+package: github.com/zballs/comit
+import:
+- package: github.com/gorilla/websocket
+  version: ^1.0.0
+- package: github.com/inconshreveable/log15
+- package: github.com/pkg/errors
+  version: ^0.8.0
+- package: github.com/tendermint/go-common
+- package: github.com/tendermint/go-crypto
+- package: github.com/tendermint/go-merkle
+- package: github.com/tendermint/go-rpc
+  subpackages:
+  - client
+- package: github.com/tendermint/go-wire
+- package: github.com/tendermint/tendermint
+  subpackages:
+  - rpc/core/types
+  - types
+- package: github.com/tendermint/tmsp
+  subpackages:
+  - client
+  - server
+  - types
+- package: golang.org/x/crypto
+  subpackages:
+  - bcrypt

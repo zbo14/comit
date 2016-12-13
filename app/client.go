@@ -4,6 +4,7 @@ import (
 	"github.com/tendermint/go-wire"
 	tmspcli "github.com/tendermint/tmsp/client"
 	tmsp "github.com/tendermint/tmsp/types"
+	. "github.com/zballs/comit/util"
 	"log"
 )
 
@@ -31,7 +32,7 @@ func NewLocalClient() *Client {
 func (cli *Client) GetSync(key []byte) (res tmsp.Result) {
 	query := make([]byte, wire.ByteSliceSize(key)+1)
 	buf := query
-	buf[0] = 0x02
+	buf[0] = QueryKey
 	buf = buf[1:]
 	wire.PutByteSlice(buf, key)
 	res = cli.QuerySync(query)

@@ -1,8 +1,6 @@
 package app
 
 import (
-	"encoding/binary"
-	"fmt"
 	. "github.com/tendermint/go-common"
 	"github.com/tendermint/go-merkle"
 	"github.com/tendermint/go-wire"
@@ -30,62 +28,54 @@ func (merk *MerkleApp) SetOption(key string, value string) (log string) {
 	return "No options are supported yet"
 }
 
-func (merk *MerkleApp) AppendTx(txBytes []byte) tmsp.Result {
-	if len(txBytes) == 0 {
-		return tmsp.ErrEncodingError.SetLog(
-			"Tx length must be greater than zero")
+func (merk *MerkleApp) AppendTx(tx []byte) tmsp.Result {
+	if len(tx) == 0 {
+		return tmsp.ErrEncodingError.SetLog("Tx length must be greater than zero")
 	}
-	typeByte := txBytes[0]
-	txBytes = txBytes[1:]
-	key, n, err := wire.GetByteSlice(txBytes)
+	typeByte := tx[0]
+	tx = tx[1:]
+	key, n, err := wire.GetByteSlice(tx)
 	if err != nil {
-		return tmsp.ErrEncodingError.SetLog(
-			Fmt("Error getting key: %v", err.Error()))
+		return tmsp.ErrEncodingError.SetLog(Fmt("Error getting key: %v", err.Error()))
 	}
-	txBytes = txBytes[n:]
+	tx = tx[n:]
 	switch typeByte {
-	case 0x01:
-		value, n, err := wire.GetByteSlice(txBytes)
+	case 0x01: // Create account, submit form
+		value, n, err := wire.GetByteSlice(tx)
 		if err != nil {
-			return tmsp.ErrEncodingError.SetLog(
-				Fmt("Error getting value: %v", err.Error()))
+			return tmsp.ErrEncodingError.SetLog(Fmt("Error getting value: %v", err.Error()))
 		}
-		txBytes = txBytes[n:]
-		if len(txBytes) != 0 {
+		tx = tx[n:]
+		if len(tx) != 0 {
 			return tmsp.ErrEncodingError.SetLog("Got bytes left over")
 		}
 		merk.tree.Set(key, value)
-		fmt.Println("SET", Fmt("%X", key), Fmt("%X", value))
-	case 0x02:
-		if len(txBytes) != 0 {
+	case 0x02: // Remove account, resolve form?
+		if len(tx) != 0 {
 			return tmsp.ErrEncodingError.SetLog("Got bytes left over")
 		}
 		merk.tree.Remove(key)
 	default:
-		return tmsp.ErrUnknownRequest.SetLog(
-			Fmt("Unexpected AppendTx type byte %X", typeByte))
+		return tmsp.ErrUnknownRequest.SetLog(Fmt("Unexpected AppendTx type byte %X", typeByte))
 	}
 	return tmsp.OK
 }
 
-func (merk *MerkleApp) CheckTx(txBytes []byte) tmsp.Result {
-	if len(txBytes) == 0 {
-		return tmsp.ErrEncodingError.SetLog(
-			"Tx length must be greater than zero")
+func (merk *MerkleApp) CheckTx(tx []byte) tmsp.Result {
+	if len(tx) == 0 {
+		return tmsp.ErrEncodingError.SetLog("Tx length must be greater than zero")
 	}
-	_, n, err := wire.GetByteSlice(txBytes)
+	_, n, err := wire.GetByteSlice(tx)
 	if err != nil {
-		return tmsp.ErrEncodingError.SetLog(
-			Fmt("Error getting key: %v", err.Error()))
+		return tmsp.ErrEncodingError.SetLog(Fmt("Error getting key: %v", err.Error()))
 	}
-	txBytes = txBytes[n:]
-	_, n, err = wire.GetByteSlice(txBytes)
+	tx = tx[n:]
+	_, n, err = wire.GetByteSlice(tx)
 	if err != nil {
-		return tmsp.ErrEncodingError.SetLog(
-			Fmt("Error getting value: %v", err.Error()))
+		return tmsp.ErrEncodingError.SetLog(Fmt("Error getting value: %v", err.Error()))
 	}
-	txBytes = txBytes[n:]
-	if len(txBytes) != 0 {
+	tx = tx[n:]
+	if len(tx) != 0 {
 		return tmsp.ErrEncodingError.SetLog("Got bytes left over")
 	}
 	return tmsp.OK
@@ -105,17 +95,11 @@ func (merk *MerkleApp) Query(query []byte) tmsp.Result {
 	}
 	typeByte := query[0]
 	switch typeByte {
-	case 0x01: // Size
-		size := merk.tree.Size()
-		data := make([]byte, 4)
-		binary.BigEndian.PutUint32(data, uint32(size))
-		return tmsp.NewResultOK(data, "")
-	case 0x02: // Query by key
+	case 0x01: // Key
 		query = query[1:]
 		key, n, err := wire.GetByteSlice(query)
 		if err != nil {
-			return tmsp.ErrEncodingError.SetLog(
-				Fmt("Error getting key: %v", err.Error()))
+			return tmsp.ErrEncodingError.SetLog(Fmt("Error getting key: %v", err.Error()))
 		}
 		query = query[n:]
 		if len(query) != 0 {
@@ -127,26 +111,23 @@ func (merk *MerkleApp) Query(query []byte) tmsp.Result {
 				ErrValueNotFound, nil, Fmt("Error no value found for query: %v", query))
 		}
 		return tmsp.NewResultOK(value, "")
-	case 0x03: // Query by index
+	case 0x02: // Index
 		query = query[1:]
 		index, n, err := wire.GetVarint(query)
 		if err != nil {
-			return tmsp.ErrEncodingError.SetLog(
-				Fmt("Error getting index: %v", err.Error()))
+			return tmsp.ErrEncodingError.SetLog(Fmt("Error getting index: %v", err.Error()))
 		}
 		query = query[n:]
 		if len(query) != 0 {
-			return tmsp.ErrEncodingError.SetLog(
-				Fmt("Got bytes left over"))
+			return tmsp.ErrEncodingError.SetLog(Fmt("Got bytes left over"))
 		}
 		key, _ := merk.tree.GetByIndex(index)
 		return tmsp.NewResultOK(key, "")
+	case 0x03: // Size
+		size := merk.tree.Size()
+		data := wire.BinaryBytes(size)
+		return tmsp.NewResultOK(data, "")
 	default:
-		return tmsp.ErrUnknownRequest.SetLog(
-			Fmt("Unexpected Query type byte %X", typeByte))
+		return tmsp.ErrUnknownRequest.SetLog(Fmt("Unexpected Query type byte %X", typeByte))
 	}
-}
-
-func (merk *MerkleApp) Iterate(fn func(key []byte, value []byte) bool) {
-	merk.tree.Iterate(fn)
 }
