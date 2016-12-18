@@ -5,6 +5,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/pkg/errors"
 	"github.com/tendermint/go-rpc/client"
+	"github.com/tendermint/go-wire"
 	ctypes "github.com/tendermint/tendermint/rpc/core/types"
 	tndr "github.com/tendermint/tendermint/types"
 )
@@ -110,12 +111,12 @@ func (p *Proxy) TMSPQuery(query []byte) (*ctypes.ResultTMSPQuery, error) {
 
 // Websocket
 
-func (p *Proxy) StartWS() error {
+func (p *Proxy) StartWS() (err error) {
 	started, err := p.ws.Start()
 	if err != nil {
 		return err
 	} else if !started {
-		return errors.New("Failed to start websocket")
+		return errors.New("Failed to start websocket client")
 	}
 	return nil
 }
@@ -128,10 +129,23 @@ func (p *Proxy) StopWS() error {
 	return nil
 }
 
-func (p *Proxy) ReadMessage() (json.RawMessage, error) {
+func (p *Proxy) ReadResult(event string, evData tndr.TMEventData) (tndr.TMEventData, error) {
 	select {
-	case msg := <-p.ws.ResultsCh:
-		return msg, nil
+	case data := <-p.ws.ResultsCh:
+		var items []interface{}
+		err := json.Unmarshal(data, &items)
+		if err != nil {
+			return nil, err
+		}
+		var result = ctypes.ResultEvent{event, evData}
+		wire.ReadJSONObject(&result, items[1], &err)
+		if err != nil {
+			return nil, err
+		}
+		if result.Name != event {
+			return nil, errors.New("Wrong event type")
+		}
+		return result.Data, nil
 	case err := <-p.ws.ErrorsCh:
 		return nil, err
 	}
@@ -142,9 +156,9 @@ func (p *Proxy) SubscribeNewBlock() error {
 	return p.ws.Subscribe(eid)
 }
 
-func (p *Proxy) SubscribeTx(tx tndr.Tx) error {
-	eid := tndr.EventStringTx(tx)
-	return p.ws.Subscribe(eid)
+func (p *Proxy) UnsubscribeNewBlock() error {
+	eid := tndr.EventStringNewBlock()
+	return p.ws.Unsubscribe(eid)
 }
 
 func (p *Proxy) WriteWS(mode string, v interface{}) error {

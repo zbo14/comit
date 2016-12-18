@@ -5,6 +5,7 @@ import (
 	"github.com/tendermint/go-merkle"
 	"github.com/tendermint/go-wire"
 	tmsp "github.com/tendermint/tmsp/types"
+	. "github.com/zballs/comit/util"
 )
 
 const (
@@ -93,9 +94,9 @@ func (merk *MerkleApp) Query(query []byte) tmsp.Result {
 	if len(query) == 0 {
 		return tmsp.ErrEncodingError.SetLog("Query cannot be zero length")
 	}
-	typeByte := query[0]
-	switch typeByte {
-	case 0x01: // Key
+	queryType := query[0]
+	switch queryType {
+	case QueryValue:
 		query = query[1:]
 		key, n, err := wire.GetByteSlice(query)
 		if err != nil {
@@ -111,7 +112,7 @@ func (merk *MerkleApp) Query(query []byte) tmsp.Result {
 				ErrValueNotFound, nil, Fmt("Error no value found for query: %v", query))
 		}
 		return tmsp.NewResultOK(value, "")
-	case 0x02: // Index
+	case QueryIndex:
 		query = query[1:]
 		index, n, err := wire.GetVarint(query)
 		if err != nil {
@@ -123,11 +124,24 @@ func (merk *MerkleApp) Query(query []byte) tmsp.Result {
 		}
 		key, _ := merk.tree.GetByIndex(index)
 		return tmsp.NewResultOK(key, "")
-	case 0x03: // Size
+	case QuerySize:
 		size := merk.tree.Size()
 		data := wire.BinaryBytes(size)
 		return tmsp.NewResultOK(data, "")
+	case QueryProof:
+		query = query[1:]
+		key, n, err := wire.GetByteSlice(query)
+		if err != nil {
+			return tmsp.ErrEncodingError.SetLog(Fmt("Error getting key: %v", err.Error()))
+		}
+		query = query[n:]
+		if len(query) != 0 {
+			return tmsp.ErrEncodingError.SetLog("Got bytes left over")
+		}
+		proof := merk.tree.ConstructProof(key)
+		data := wire.BinaryBytes(*proof)
+		return tmsp.NewResultOK(data, "")
 	default:
-		return tmsp.ErrUnknownRequest.SetLog(Fmt("Unexpected Query type byte %X", typeByte))
+		return tmsp.ErrUnknownRequest.SetLog(Fmt("Unexpected Query type byte %X", queryType))
 	}
 }

@@ -1,25 +1,17 @@
 package types
 
 import (
+	"github.com/pkg/errors"
 	"github.com/tendermint/go-crypto"
 	ctypes "github.com/tendermint/tendermint/rpc/core/types"
 	. "github.com/zballs/comit/util"
+	"gx/ipfs/QmcEcrBAMrwMyhSjXt4yfyPpzgSuV8HLHavnfmiKCSRqZU/go-cid"
 )
 
 type Message struct {
 	Action string      `json:"action"`
 	Data   interface{} `json:"data, omitempty"`
 	Error  error       `json:"error, omitempty"`
-	Result *Result     `json:"result, omitempty"`
-}
-
-type Result struct {
-	Log string `json:"log"`
-	Ok  bool   `json:"ok"`
-}
-
-func NewResult(log string, code int) *Result {
-	return &Result{log, code == 0}
 }
 
 type Keypair struct {
@@ -27,73 +19,87 @@ type Keypair struct {
 	PubKeystr  string `json:"pub_key"`
 }
 
+type Idpair struct {
+	FormID    string `json:"form_id"`
+	ContentID string `json:"content_id"`
+}
+
+func ResultToError(result interface{}) error {
+	switch result.(type) {
+	case *ctypes.ResultTMSPQuery:
+		tmResult := result.(*ctypes.ResultTMSPQuery).Result
+		if tmResult.Code == 0 {
+			return nil
+		}
+		return errors.New(tmResult.Error())
+	case *ctypes.ResultBroadcastTx:
+		_result := result.(*ctypes.ResultBroadcastTx)
+		if _result.Code == 0 {
+			return nil
+		}
+		return errors.New(_result.Log)
+	default:
+		return errors.New("Unrecognized result type")
+	}
+}
+
 func NewKeypair(pubKey crypto.PubKey, privKey crypto.PrivKey) *Keypair {
 	return &Keypair{PrivKeytoHexstr(privKey), PubKeytoHexstr(pubKey)}
 }
 
-func MessageChainID(err error, result *ctypes.ResultTMSPQuery) *Message {
-	tmResult := result.Result
+func NewIdpair(form Form, cid *cid.Cid) *Idpair {
+	return &Idpair{BytesToHexstr(form.ID()), cid.String()}
+}
+
+func MessageChainID(err error) *Message {
 	return &Message{
 		Action: "chain_id",
 		Error:  err,
-		Result: NewResult(tmResult.Log, int(tmResult.Code)),
 	}
 }
 
-func MessageIssues(err error, data []string, result *ctypes.ResultTMSPQuery) *Message {
-	tmResult := result.Result
+func MessageIssues(data []string, err error) *Message {
 	return &Message{
 		Action: "issues",
-		Error:  err,
 		Data:   data,
-		Result: NewResult(tmResult.Log, int(tmResult.Code)),
+		Error:  err,
 	}
 }
 
-func MessageLogin(err error, result *ctypes.ResultTMSPQuery) *Message {
-	tmResult := result.Result
+func MessageLogin(err error) *Message {
 	return &Message{
 		Action: "login",
 		Error:  err,
-		Result: NewResult(tmResult.Log, int(tmResult.Code)),
 	}
 }
 
-func MessageCreateAccount(err error, data *Keypair, result *ctypes.ResultBroadcastTx) *Message {
+func MessageCreateAccount(data *Keypair, err error) *Message {
 	return &Message{
 		Action: "create_account",
-		Error:  err,
 		Data:   data,
-		Result: NewResult(result.Log, int(result.Code)),
+		Error:  err,
 	}
 }
 
-func MessageRemoveAccount(err error, result *ctypes.ResultBroadcastTx) *Message {
+func MessageRemoveAccount(err error) *Message {
 	return &Message{
 		Action: "remove_account",
 		Error:  err,
-		Result: NewResult(result.Log, int(result.Code)),
 	}
 }
 
-func MessageSubmitForm(err error, formID []byte, result *ctypes.ResultBroadcastTx) *Message {
-	m := &Message{
+func MessageSubmitForm(data *Idpair, err error) *Message {
+	return &Message{
 		Action: "submit_form",
+		Data:   data,
 		Error:  err,
-		Result: NewResult(result.Log, int(result.Code)),
 	}
-	if formID != nil {
-		m.Data = BytesToHexstr(formID)
-	}
-	return m
 }
 
-func MessageFindForm(err error, form *Form, result *ctypes.ResultTMSPQuery) *Message {
-	tmResult := result.Result
+func MessageFindForm(data *Form, err error) *Message {
 	return &Message{
 		Action: "find_form",
+		Data:   data,
 		Error:  err,
-		Data:   form,
-		Result: NewResult(tmResult.Log, int(tmResult.Code)),
 	}
 }

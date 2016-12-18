@@ -1,5 +1,5 @@
-hash: 48c25b1cbfaf8354aebfdfd4e185627f3e962e2c4e494b7d4bb6a263d2e831fd
-updated: 2016-12-12T11:17:53.060774389-05:00
+hash: f3efe7c076f05ce244a2b4180dffec3716085eea957de91d2ae51ccd7f95a9a3
+updated: 2016-12-13T20:31:55.604068547-05:00
 imports:
 - name: github.com/btcsuite/btcd
   version: 7a4cc89bbcce6ef560ac729a536eb6e939bf58fe
@@ -20,9 +20,7 @@ imports:
 - name: github.com/gorilla/websocket
   version: 1f512fc3f05332ba7117626cdfb4e07474e58e60
 - name: github.com/inconshreveable/log15
-  version: 46a701a619de90c65a78c04d1a58bf02585e9701
-  subpackages:
-  - term
+  version: b105bd37f74e5d9dc7b6ad7806715c7a2b83fd3f
 - name: github.com/mattn/go-colorable
   version: d228849504861217f796da67fae4f6e347643f15
 - name: github.com/mattn/go-isatty
@@ -50,7 +48,7 @@ imports:
   - extra25519
   - edwards25519
 - name: github.com/tendermint/go-common
-  version: f40b1b65f81b695b44bae7ffe8f98c485b11846e
+  version: a552e49b501bd438ed0055e180371b452aa2cfed
 - name: github.com/tendermint/go-config
   version: e64b424499acd0eb9856b88e10c0dff41628c0d6
 - name: github.com/tendermint/go-crypto
@@ -72,7 +70,7 @@ imports:
   subpackages:
   - upnp
 - name: github.com/tendermint/go-rpc
-  version: e6e3853dc711b8ad92109cf9ea31319588b94fe0
+  version: 161e36fd56c2f95ad133dd03ddb33db0363ca742
   subpackages:
   - client
   - types
@@ -94,16 +92,15 @@ imports:
   - server
   - types
 - name: github.com/zballs/comit
-  version: 27c1760861634829f7bbbdfa4a0954751e9b74ed
+  version: 45414e573154fe9cec13573c1d3236497553a516
   subpackages:
   - state
   - types
   - util
   - app
-  - lib
-  - forms
+  - manager
 - name: golang.org/x/crypto
-  version: b07d8c96772f426812d3fc5530710ec1f3b205e7
+  version: 9a6f0a01987842989747adff311d80750ba25530
   subpackages:
   - bcrypt
   - ripemd160
@@ -116,7 +113,7 @@ imports:
   - openpgp/errors
   - curve25519
 - name: golang.org/x/net
-  version: b1a2d6e8c8b5fc8f601ead62536f02a8e1b6217d
+  version: cfae461cedfdcab6e261a26eb77db53695623303
   subpackages:
   - context
   - http2
@@ -142,4 +139,9 @@ imports:
   - tap
   - transport
   - peer
+- name: gopkg.in/inconshreveable/log15.v2
+  version: b105bd37f74e5d9dc7b6ad7806715c7a2b83fd3f
+  subpackages:
+  - stack
+  - term
 testImports: []

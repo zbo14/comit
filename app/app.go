@@ -15,18 +15,18 @@ import (
 const version = "1.0.0"
 
 type App struct {
-	cli        *Client
-	state      *sm.State
-	cacheState *sm.State
-	Issues     []string
+	cli    *Client
+	state  *sm.State
+	cache  *sm.State
+	Issues []string
 }
 
 func NewApp(cli *Client) *App {
 	state := sm.NewState(cli)
 	return &App{
-		cli:        cli,
-		state:      state,
-		cacheState: nil,
+		cli:   cli,
+		state: state,
+		cache: nil,
 	}
 }
 
@@ -41,14 +41,13 @@ func (app *App) SetFilters(filters []string) {
 }
 
 // Search pipeline
-// Iterate through indices 0 <= i < merkle_tree.size()
-// If key k at index i is in bloom filter(s), send k to 'in'
-// Iterate through selected keys
-// If value v at key k is in time range, send v to 'out'
 
-// More efficient than querying values by index, decoding data,
-// and checking issue, location, submission date? Probably if forms
-// have image/video data and we need to decode all of this..
+// We iterate through indices and check if each key's in the filters
+// If a key k is in the filters, than we can xor the form ID
+// with issue and location, convert the bytes to a time and
+// check whether it's in range...
+// Then we get values for the keys selected, the values being
+// forms themselves or IPFS content ids for submitted forms
 
 // TODO: test
 
@@ -82,7 +81,7 @@ func (app *App) IterQueryIndex(fun func([]byte) bool, in chan []byte) {
 	close(in)
 }
 
-func (app *App) IterQueryKey(fun func([]byte) bool, in, out chan []byte) {
+func (app *App) IterQueryValue(fun func([]byte) bool, in, out chan []byte) {
 
 	for {
 
@@ -92,7 +91,7 @@ func (app *App) IterQueryKey(fun func([]byte) bool, in, out chan []byte) {
 			break
 		}
 
-		query := KeyQuery(data)
+		query := KeyQuery(data, QueryValue)
 
 		result := app.Query(query)
 
@@ -181,7 +180,7 @@ func (app *App) CheckTx(tx []byte) tmsp.Result {
 	if err != nil {
 		return tmsp.ErrBaseEncodingError.AppendLog("Error decoding tx: " + err.Error())
 	}
-	// Validate and exec action tx
+	// Validate and exec action
 	res := sm.ExecuteAction(app.state, action, true)
 	if res.IsErr() {
 		return res.PrependLog("Error in CheckTx")
@@ -195,7 +194,7 @@ func (app *App) Query(query []byte) tmsp.Result {
 
 	switch queryType {
 
-	case QueryKey, QueryIndex, QuerySize: // merkle-cli
+	case QueryValue, QueryIndex, QuerySize, QueryProof: // merkle-cli
 		return app.cli.QuerySync(query)
 
 	case QueryIssues:
@@ -235,7 +234,7 @@ func (app *App) Query(query []byte) tmsp.Result {
 		out := make(chan []byte)
 
 		go app.IterQueryIndex(fun1, in)
-		go app.IterQueryKey(fun2, in, out)
+		go app.IterQueryValue(fun2, in, out)
 
 		var datas [][]byte
 
@@ -279,7 +278,7 @@ func (app *App) InitChain(validators []*tmsp.Validator) {
 // TMSP::BeginBlock
 func (app *App) BeginBlock(height uint64) {
 	app.cli.BeginBlockSync(height)
-	app.cacheState = app.state.CacheWrap()
+	app.cache = app.state.CacheWrap()
 }
 
 // TMSP::EndBlock

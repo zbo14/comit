@@ -1,9 +1,26 @@
 package types
 
-import "fmt"
-import . "github.com/zballs/comit/util"
+import (
+	"fmt"
+	. "github.com/zballs/comit/util"
+	"gx/ipfs/QmcEcrBAMrwMyhSjXt4yfyPpzgSuV8HLHavnfmiKCSRqZU/go-cid"
+)
 
 const FORM_ID_LENGTH = 16
+
+// Info contains the id pair for a submitted form
+// and fields relevant to state filters (issue, location for now)
+
+type Info struct {
+	ContentID *cid.Cid `json:"content_id"`
+	FormID    []byte   `json:"form_id"`
+	Issue     string   `json:"issue"`
+	Location  string   `json:"location"`
+}
+
+func NewInfo(contentID *cid.Cid, form Form) Info {
+	return Info{contentID, form.ID(), form.Issue, form.Location}
+}
 
 type Form struct {
 	ContentType string `json:"content_type, omitempty"`

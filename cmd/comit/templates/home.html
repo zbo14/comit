@@ -212,7 +212,7 @@ var loginCallback = function(responseText) {
 
   var json = JSON.parse(responseText);
 
-  if (json.action == "login" && json.result.ok)  {
+  if (json.action == "login" && json.error == null)  {
 
     window.location.replace("http://localhost:8888/citizen");
 

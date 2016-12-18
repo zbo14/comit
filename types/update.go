@@ -2,29 +2,29 @@ package types
 
 import (
 	"github.com/pkg/errors"
-	tndr "github.com/tendermint/tendermint/types"
+	. "github.com/zballs/comit/util"
 )
 
-const UpdateForm string = "form"
-const UpdateReceipt string = "receipt"
-
 type Update struct {
-	Type     string `json:"type"`
-	*Form    `json:"form, omitempty"`
-	*Receipt `json:"receipt, omitempty"`
+	Error   error    `json:"error, omitempty"`
+	Form    *Form    `json:"form, omitempty"`
+	Receipt *Receipt `json:"receipt, omitempty"`
+	Type    string   `json:"type"`
 }
 
-func NewUpdate(v interface{}) (*Update, error) {
+func NewUpdate(v interface{}, err error) (*Update, error) {
 	switch v.(type) {
 	case *Form:
 		return &Update{
-			Type: UpdateForm,
-			Form: v.(*Form),
+			Error: err,
+			Form:  v.(*Form),
+			Type:  "form",
 		}, nil
 	case *Receipt:
 		return &Update{
-			Type:    UpdateReceipt,
+			Error:   err,
 			Receipt: v.(*Receipt),
+			Type:    "receipt",
 		}, nil
 	default:
 		return nil, errors.New("Unrecognized update type")
@@ -32,10 +32,11 @@ func NewUpdate(v interface{}) (*Update, error) {
 }
 
 type Receipt struct {
-	tndr.Tx     `json:"tx"`
-	*tndr.Block `json:"block"`
+	AppHash     []byte `json:"app_hash"`
+	BlockHeight int    `json:"block_height"`
+	FormID      string `json:"form_id"`
 }
 
-func NewReceipt(tx tndr.Tx, block *tndr.Block) *Receipt {
-	return &Receipt{tx, block}
+func NewReceipt(blockHeight int, formID []byte) *Receipt {
+	return &Receipt{BlockHeight: blockHeight, FormID: BytesToHexstr(formID)}
 }

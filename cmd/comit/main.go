@@ -19,7 +19,6 @@ func main() {
 	cliPtr := flag.String("cli", "local", "Client address, or 'local' for embedded")
 	// User
 	rpcPtr := flag.String("rpc", "tcp://0.0.0.0:46657", "Address of tendermint core rpc server")
-	wsPtr := flag.String("ws", "ws://0.0.0.0:46656", "Address of proxy websocket")
 	genFilePath := flag.String("genesis", "genesis.json", "Genesis file, if any")
 	flag.Parse()
 
@@ -60,7 +59,7 @@ func main() {
 	mux.HandleFunc("/citizen", TemplateHandler("citizen.html"))
 
 	// Create proxy manager
-	m := manager.CreateManager(*rpcPtr, *wsPtr)
+	m := manager.CreateManager(*rpcPtr)
 
 	// Add routes to multiplexer
 	m.AddRoutes(mux)

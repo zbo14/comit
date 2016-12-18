@@ -306,7 +306,7 @@
   <div class="right col-md-6 container">
     <header>get updates</header>
     <form id="updates-form" name="updates-form" class="content">
-      <select name="issue" form="feed-form" class="component" required></select>
+      <select id="issue" name="issue" form="feed-form" class="component" required></select>
       <input type="submit" class="my-btn" value="update" />
     </form>
     <div id="feed" class="content"></div>
@@ -358,9 +358,11 @@
       xhr.send(data);
     };
 
-    function appendFeed(item) {
+    function appendToFeed(item) {
       var doScroll = feed.scrollTop === feed.scrollHeight - feed.clientHeight;
-      feed.appendChild(item);
+      var node = document.createElement("pre");
+      node.innerHTML = item;
+      feed.appendChild(node);
       if (doScroll) {
         feed.scrollTop = feed.scrollHeight - feed.clientHeight;
       }
@@ -410,60 +412,11 @@
 
     var num_id = 0;
 
-    // Websocket
-    /*
-    var ws = new WebSocket("ws://localhost:8888/websocket");
-
-    ws.onmessage = function(msg) {
-    
-      var json = JSON.parse(msg.data);
-
-      console.log(json);
-
-      var media;
-
-      switch (form.content_type.split("/")[0]) {
-
-        case "video":
-
-          media = document.createElement("video");
-          media.setAttribute("controls", "controls");
-          break;
-
-        case "image":
-
-          media = document.createElement("img");
-          break;
-
-        case "audio":
-
-          // TODO;
-          break;
-      }
-
-      var blob = b64toBlob(form.data, form.content_type, 512);
-      
-      media.src = window.URL.createObjectURL(blob);
-      media.height = 240;
-      media.width = 240;
-
-      media.id = "feed-media-" + num_id;
-
-      num_id++;;
-
-      appendFeed(media);
-    };
-
-    ws.onclose = function() {
-      console.log("websocket closed");
-    };
-    */
-
     // Callbacks
 
     function issuesCb(responseText) {
       var json = JSON.parse(responseText);
-      if (json.action == "issues" && json.result.ok) {
+      if (json.action == "issues" && json.error == null) {
         var selects = document.getElementsByName("issue"); 
         for (var s = 0; s < selects.length; s++) {
           selects[s].innerHTML = "<option value=''>select issue</option>";
@@ -486,7 +439,7 @@
       
       var json = JSON.parse(responseText);
       
-      if (json.action == "find_form" && json.result.ok) {
+      if (json.action == "find_form" && json.error == null) {
 
         var form = json.data;
         var found = document.getElementById("found");
@@ -543,16 +496,63 @@
       });
 
       // Updates 
+
+      var ws = new WebSocket("ws://localhost:8888/updates");
   
       $("#updates-form").submit(function(event) {
 
         event.preventDefault();
 
-        var formData = $("#updates-form").serialize();
+        var issue = $("#issue").val();
 
-        httpPostAsync("http://localhost:8888/updates", formData, updateFeedCb);
+        ws.send(issue);
 
       });
+
+      ws.onmessage = function(msg) {
+        
+        var json = JSON.parse(msg.data);
+
+        if (json.type == "form" && json.error == null) {
+
+          var form = json.form;
+          var item;
+
+          switch (form.content_type.split("/")[0]) {
+
+            case "video":
+              item = "<video width='240' height='240' id='feed-media-{0}' controls></video>".format(num_id);
+              break;
+
+            case "image":
+              item = "<img width='240' height='240' id='feed-media-{0}'>".format(num_id);
+              break;
+
+            case "audio":
+              // TODO;
+              break;
+          }
+
+          appendToFeed(item);
+
+          var blob = b64toBlob(form.data, form.content_type, 512);
+
+          var media = document.getElementById("feed-media-{0}".format(num_id));
+          
+          media.src = window.URL.createObjectURL(blob);
+
+          num_id++;
+
+
+        } else if (json.type == "receipt" && json.error == null) {
+          console.log(json);
+        }
+        
+      };
+
+      ws.onclose = function(msg) {
+        console.log("websocket closed");
+      }  
 
       // Find 
 

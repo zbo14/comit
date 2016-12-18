@@ -18,8 +18,8 @@ func NewAccount(pubKey crypto.PubKey, username string) *Account {
 	}
 }
 
-func (acc *Account) Addform(form Form) {
-	formID := BytesToHexstr(form.ID())
+func (acc *Account) AddformID(info Info) {
+	formID := BytesToHexstr(info.FormID)
 	acc.FormIDs = append(acc.FormIDs, formID)
 }
 

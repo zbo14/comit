@@ -10,7 +10,7 @@ Comit provides an infrastructure through which citizens view, submit, and find i
 - In terminal window, `cd scripts` from base directory
 - Then `sh start_app.sh` to start app
 - In another terminal window, `sh start_node.sh` to start tendermint node
-- Visit `localhost:8888/path_to_endpoint` in your web browser
+- Visit `localhost:8888/endpoint` in your web browser
 - See docs for list of endpoints/more details on usage
 
 ####Run Tests 

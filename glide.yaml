@@ -3,6 +3,7 @@ import:
 - package: github.com/gorilla/websocket
   version: ^1.0.0
 - package: github.com/inconshreveable/log15
+  version: ^2.11.0
 - package: github.com/pkg/errors
   version: ^0.8.0
 - package: github.com/tendermint/go-common
@@ -13,6 +14,7 @@ import:
   - client
 - package: github.com/tendermint/go-wire
 - package: github.com/tendermint/tendermint
+  version: ^0.7.3
   subpackages:
   - rpc/core/types
   - types

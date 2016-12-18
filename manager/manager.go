@@ -1,9 +1,16 @@
 package manager
 
 import (
+	"context"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/gorilla/websocket"
+	"github.com/ipfs/go-ipfs/blocks"
+	core "github.com/ipfs/go-ipfs/core"
+	fsrepo "github.com/ipfs/go-ipfs/repo/fsrepo"
+	"github.com/pkg/errors"
+	"github.com/tendermint/go-merkle"
 	wire "github.com/tendermint/go-wire"
 	tndr "github.com/tendermint/tendermint/types"
 	"github.com/zballs/comit/state"
@@ -15,7 +22,9 @@ import (
 )
 
 type Manager struct {
-	proxy  *Proxy
+	proxy *Proxy
+	// Proxy mtx necessary?
+
 	logger Logger
 
 	acc     *PrivAccount
@@ -24,12 +33,14 @@ type Manager struct {
 
 	latestHeight int
 	blocks       chan *tndr.Block
-	headers      chan *tndr.Header
+
+	node   *core.IpfsNode
+	cancel context.CancelFunc
 }
 
-func CreateManager(remote, endpoint string) *Manager {
+func CreateManager(remote string) *Manager {
 	return &Manager{
-		proxy:   NewProxy(remote, endpoint),
+		proxy:   NewProxy(remote, "/websocket"),
 		logger:  NewLogger("action-manager"),
 		blocks:  make(chan *tndr.Block),
 		chainID: "comit",
@@ -56,6 +67,32 @@ func (m *Manager) AddRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/updates", m.Updates)
 }
 
+// IPFS Node
+func (m *Manager) InitNode() error {
+	if m.node != nil {
+		return errors.New("Node already exists")
+	}
+	r, err := fsrepo.Open("~/.ipfs")
+	if err != nil {
+		return err
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+
+	cfg := &core.BuildCfg{
+		Repo:   r,
+		Online: true,
+	}
+
+	m.node, err = core.NewNode(ctx, cfg)
+
+	if err != nil {
+		return err
+	}
+
+	m.cancel = cancel
+	return nil
+}
+
 // ChainID
 
 func (m *Manager) GetChainID(w http.ResponseWriter, req *http.Request) {
@@ -65,21 +102,20 @@ func (m *Manager) GetChainID(w http.ResponseWriter, req *http.Request) {
 	result, err := m.proxy.TMSPQuery(query)
 
 	if err != nil {
-		ManagerRespond(w, MessageChainID(err, nil))
+		ManagerRespond(w, MessageChainID(err))
 		return
 	}
 
-	tmResult := result.Result
+	err = ResultToError(result)
 
-	if tmResult.Code != 0 {
-		data, _, err := wire.GetByteSlice(tmResult.Data)
-		if err != nil {
-			panic(err)
+	if err == nil {
+		data, _, err := wire.GetByteSlice(result.Result.Data)
+		if err == nil {
+			m.chainID = string(data)
 		}
-		m.chainID = string(data)
 	}
 
-	ManagerRespond(w, MessageChainID(nil, result))
+	ManagerRespond(w, MessageChainID(err))
 }
 
 // Issues
@@ -91,22 +127,22 @@ func (m *Manager) GetIssues(w http.ResponseWriter, req *http.Request) {
 	result, err := m.proxy.TMSPQuery(query)
 
 	if err != nil {
-		ManagerRespond(w, MessageIssues(err, nil, nil))
+		ManagerRespond(w, MessageIssues(nil, err))
 		return
 	}
 
-	tmResult := result.Result
+	err = ResultToError(result)
 
-	if tmResult.Code != 0 {
-		ManagerRespond(w, MessageIssues(nil, nil, result))
+	if err != nil {
+		ManagerRespond(w, MessageIssues(nil, err))
 		return
 	}
 
 	var issues []string
-	wire.ReadBinaryBytes(tmResult.Data, &issues)
+	wire.ReadBinaryBytes(result.Result.Data, &issues)
 	m.issues = issues
 
-	ManagerRespond(w, MessageIssues(nil, m.issues, result))
+	ManagerRespond(w, MessageIssues(m.issues, nil))
 }
 
 func (m *Manager) Issues(w http.ResponseWriter, req *http.Request) {
@@ -116,7 +152,7 @@ func (m *Manager) Issues(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	ManagerRespond(w, MessageIssues(nil, m.issues, nil))
+	ManagerRespond(w, MessageIssues(m.issues, nil))
 }
 
 func (m *Manager) Login(w http.ResponseWriter, req *http.Request) {
@@ -159,33 +195,26 @@ func (m *Manager) Login(w http.ResponseWriter, req *http.Request) {
 
 	// Query account
 	acckey := state.AccountKey(pubKey.Address())
-	query := KeyQuery(acckey)
+	query := KeyQuery(acckey, QueryValue)
 
 	result, err := m.proxy.TMSPQuery(query)
 
-	if err != nil {
-		ManagerRespond(w, MessageLogin(err, nil))
-		return
+	if err == nil {
+		err = ResultToError(result)
+		if err == nil {
+			var acc *Account
+			wire.ReadBinaryBytes(result.Result.Data, &acc)
+			m.acc = NewPrivAccount(acc, privKey)
+		}
 	}
 
-	tmResult := result.Result
+	ManagerRespond(w, MessageLogin(err))
 
-	var acc *Account
-	err = wire.ReadBinaryBytes(tmResult.Data, &acc)
-
-	if err != nil {
-		panic(err)
-	}
-
-	m.acc = NewPrivAccount(acc, privKey)
-
-	ManagerRespond(w, MessageLogin(nil, result))
+	// Init IPFS node // check for err
+	m.InitNode()
 
 	// Start proxy ws
-	err = m.proxy.StartWS()
-	if err != nil {
-		panic(err)
-	}
+	m.proxy.StartWS()
 }
 
 // Create Account
@@ -220,18 +249,20 @@ func (m *Manager) CreateAccount(w http.ResponseWriter, req *http.Request) {
 	result, err := m.proxy.BroadcastTx("sync", action.Tx())
 
 	if err != nil {
-		ManagerRespond(w, MessageCreateAccount(err, nil, nil))
+		ManagerRespond(w, MessageCreateAccount(nil, err))
 		return
 	}
 
-	if result.Code != 0 {
-		ManagerRespond(w, MessageCreateAccount(nil, nil, result))
+	err = ResultToError(result)
+
+	if err != nil {
+		ManagerRespond(w, MessageCreateAccount(nil, err))
 		return
 	}
 
 	keypair := NewKeypair(pubKey, privKey)
 
-	ManagerRespond(w, MessageCreateAccount(nil, keypair, result))
+	ManagerRespond(w, MessageCreateAccount(keypair, nil))
 }
 
 func (m *Manager) RemoveAccount(w http.ResponseWriter, req *http.Request) {
@@ -252,18 +283,17 @@ func (m *Manager) RemoveAccount(w http.ResponseWriter, req *http.Request) {
 	// Broadcast tx
 	result, err := m.proxy.BroadcastTx("sync", action.Tx())
 
-	if err != nil {
-		ManagerRespond(w, MessageRemoveAccount(err, nil))
-		return
+	if err == nil {
+		err = ResultToError(result)
 	}
 
-	ManagerRespond(w, MessageRemoveAccount(nil, result))
+	ManagerRespond(w, MessageRemoveAccount(err))
 }
 
 func (m *Manager) SubmitForm(w http.ResponseWriter, req *http.Request) {
 
-	// Make sure we're logged in
-	if m.acc == nil {
+	// Make sure we're logged in and node is running
+	if m.acc == nil || m.node == nil {
 		http.Error(w, "Not logged in", http.StatusUnauthorized)
 		return
 	}
@@ -279,7 +309,7 @@ func (m *Manager) SubmitForm(w http.ResponseWriter, req *http.Request) {
 	// Form // TODO: field validation
 	var form Form
 
-	// Info // check lengths of slices?
+	// Text // check lengths of slices?
 	form.Issue = f.Value["issue"][0]
 	form.Location = f.Value["location"][0]
 	form.Description = f.Value["description"][0]
@@ -302,11 +332,20 @@ func (m *Manager) SubmitForm(w http.ResponseWriter, req *http.Request) {
 		panic(err)
 	}
 
-	// Create tx
-	action := NewAction(ActionSubmitForm, wire.BinaryBytes(form))
+	// Add IPFS block with form data
+	b := blocks.NewBlock(wire.BinaryBytes(form))
+	cid, err := m.node.Blocks.AddBlock(b)
+	if err != nil {
+		panic(err)
+	}
+
+	// Encode form info
+	data := wire.BinaryBytes(NewInfo(cid, form))
+
+	// Create action
+	action := NewAction(ActionSubmitForm, data)
 
 	// Prepare and sign action
-	m.logger.Info("Manager", "account_seq", m.acc.Sequence)
 	action.Prepare(m.acc.PubKey, m.acc.Sequence+1)
 	action.Sign(m.acc.PrivKey, m.chainID)
 
@@ -314,19 +353,22 @@ func (m *Manager) SubmitForm(w http.ResponseWriter, req *http.Request) {
 	result, err := m.proxy.BroadcastTx("sync", action.Tx())
 
 	if err != nil {
-		ManagerRespond(w, MessageSubmitForm(err, nil, nil))
+		ManagerRespond(w, MessageSubmitForm(nil, err))
 		return
 	}
 
-	if result.Code != 0 {
-		ManagerRespond(w, MessageSubmitForm(nil, nil, result))
+	err = ResultToError(result)
+
+	if err != nil {
+		ManagerRespond(w, MessageSubmitForm(nil, err))
 		return
 	}
 
-	// CheckTx is ok so we can increment account sequence
+	// CheckTx is ok so we can increment sequence
 	m.acc.Sequence++
 
-	ManagerRespond(w, MessageSubmitForm(nil, form.ID(), result))
+	idpair := NewIdpair(form, cid)
+	ManagerRespond(w, MessageSubmitForm(idpair, nil))
 }
 
 func (m *Manager) FindForm(w http.ResponseWriter, req *http.Request) {
@@ -346,44 +388,46 @@ func (m *Manager) FindForm(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	query := KeyQuery(formID)
+	query := KeyQuery(formID, QueryValue)
 
 	result, err := m.proxy.TMSPQuery(query)
 
 	if err != nil {
-		ManagerRespond(w, MessageFindForm(err, nil, nil))
+		ManagerRespond(w, MessageFindForm(nil, err))
 		return
 	}
 
-	tmResult := result.Result
+	err = ResultToError(result)
 
-	if tmResult.Code != 0 {
-		ManagerRespond(w, MessageFindForm(nil, nil, result))
+	if err != nil {
+		ManagerRespond(w, MessageFindForm(nil, err))
 		return
 	}
 
 	// Form
 	form := &Form{}
+	wire.ReadBinaryBytes(result.Result.Data, form)
 
-	err = wire.ReadBinaryBytes(tmResult.Data, form)
-
-	if err != nil {
-		panic(err)
-	}
-
-	ManagerRespond(w, MessageFindForm(nil, form, result))
+	ManagerRespond(w, MessageFindForm(form, nil))
 }
 
 func (m *Manager) BlockStream(done <-chan struct{}) {
 
+	// Subscribe to new block event
+	err := m.proxy.SubscribeNewBlock()
+	if err != nil {
+		panic("Failed to subscribe to new block event")
+	}
+
 	// Get latest block height
 	status, err := m.proxy.GetStatus()
-	if err != nil {
-		// just set latest height to 0
-		m.latestHeight = 0
-	} else {
+	if err == nil {
 		m.latestHeight = status.LatestBlockHeight
 	}
+
+	var block *tndr.Block
+	var evDataBlock tndr.EventDataNewBlock
+	var evData tndr.TMEventData
 
 	m.logger.Info("Streaming blocks...", "start_height", m.latestHeight)
 
@@ -392,191 +436,178 @@ func (m *Manager) BlockStream(done <-chan struct{}) {
 		select {
 
 		case <-done:
+			err := m.proxy.UnsubscribeNewBlock()
+			if err != nil {
+				panic("Failed to unsubscribe from new block event")
+			}
+			m.logger.Info("Done streaming blocks")
 			return
 
 		default:
-
-			status, err := m.proxy.GetStatus()
-
+			evData, err = m.proxy.ReadResult("NewBlock", &evDataBlock)
 			if err != nil {
-				//handle
+				panic(err)
+			}
+
+			switch evData.(type) {
+
+			case tndr.EventDataNewBlock:
+				block = evData.(tndr.EventDataNewBlock).Block
+			case *tndr.EventDataNewBlock:
+				block = evData.(*tndr.EventDataNewBlock).Block
+			}
+
+			if block == nil {
 				continue
 			}
 
-			if m.latestHeight == status.LatestBlockHeight {
+			if m.latestHeight == block.Height {
 				time.Sleep(time.Second * 5)
 				continue
-			} else if m.latestHeight > status.LatestBlockHeight {
+			} else if m.latestHeight > block.Height {
 				//shouldn't happen
-			}
-
-			// Get blocks
-			for height := m.latestHeight; height <= status.LatestBlockHeight; height++ {
-				block, err := m.proxy.GetBlock(height)
-				if err != nil {
-					//handle
-					continue
+			} else if m.latestHeight+1 < block.Height {
+				// missed block(s)
+				m.logger.Warn("Missed block(s)", "missed", block.Height-m.latestHeight)
+				// query missed blocks
+				// should this run in goroutine and
+				// should next read wait on its completion??
+				for h := m.latestHeight + 1; h <= block.Height; h++ {
+					result, err := m.proxy.GetBlock(h)
+					if err != nil {
+						panic(err)
+					}
+					m.blocks <- result.Block
 				}
-				m.blocks <- block.Block
 			}
 
-			m.latestHeight = status.LatestBlockHeight
+			m.blocks <- block
+
+			m.latestHeight = block.Height
 		}
 	}
 }
 
 func (m *Manager) Updates(w http.ResponseWriter, req *http.Request) {
 
-	// Make sure we've logged in
-	if m.acc == nil {
-		http.Error(w, "Not logged in", http.StatusUnauthorized)
-		return
-	}
+	// This routine writes feed updates and blockchain receipts to ws
+	// What information should receipts include? Root hash, form ID, anything else?
 
-	/*
-		// Get values from request body
-		vals, err := UrlValues(req)
-
-		if err != nil {
-			http.Error(w, "Failed to read request data", http.StatusBadRequest)
-			return
-		}
-
-		issue := vals.Get("issue")
-		pubKeystr := PubKeytoHexstr(m.acc.PubKey)
-
-		var action Action
-		var form Form
-	*/
-
-	// Subscribe to new block event
-	err := m.proxy.SubscribeNewBlock()
+	// Websocket connection
+	ws, err := Upgrader().Upgrade(w, req, nil)
 	if err != nil {
 		panic(err)
 	}
 
-	/*
-		// Start block stream
-		done := make(chan struct{})
-		go m.BlockStream(done)
+	// Make sure we've logged in
+	if m.acc == nil {
+		ws.WriteMessage(websocket.TextMessage, []byte("Not logged in"))
+		return
+	}
+
+	// Get values from request body
+	_, data, err := ws.ReadMessage()
+	if err != nil {
+		panic(err)
+	}
+
+	issue := string(data)
+	pubKeystr := PubKeytoHexstr(m.acc.PubKey)
+
+	var action Action
+	var form Form
+	var proof merkle.IAVLProof
+	var receipt *Receipt
+
+	// Start block stream
+	done := make(chan struct{})
+	go m.BlockStream(done)
+
+	for {
+
+		m.logger.Info("Waiting for block...")
 
 		block, ok := <-m.blocks
 
 		if !ok {
 			// Block channel closed
-			// Shouldn't happen
+			// shouldn't happen
 			panic("Block channel closed")
 		}
-	*/
 
-	for {
+		if receipt != nil {
+			fmt.Println(receipt.BlockHeight, block.Height)
+			// We have a receipt to send
+			if receipt.BlockHeight >= block.Height {
+				//shouldn't happen
+			} else if receipt.BlockHeight+1 == block.Height {
+				// Good, increment height
+				receipt.BlockHeight++
+			} else {
+				// We missed blocks
+				// Ok, set height anyway
+				receipt.BlockHeight = block.Height
+			}
+			// Query merkle proof for committed form and verify receipt
+			key := HexstrToBytes(receipt.FormID)
+			query := KeyQuery(key, QueryProof)
+			result, err := m.proxy.TMSPQuery(query)
+			if err == nil {
+				err = ResultToError(result)
+				if err == nil {
+					err = wire.ReadBinaryBytes(result.Result.Data, &proof)
+					if err == nil {
+						value := wire.BinaryBytes(form)
+						verified := proof.Verify(key, value, block.AppHash)
+						if verified {
+							// Set app hash and write to ws
+							receipt.AppHash = block.AppHash
+							update, _ := NewUpdate(receipt, nil)
+							ws.WriteJSON(update)
+						} else {
+							err = errors.New("Failed to verify receipt")
+						}
+					}
+				}
+			}
 
-		m.logger.Info("Waiting for new block...")
-
-		msg, err := m.proxy.ReadMessage()
-
-		if err != nil {
-			panic(err)
-			// m.logger.Error(err.Error())
-			// continue
+			if err != nil {
+				panic(err)
+				update, _ := NewUpdate(receipt, err)
+				ws.WriteJSON(update)
+			}
+			receipt = nil
 		}
 
-		fmt.Printf("%v\n", msg)
+		if len(block.Txs) == 0 {
+			// m.logger.Warn("Block has no txs", "height", block.Height)
+			continue
+		}
 
-		/*
-			m.logger.Info("New block!", "height", block.Height)
-
-			for _, tx := range block.Txs {
-				err := wire.ReadBinaryBytes(tx, &action)
-				if err != nil {
-					// Cannot decode tx bytes to action
-					// Shouldn't happen
-				}
+		for _, tx := range block.Txs {
+			err = wire.ReadBinaryBytes(tx, &action)
+			if err == nil {
 				if action.Type != ActionSubmitForm {
 					continue
 				}
 				err = wire.ReadBinaryBytes(action.Data, &form)
-				if err != nil {
-					// Cannot decode action data to form
-					// Shouldn't happen
-				}
-				// Check if form is ours
-				if form.Submitter == pubKeystr {
-					// Send receipt
-					m.logger.Info("Sending receipt...")
-					receipt := NewReceipt(tx, block)
-					update, err := NewUpdate(receipt)
-					if err != nil {
-						panic(err)
+				if err == nil {
+					if form.Submitter == pubKeystr {
+						// Create new receipt, do not set app hash yet
+						// Once we recv next block we will send receipt
+						receipt = NewReceipt(block.Height, form.ID())
 					}
-					// Write update to websocket
-					m.proxy.WriteWS("json", update)
+					if form.Issue != issue {
+						// Not what we're looking for..
+						continue
+					}
+					// Send form to feed
+					update, _ := NewUpdate(&form, err)
+					ws.WriteJSON(update)
 				}
-				if form.Issue != issue {
-					continue
-				}
-				// Send form to feed
-				update, err := NewUpdate(&form)
-				if err != nil {
-					panic(err)
-				}
-				m.logger.Info("Sending feed update...")
-				m.proxy.WriteWS("json", update)
 			}
-		*/
+		}
 	}
-}
-
-/*
-func (am *Manager) Updates(w http.ResponseWriter, req *http.Request) {
-
-	// Websocket
-	ws, err := upgrader.Upgrade(w, req, nil)
-
-	if err != nil {
-		panic(err)
-	}
-
-	defer ws.Close()
-
-	v := &struct {
-		Issue     string `json:"issue"`
-		PubKeystr string `json:"public_key"`
-	}{}
-
-	// Read from websocket
-	err = ws.ReadJSON(v)
-
-	if err != nil {
-		panic(err) //for now
-	}
-
-	// Get conn to TMSP server
-
-	am.ConnsMaction.Lock()
-	conn, ok := am.Conns[v.PubKeystr]
-	am.ConnsMaction.Unlock()
-
-	defer conn.Close()
-
-	if !ok {
-		panic("Could not find conn") //for now
-	}
-
-	am.Info("Updating feed...")
-
-	cli := NewClient(conn, ws)
-
-	done := make(chan struct{})
-
-	// Read updates from TMSP server connection
-	// Write updates to websocket
-	go cli.WriteRoutine(v.Issue, done)
-	go cli.ReadRoutine()
-
-	<-done
-
-	am.Info("Done")
 }
 
 /*
@@ -652,375 +683,6 @@ func (am *Manager) SearchForms(w http.ResponseWriter, req *http.Request) {
 		wire.ReadBinaryBytes(resQuery.Data, &datas)
 
 		log.Printf("%v\n", datas)
-	}
-}
-
-/*
-fun1 := am.FilterFunc(filters, includes)
-
-		fun2 := func(data []byte) bool {
-			key, _, _ := wire.GetByteSlice(data)
-			minutestr := string(forms.XOR(key, issue))
-			time := ParseMinuteString(minutestr)
-			if len(after) >= MOMENT_LENGTH && !time.After(afterTime) {
-				return false
-			} else if len(before) >= MOMENT_LENGTH && !time.Before(beforeTime) {
-				return false
-			}
-			return true
-		}
-
-		in := make(chan []byte)
-		out := make(chan []byte)
-		// errs := make(chan error)
-
-		// Search pipeline
-		go am.Iterate(fun1, in) //errs
-		go am.IterateNext(fun2, in, out)
-
-		var form forms.Form
-
-		for {
-			key, more := <-out
-			if more {
-				res := am.QueryByKey(key)
-				if res.IsErr() {
-					log.Println(res.Error())
-					continue
-				}
-				err = wire.ReadBinaryBytes(res.Data, &form)
-				if err != nil {
-					log.Println(err.Error())
-					continue
-				}
-				msg := (&form).Summary("search", count)
-				ws.WriteMessage(ws.TextMessage, []byte(msg))
-				count++
-			} else {
-				break
-			}
-		}
-
-
-NO MESSAGES FOR NOW
-
-func (am *Manager) CheckMessages(w http.ResponseWriter, req *http.Request) {
-
-	ws, err := upgrader.Upgrade(w, req, nil)
-	if err != nil {
-		panic(err)
-	}
-
-	for {
-
-		var pubKey crypto.PubKeyEd25519
-		_, pubKeyBytes, err := ws.ReadMessage()
-		if err != nil {
-			log.Println(err.Error())
-			return
-		}
-		n, err := hex.Decode(pubKey[:], pubKeyBytes)
-		if err != nil || n != PUBKEY_LENGTH {
-			ws.WriteMessage(ws.TextMessage, []byte(invalid_public_key))
-			return
-		}
-
-		log.Println("Getting messages...")
-
-		// Create client
-		cli := NewClient(ws, pubKey)
-
-		// Get messages
-		go am.GetMessages(cli)
-
-		// Write messages to ws
-		done := make(chan *struct{})
-		go cli.writeMessagesRoutine(done)
-
-		<-done
-		//cli.Close()
-		//return
-	}
-}
-
-func (am *Manager) SendMessage(w http.ResponseWriter, req *http.Request) {
-
-	ws, err := upgrader.Upgrade(w, req, nil)
-	if err != nil {
-		panic(err)
-	}
-
-	for {
-
-		message := NewMessage()
-
-		_, recipientBytes, err := ws.ReadMessage()
-		if err != nil {
-			log.Println(err.Error())
-			return
-		}
-		n, err := hex.Decode(message.recipient[:], recipientBytes)
-		if err != nil || n != PUBKEY_LENGTH {
-			ws.WriteMessage(ws.TextMessage, []byte(invalid_public_key))
-			continue
-		}
-
-		_, contentBytes, err := ws.ReadMessage()
-		if err != nil {
-			log.Println(err.Error())
-			return
-		}
-		message.content = contentBytes
-
-		_, senderBytes, err := ws.ReadMessage()
-		if err != nil {
-			log.Println(err.Error())
-			return
-		}
-		n, err = hex.Decode(message.sender[:], senderBytes)
-		if err != nil || n != PUBKEY_LENGTH {
-			ws.WriteMessage(ws.TextMessage, []byte(invalid_public_key))
-			continue
-		}
-
-		err = am.sendMessage(message)
-		if err != nil {
-			ws.WriteMessage(ws.TextMessage, []byte("Could not send message"))
-			ws.Close()
-			return
-		}
-
-		ws.WriteMessage(ws.TextMessage, []byte("Message sent!"))
-		// ws.Close()
-		// return
-	}
-}
-
-NO ADMIN FOR NOW
-
-// Create Admin
-func (am *Manager) CreateAdmin(w http.ResponseWriter, req *http.Request) {
-
-	ws, err := upgrader.Upgrade(w, req, nil)
-	if err != nil {
-		panic(err)
-	}
-
-	// Create action
-	var action types.Action
-	action.Type = types.CreateAdminTx
-
-	// Keys
-	var pubKey crypto.PubKeyEd25519
-	var privKey crypto.PrivKeyEd25519
-
-	for {
-
-		// Secret
-		_, secret, err := ws.ReadMessage()
-		if err != nil {
-			log.Println(err.Error())
-			return
-		}
-
-		buf, n, err := new(bytes.Buffer), int(0), error(nil)
-		wire.WriteByteSlice(secret, buf, &n, &err)
-		action.Data = buf.Bytes()
-
-		// PubKey
-		_, pubKeyBytes, err := ws.ReadMessage()
-		if err != nil {
-			log.Println(err.Error())
-			return
-		}
-		n, err = hex.Decode(pubKey[:], pubKeyBytes)
-		if err != nil || n != PUBKEY_LENGTH {
-			ws.WriteMessage(ws.TextMessage, []byte(invalid_public_key))
-			continue
-		}
-
-		// PrivKey
-		_, privKeyBytes, err := ws.ReadMessage()
-		if err != nil {
-			log.Println(err.Error())
-			return
-		}
-		n, err = hex.Decode(privKey[:], privKeyBytes)
-		if err != nil || n != PRIVKEY_LENGTH {
-			ws.WriteMessage(ws.TextMessage, []byte(invalid_private_key))
-			continue
-		}
-
-		// Set Sequence, Account, Signature
-		addr := pubKey.Address()
-		accKey := state.AccountKey(addr)
-
-		buf = new(bytes.Buffer)
-		wire.WriteByteSlice(accKey, buf, &n, &err)
-		key := buf.Bytes()
-		reqQuery := am.KeyQuery(key)
-		res, err := am.WriteRequest(reqQuery)
-
-		if err != nil {
-			ws.WriteMessage(ws.TextMessage, []byte(read_response_failure))
-			continue
-		}
-
-		var acc types.Account
-		accBytes := res.GetQuery().Data
-		err = wire.ReadBinaryBytes(accBytes, &acc)
-		if err != nil {
-			panic(err)
-		}
-
-		action.SetSequence(acc.Sequence)
-		action.SetAccount(pubKey)
-
-		reqQuery = tmsp.ToRequestQuery([]byte{QueryChainID})
-		res, err = am.WriteRequest(reqQuery)
-
-		if err != nil {
-			ws.WriteMessage(ws.TextMessage, []byte(read_response_failure))
-			continue
-		}
-
-		chainID := res.GetQuery().Log
-		action.SetSignature(privKey, chainID)
-
-		// TxBytes in AppendTx request
-		buf = new(bytes.Buffer)
-		wire.WriteBinary(tx, buf, &n, &err)
-		reqAppendTx := tmsp.ToRequestAppendTx(buf.Bytes())
-		res, err = am.WriteRequest(reqAppendTx)
-
-		resAppendTx := res.GetAppendTx()
-
-		if resAppendTx.Code != 0  {
-			ws.WriteMessage(ws.TextMessage, []byte(create_admin_failure))
-			continue
-		}
-
-		pubKeyBytes, _, err = wire.GetByteSlice(resAppendTx.Data)
-		if err != nil {
-			panic(err)
-		}
-		privKeyBytes, _, err = wire.GetByteSlice(resAppendTx.Data)
-		if err != nil {
-			panic(err)
-		}
-		log.Printf("SUCCESS created admin with pubKey %X\n", pubKey[:])
-		msg := Fmt(create_admin_success, pubKeyBytes, privKeyBytes)
-		ws.WriteMessage(ws.TextMessage, []byte(msg))
-		ws.Close()
-		return
-	}
-}
-
-// Remove admin
-
-func (am *Manager) RemoveAdmin(w http.ResponseWriter, req *http.Request) {
-
-	ws, err := upgrader.Upgrade(w, req, nil)
-	if err != nil {
-		panic(err)
-	}
-
-	// Create tx
-	var action types.Action
-	action.Type = types.RemoveAdminTx
-
-	// Keys
-	var pubKey crypto.PubKeyEd25519
-	var privKey crypto.PrivKeyEd25519
-
-	for {
-
-		// PubKey
-		_, pubKeyBytes, err := ws.ReadMessage()
-		if err != nil {
-			log.Println(err.Error())
-			return
-		}
-
-		n, err := hex.Decode(pubKey[:], pubKeyBytes)
-		if err != nil || n != PUBKEY_LENGTH {
-			ws.WriteMessage(ws.TextMessage, []byte(invalid_public_key))
-			continue
-		}
-
-		// PrivKey
-		_, privKeyBytes, err := ws.ReadMessage()
-		if err != nil {
-			log.Println(err.Error())
-			return
-		}
-
-		n, err = hex.Decode(privKey[:], privKeyBytes)
-		if err != nil || n != PRIVKEY_LENGTH {
-			ws.WriteMessage(ws.TextMessage, []byte(invalid_private_key))
-			continue
-		}
-
-		// Set Sequence, Account, Signature
-		addr := pubKey.Address()
-		accKey := state.AccountKey(addr)
-
-		buf := new(bytes.Buffer)
-		wire.WriteByteSlice(accKey, buf, &n, &err)
-		key := buf.Bytes()
-		reqQuery := am.KeyQuery(key)
-		res, err := am.WriteRequest(reqQuery)
-
-		if err != nil {
-			ws.WriteMessage(ws.TextMessage, []byte(read_response_failure))
-			continue
-		}
-
-		var acc types.Account
-		accBytes := res.GetQuery().Data
-		err = wire.ReadBinaryBytes(accBytes, &acc)
-		if err != nil {
-			panic(err)
-		}
-
-		action.SetSequence(acc.Sequence)
-		action.SetAccount(pubKey)
-
-		reqQuery = tmsp.ToRequestQuery([]byte{QueryChainID})
-		res, err = am.WriteRequest(reqQuery)
-
-		if err != nil {
-			ws.WriteMessage(ws.TextMessage, []byte(read_response_failure))
-			continue
-		}
-
-		chainID := res.GetQuery().Log
-		action.SetSignature(privKey, chainID)
-
-		// TxBytes in AppendTx request
-		buf = new(bytes.Buffer)
-		wire.WriteBinary(tx, buf, &n, &err)
-		reqAppendTx := tmsp.ToRequestAppendTx(buf.Bytes())
-		res, err = am.WriteRequest(reqAppendTx)
-
-		if err != nil {
-			ws.WriteMessage(ws.TextMessage, []byte(read_response_failure))
-			continue
-		}
-
-		resAppendTx := res.GetAppendTx()
-
-		if resAppendTx.Code != 0  {
-			msg := Fmt(remove_admin_failure, pubKeyBytes)
-			ws.WriteMessage(ws.TextMessage, []byte(msg))
-			continue
-		}
-
-		log.Printf("SUCCESS removed admin with pubKey %X\n", pubKeyBytes)
-		msg := Fmt(remove_admin_success, pubKeyBytes)
-		ws.WriteMessage(ws.TextMessage, []byte(msg))
-		ws.Close()
-		return
 	}
 }
 */

@@ -32,7 +32,7 @@ func NewLocalClient() *Client {
 func (cli *Client) GetSync(key []byte) (res tmsp.Result) {
 	query := make([]byte, wire.ByteSliceSize(key)+1)
 	buf := query
-	buf[0] = QueryKey
+	buf[0] = QueryValue
 	buf = buf[1:]
 	wire.PutByteSlice(buf, key)
 	res = cli.QuerySync(query)

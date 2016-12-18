@@ -42,11 +42,11 @@ func (in ActionInput) StringIndented(indent string) string {
 		%s %s Address: %x
 		%s %s Sequence: %v
 		%s %s PubKey: %v
-		%s %s}`,
+		%s}`,
 		indent, indent, in.Address,
 		indent, indent, in.Sequence,
 		indent, indent, in.PubKey,
-		indent, indent)
+		indent)
 }
 
 func (in ActionInput) String() string {
@@ -105,8 +105,7 @@ func (a Action) StringIndented(indent string) string {
 		}`,
 		indent, a.Type,
 		indent, a.Input,
-		indent, a.Data,
-		indent)
+		indent, a.Data)
 }
 
 func (a Action) String() string {
