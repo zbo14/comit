@@ -8,18 +8,20 @@ import (
 
 const FORM_ID_LENGTH = 16
 
-// Info contains the id pair for a submitted form
-// and fields relevant to state filters (issue, location for now)
+// Info contains the id pair for a submitted form,
+// fields relevant to state filters (issue, location),
+// and submitter so we know when to send a receipt
 
 type Info struct {
 	ContentID *cid.Cid `json:"content_id"`
 	FormID    []byte   `json:"form_id"`
 	Issue     string   `json:"issue"`
 	Location  string   `json:"location"`
+	Submitter string   `json:"submitter"`
 }
 
 func NewInfo(contentID *cid.Cid, form Form) Info {
-	return Info{contentID, form.ID(), form.Issue, form.Location}
+	return Info{contentID, form.ID(), form.Issue, form.Location, form.Submitter}
 }
 
 type Form struct {

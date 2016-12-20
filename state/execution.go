@@ -1,6 +1,7 @@
 package state
 
 import (
+	"encoding/json"
 	. "github.com/tendermint/go-common"
 	"github.com/tendermint/go-wire"
 	tmsp "github.com/tendermint/tmsp/types"
@@ -125,7 +126,7 @@ func RunSubmitForm(state *State, acc *Account, data []byte) (res tmsp.Result) {
 
 func RunSubmitForm(state *State, acc *Account, data []byte) (res tmsp.Result) {
 	var info Info
-	err := wire.ReadBinaryBytes(data, &info)
+	err := json.Unmarshal(data, &info)
 	if err != nil {
 		return tmsp.ErrEncodingError.SetLog("Failed to decode data")
 	}

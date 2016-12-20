@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
+	// "fmt"
 	"github.com/gorilla/websocket"
 	"github.com/ipfs/go-ipfs/blocks"
 	core "github.com/ipfs/go-ipfs/core"
@@ -16,6 +16,7 @@ import (
 	"github.com/zballs/comit/state"
 	. "github.com/zballs/comit/types"
 	. "github.com/zballs/comit/util"
+	"gx/ipfs/QmcEcrBAMrwMyhSjXt4yfyPpzgSuV8HLHavnfmiKCSRqZU/go-cid"
 	"io/ioutil"
 	"net/http"
 	"time"
@@ -340,7 +341,10 @@ func (m *Manager) SubmitForm(w http.ResponseWriter, req *http.Request) {
 	}
 
 	// Encode form info
-	data := wire.BinaryBytes(NewInfo(cid, form))
+	data, err := json.Marshal(NewInfo(cid, form))
+	if err != nil {
+		panic(err)
+	}
 
 	// Create action
 	action := NewAction(ActionSubmitForm, data)
@@ -404,9 +408,25 @@ func (m *Manager) FindForm(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	// Decode content ID
+	contentID := &cid.Cid{}
+	err = contentID.UnmarshalJSON(result.Result.Data)
+	if err != nil {
+		panic(err)
+	}
+
+	// Get IPFS block with form data
+	b, err := m.node.Blocks.GetBlock(m.node.Context(), contentID)
+	if err != nil {
+		panic(err)
+	}
+
 	// Form
 	form := &Form{}
-	wire.ReadBinaryBytes(result.Result.Data, form)
+	err = wire.ReadBinaryBytes(b.RawData(), form)
+	if err != nil {
+		panic(err)
+	}
 
 	ManagerRespond(w, MessageFindForm(form, nil))
 }
@@ -454,6 +474,7 @@ func (m *Manager) BlockStream(done <-chan struct{}) {
 			case tndr.EventDataNewBlock:
 				block = evData.(tndr.EventDataNewBlock).Block
 			case *tndr.EventDataNewBlock:
+				// nil block
 				block = evData.(*tndr.EventDataNewBlock).Block
 			}
 
@@ -516,6 +537,7 @@ func (m *Manager) Updates(w http.ResponseWriter, req *http.Request) {
 
 	var action Action
 	var form Form
+	var info Info
 	var proof merkle.IAVLProof
 	var receipt *Receipt
 
@@ -536,7 +558,6 @@ func (m *Manager) Updates(w http.ResponseWriter, req *http.Request) {
 		}
 
 		if receipt != nil {
-			fmt.Println(receipt.BlockHeight, block.Height)
 			// We have a receipt to send
 			if receipt.BlockHeight >= block.Height {
 				//shouldn't happen
@@ -557,22 +578,23 @@ func (m *Manager) Updates(w http.ResponseWriter, req *http.Request) {
 				if err == nil {
 					err = wire.ReadBinaryBytes(result.Result.Data, &proof)
 					if err == nil {
-						value := wire.BinaryBytes(form)
-						verified := proof.Verify(key, value, block.AppHash)
-						if verified {
-							// Set app hash and write to ws
-							receipt.AppHash = block.AppHash
-							update, _ := NewUpdate(receipt, nil)
-							ws.WriteJSON(update)
-						} else {
-							err = errors.New("Failed to verify receipt")
+						value, err := info.ContentID.MarshalJSON()
+						if err == nil {
+							verified := proof.Verify(key, value, block.AppHash)
+							if verified {
+								// Set app hash and write to ws
+								receipt.AppHash = block.AppHash
+								update, _ := NewUpdate(receipt, nil)
+								ws.WriteJSON(update)
+							} else {
+								err = errors.New("Failed to verify receipt")
+							}
 						}
 					}
 				}
 			}
 
 			if err != nil {
-				panic(err)
 				update, _ := NewUpdate(receipt, err)
 				ws.WriteJSON(update)
 			}
@@ -590,16 +612,27 @@ func (m *Manager) Updates(w http.ResponseWriter, req *http.Request) {
 				if action.Type != ActionSubmitForm {
 					continue
 				}
-				err = wire.ReadBinaryBytes(action.Data, &form)
+				err = json.Unmarshal(action.Data, &info)
+				if err != nil {
+					panic(err)
+				}
 				if err == nil {
-					if form.Submitter == pubKeystr {
+					if info.Submitter == pubKeystr {
 						// Create new receipt, do not set app hash yet
 						// Once we recv next block we will send receipt
-						receipt = NewReceipt(block.Height, form.ID())
+						receipt = NewReceipt(block.Height, info.FormID)
 					}
-					if form.Issue != issue {
+					if info.Issue != issue {
 						// Not what we're looking for..
 						continue
+					}
+					b, err := m.node.Blocks.GetBlock(m.node.Context(), info.ContentID)
+					if err != nil {
+						panic(err)
+					}
+					err = wire.ReadBinaryBytes(b.RawData(), &form)
+					if err != nil {
+						panic(err)
 					}
 					// Send form to feed
 					update, _ := NewUpdate(&form, err)

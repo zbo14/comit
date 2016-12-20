@@ -42,15 +42,6 @@ func (app *App) SetFilters(filters []string) {
 
 // Search pipeline
 
-// We iterate through indices and check if each key's in the filters
-// If a key k is in the filters, than we can xor the form ID
-// with issue and location, convert the bytes to a time and
-// check whether it's in range...
-// Then we get values for the keys selected, the values being
-// forms themselves or IPFS content ids for submitted forms
-
-// TODO: test
-
 func (app *App) IterQueryIndex(fun func([]byte) bool, in chan []byte) {
 
 	query := EmptyQuery(QuerySize)
@@ -194,7 +185,8 @@ func (app *App) Query(query []byte) tmsp.Result {
 
 	switch queryType {
 
-	case QueryValue, QueryIndex, QuerySize, QueryProof: // merkle-cli
+	case QueryValue, QueryIndex, QuerySize, QueryProof:
+		// merkle-cli
 		return app.cli.QuerySync(query)
 
 	case QueryIssues:

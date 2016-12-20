@@ -1,5 +1,5 @@
 ## Description
-Comit provides an infrastructure through which citizens view, submit, and find issues in their local area (e.g. service requests, complaints, other TBD). Submitted text and media (images, video) are appended to a decentralized ledger (i.e. the blockchain) and sent to a live feed.
+Comit provides an infrastructure through which citizens view, submit, and find issues in their area (e.g. service requests, complaints, other types TBD). Submitted text and media (images, video) are appended to a decentralized, censorship-resistant ledger (the blockchain) and sent to a live application feed.
 
 ## Installation
 - Download and install [Go](https://golang.org/dl/)
@@ -14,7 +14,8 @@ Comit provides an infrastructure through which citizens view, submit, and find i
 - See docs for list of endpoints/more details on usage
 
 ####Run Tests 
-TODO
+- In terminal window, `cd scripts` from base directory
+- Then `sh run_test.sh` to run tests
 
 ## Credits 
 Design and logo by [JFang Design](http://www.jjessfang.com/)
