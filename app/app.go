@@ -32,12 +32,9 @@ func NewApp(cli *Client) *App {
 
 // State filters
 
-func (app *App) FilterFunc(filters []string) func(data []byte) bool {
-	return app.state.FilterFunc(filters)
-}
-
-func (app *App) SetFilters(filters []string) {
-	app.state.SetBloomFilters(filters)
+func (app *App) SetFilters() {
+	names := app.Issues // and locations
+	app.state.SetFilters(names)
 }
 
 // Search pipeline
@@ -217,7 +214,7 @@ func (app *App) Query(query []byte) tmsp.Result {
 		}
 
 		// Checks if forms are in filters
-		fun1 := app.FilterFunc([]string{s.Issue})
+		fun1 := app.state.FilterFunc(s.Issue)
 
 		// Checks if forms are in time range
 		fun2 := TimeRangeFunc(s.AfterTime, s.BeforeTime)

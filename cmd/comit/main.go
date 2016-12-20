@@ -42,7 +42,7 @@ func main() {
 
 	// Set state filters
 	// Just issues for now // TODO: add location
-	comitApp.SetFilters(comitApp.Issues)
+	comitApp.SetFilters()
 
 	// Start the listener
 	_, err = server.NewSocketServer(*tmspPtr, comitApp)

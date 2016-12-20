@@ -6,15 +6,13 @@ import (
 	. "github.com/tendermint/go-common"
 	"github.com/tendermint/go-wire"
 	"github.com/zballs/comit/types"
+	"github.com/zballs/dl_cbf"
 )
-
-const iter uint64 = 3
-const members uint64 = 10000000
 
 type State struct {
 	chainID string
+	filters map[string]dl_cbf.HashTable
 	store   types.Store
-	blooms  map[string]*types.BloomFilter
 	*types.Cache
 }
 
@@ -24,10 +22,6 @@ func NewState(store types.Store) *State {
 		store:   store,
 	}
 	return s
-}
-
-func (s *State) PrintStore() {
-	fmt.Println(s.store)
 }
 
 func (s *State) SetChainID(chainID string) {
@@ -41,12 +35,12 @@ func (s *State) GetChainID() string {
 	return s.chainID
 }
 
-func (s *State) SetBloomFilters(filters []string) {
-	blooms := make(map[string]*types.BloomFilter)
-	for _, f := range filters {
-		blooms[f] = types.NewBloomFilter(members)
+func (s *State) SetFilters(names []string) {
+	filters := make(map[string]dl_cbf.HashTable)
+	for _, name := range names {
+		filters[name], _ = dl_cbf.NewHashTable_Default32(10000000)
 	}
-	s.blooms = blooms
+	s.filters = filters
 }
 
 func (s *State) Get(key []byte) (value []byte) {
@@ -65,40 +59,62 @@ func (s *State) SetAccount(addr []byte, acc *types.Account) {
 	SetAccount(s.store, addr, acc)
 }
 
-func (s *State) AddToFilter(data []byte, filter string) error {
-	bloom := s.blooms[filter]
-	if bloom == nil {
-		return errors.New(
-			Fmt("Cannot find filter %s", filter))
+func (s *State) FilterAdd(data []byte, name string) error { //must add
+	filter, ok := s.filters[name]
+	if !ok {
+		return errors.New(Fmt("Failed to find '%s' filter", name))
 	}
-	if bloom.HasMember(data, iter) {
-		return errors.New(
-			Fmt("%X already in filter %s", data, filter))
+	_, success := filter.Add(data)
+	if !success {
+		return errors.New(Fmt("Failed to add data to '%s' filter", name))
 	}
-	bloom.AddMember(data, iter)
 	return nil
 }
 
-func (s *State) InFilter(filter string, data []byte) (bool, error) {
-	bloom := s.blooms[filter]
-	if bloom == nil {
-		return false, errors.New(
-			Fmt("Cannot find filter %s", filter))
+func (s *State) FilterLookup(data []byte, name string) (bool, error) {
+	filter, ok := s.filters[name]
+	if !ok {
+		return false, errors.New(Fmt("Failed to find '%s' filter", name))
 	}
-	if !bloom.HasMember(data, iter) {
-		return false, nil
-	}
-	return true, nil
+	_, found := filter.Lookup(data)
+	return found, nil
 }
 
-func (s *State) FilterFunc(filters []string) func([]byte) bool {
+func (s *State) FilterCount(data []byte, name string) (int, error) {
+	filter, ok := s.filters[name]
+	if !ok {
+		return 0, errors.New(Fmt("Failed to find '%s' filter", name))
+	}
+	_, count := filter.GetCount(data)
+	return int(count), nil
+}
+
+func (s *State) FilterDelete(data []byte, name string) error { //must delete
+	filter, ok := s.filters[name]
+	if !ok {
+		return errors.New(Fmt("Failed to find '%s' filter", name))
+	}
+	_, success := filter.Delete(data)
+	if !success {
+		return errors.New(Fmt("Failed to delete data from '%s' filter", name))
+	}
+	return nil
+}
+
+func (s *State) FilterFunc(name string) func([]byte) bool {
 	return func(data []byte) bool {
-		for _, f := range filters {
-			has, err := s.InFilter(f, data)
-			if err != nil {
-				fmt.Println(err.Error())
-				continue //for now
-			}
+		has, err := s.FilterLookup(data, name)
+		if err != nil {
+			panic(err)
+		}
+		return has
+	}
+}
+
+func (s *State) FiltersFunc(names []string) func([]byte) bool {
+	return func(data []byte) bool {
+		for _, name := range names {
+			has := s.FilterFunc(name)(data)
 			if !has {
 				return false
 			}
@@ -111,8 +127,8 @@ func (s *State) CacheWrap() *State {
 	cache := types.NewCache(s.store)
 	snew := &State{
 		chainID: s.chainID,
+		filters: s.filters,
 		store:   cache,
-		blooms:  s.blooms,
 	}
 	snew.Cache = cache
 	return snew

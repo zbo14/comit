@@ -102,28 +102,6 @@ func RunRemoveAccount(accSetter AccountSetter, acc *Account) tmsp.Result {
 	return tmsp.OK
 }
 
-/*
-func RunSubmitForm(state *State, acc *Account, data []byte) (res tmsp.Result) {
-	var form Form
-	err := wire.ReadBinaryBytes(data, &form)
-	if err != nil {
-		return tmsp.ErrEncodingError.SetLog(Fmt("Failed to decode form data: %v", data))
-	}
-	formID := form.ID()
-	state.Set(formID, data)
-	err = state.AddToFilter(formID, form.Issue) // TODO: add location filter
-	if err != nil {
-		// False positive
-	} else {
-		log.Info("Added to filter", "filter", form.Issue)
-	}
-	acc.Addform(form)
-	addr := acc.PubKey.Address()
-	state.SetAccount(addr, acc)
-	return tmsp.OK
-}
-*/
-
 func RunSubmitForm(state *State, acc *Account, data []byte) (res tmsp.Result) {
 	var info Info
 	err := json.Unmarshal(data, &info)
@@ -135,11 +113,10 @@ func RunSubmitForm(state *State, acc *Account, data []byte) (res tmsp.Result) {
 		return tmsp.ErrEncodingError.SetLog("Failed to encode content ID")
 	}
 	state.Set(info.FormID, cid_json)
-	err = state.AddToFilter(info.FormID, info.Issue) // TODO: add location filter
+	err = state.FilterAdd(info.FormID, info.Issue)
 	if err != nil {
-		// False positive
-	} else {
-		log.Info("Added to filter", "filter", info.Issue)
+		// something went wrong...
+		panic(err)
 	}
 	acc.AddformID(info)
 	addr := acc.PubKey.Address()

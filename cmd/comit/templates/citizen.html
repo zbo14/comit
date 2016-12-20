@@ -360,7 +360,7 @@
 
     function appendToFeed(item) {
       var doScroll = feed.scrollTop === feed.scrollHeight - feed.clientHeight;
-      var node = document.createElement("pre");
+      var node = document.createElement("div");
       node.innerHTML = item;
       feed.appendChild(node);
       if (doScroll) {
@@ -447,17 +447,19 @@
         switch (form.content_type.split("/")[0]) {
 
           case "video":
-            found.innerHTML = "<video width='240' height='240' id='found-media' controls></video>";
+            found.innerHTML = "<video width='250' height='250' id='found-media' controls></video><br><br>";
             break;
 
           case "image":
-            found.innerHTML = "<img width='240' height='240' id='found-media'>";
+            found.innerHTML = "<img width='250' height='250' id='found-media'><br><br>";
             break;
 
           case "audio":
             // TODO;
             break;
         }
+
+        found.innerHTML += "<pre align='left'>"+"<strong>DESCRIPTION </strong>"+form.description+"<br>"+"<strong>ISSUE </strong>"+form.issue+"<br>"+"<strong>LOCATION </strong>"+form.location+"<br>"+"<strong>TIME </strong>"+form.submitted_at+"<br>"+"<strong>SUBMITTER </strong>"+form.submitter+"</pre>";
 
         var blob = b64toBlob(form.data, form.content_type, 512);
 
@@ -468,6 +470,7 @@
         num_id++;
 
       } else {
+        // shouldn't happen
         console.log(json);
       }
    };
@@ -521,17 +524,19 @@
           switch (form.content_type.split("/")[0]) {
 
             case "video":
-              item = "<video width='240' height='240' id='feed-media-{0}' controls></video>".format(num_id);
+              item = "<video width='250' height='250' id='feed-media-{0}' controls></video><br><br>".format(num_id);
               break;
 
             case "image":
-              item = "<img width='240' height='240' id='feed-media-{0}'>".format(num_id);
+              item = "<img width='250' height='250' id='feed-media-{0}'><br><br>".format(num_id);
               break;
 
             case "audio":
               // TODO;
               break;
           }
+
+          item += "<pre align='left'>"+"<strong>DESCRIPTION </strong>"+form.description+"<br>"+"<strong>ISSUE </strong>"+form.issue+"<br>"+"<strong>LOCATION </strong>"+form.location+"<br>"+"<strong>TIME </strong>"+form.submitted_at+"<br>"+"<strong>SUBMITTER </strong>"+form.submitter+"</pre>";
 
           appendToFeed(item);
 
@@ -545,9 +550,16 @@
 
 
         } else if (json.type == "receipt" && json.error == null) {
+
+          var receipt = json.receipt;
+
+          var item = "<pre align='left'>"+"[RECEIPT]"+"<br>"+"<strong>APP HASH </strong>"+receipt.app_hash+"<br>"+"<strong>FORM ID </strong>"+receipt.form_id+"</pre>";
+
+          appendToFeed(item); 
+
+        } else {
           console.log(json);
         }
-        
       };
 
       ws.onclose = function(msg) {
