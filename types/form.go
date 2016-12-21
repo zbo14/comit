@@ -4,6 +4,7 @@ import (
 	"fmt"
 	. "github.com/zballs/comit/util"
 	"gx/ipfs/QmcEcrBAMrwMyhSjXt4yfyPpzgSuV8HLHavnfmiKCSRqZU/go-cid"
+	"time"
 )
 
 const FORM_ID_LENGTH = 16
@@ -24,6 +25,18 @@ func NewInfo(contentID *cid.Cid, form Form) Info {
 	return Info{contentID, form.ID(), form.Issue, form.Location, form.Submitter}
 }
 
+// Search specifies issue, location and time range
+type Search struct {
+	After  time.Time `json:"after"`
+	Before time.Time `json:"before"`
+	Issue  string    `json:"issue"`
+	// Location
+}
+
+func NewSearch(after, before, issue string) Search {
+	return Search{ParseMomentString(after), ParseMomentString(before), issue}
+}
+
 type Form struct {
 	ContentType string `json:"content_type, omitempty"`
 	Data        []byte `json:"data, omitempty"`
@@ -34,7 +47,7 @@ type Form struct {
 	Submitter   string `json:"submitter"`
 }
 
-func xor(bytes []byte, items ...string) []byte {
+func XOR(bytes []byte, items ...string) []byte {
 	for _, item := range items {
 		for idx, _ := range bytes {
 			if idx < len(item) {
@@ -50,7 +63,7 @@ func xor(bytes []byte, items ...string) []byte {
 func (form Form) ID() []byte {
 	bytes := make([]byte, 16)
 	minutestr := ToTheMinute(form.SubmittedAt)
-	bytes = xor(bytes, minutestr, form.Issue, form.Location)
+	bytes = XOR(bytes, minutestr, form.Issue, form.Location)
 	return bytes
 }
 

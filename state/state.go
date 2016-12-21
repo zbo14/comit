@@ -1,8 +1,7 @@
 package state
 
 import (
-	"errors"
-	"fmt"
+	"github.com/pkg/errors"
 	. "github.com/tendermint/go-common"
 	"github.com/tendermint/go-wire"
 	"github.com/zballs/comit/types"
@@ -101,7 +100,7 @@ func (s *State) FilterDelete(data []byte, name string) error { //must delete
 	return nil
 }
 
-func (s *State) FilterFunc(name string) func([]byte) bool {
+func (s *State) Filterfunc(name string) func([]byte) bool {
 	return func(data []byte) bool {
 		has, err := s.FilterLookup(data, name)
 		if err != nil {
@@ -111,10 +110,10 @@ func (s *State) FilterFunc(name string) func([]byte) bool {
 	}
 }
 
-func (s *State) FiltersFunc(names []string) func([]byte) bool {
+func (s *State) Filtersfunc(names []string) func([]byte) bool {
 	return func(data []byte) bool {
 		for _, name := range names {
-			has := s.FilterFunc(name)(data)
+			has := s.Filterfunc(name)(data)
 			if !has {
 				return false
 			}

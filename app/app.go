@@ -39,84 +39,68 @@ func (app *App) SetFilters() {
 
 // Search pipeline
 
-func (app *App) IterQueryIndex(fun func([]byte) bool, in chan []byte) {
-
+func (app *App) IterQuery(in chan []byte) {
 	query := EmptyQuery(QuerySize)
 	result := app.Query(query)
-
 	if result.IsErr() {
 		panic(result.Error())
 	}
 	var size int
 	wire.ReadBinaryBytes(result.Data, &size)
-
 	for i := 0; i < size; i++ {
-
 		query := IndexQuery(i)
-
 		result := app.Query(query)
-
 		if result.IsErr() {
-			// handle
-			continue
+			panic(result.Error())
 		}
-
-		if fun(result.Data) {
-			in <- result.Data
-		}
+		in <- result.Data
 	}
-
 	close(in)
 }
 
-func (app *App) IterQueryValue(fun func([]byte) bool, in, out chan []byte) {
-
+func (app *App) IterCheck(fun func([]byte) bool, in, out chan []byte) {
 	for {
-
 		data, more := <-in
-
 		if !more {
 			break
 		}
-
-		query := KeyQuery(data, QueryValue)
-
-		result := app.Query(query)
-
-		if result.IsErr() {
-			// handle
-			continue
-		}
-
-		if fun(result.Data) {
+		if fun(data) {
 			out <- data
 		}
 	}
-
 	close(out)
 }
 
-// Check if time's in range
+func (app *App) IterResult(out chan []byte) [][]byte {
+	var datas [][]byte
+	for {
+		data, ok := <-out
+		if !ok {
+			break
+		}
+		datas = append(datas, data)
+	}
+	return datas
+}
 
-func TimeRangeFunc(afterTime, beforeTime time.Time) func([]byte) bool {
-
+func TimeRangefunc(afterTime, beforeTime time.Time) func([]byte) bool {
 	return func(data []byte) bool {
-
 		var form Form
-
 		err := wire.ReadBinaryBytes(data, &form)
-
 		if err != nil {
 			panic(err)
 		}
-
 		t := ParseMinuteString(form.SubmittedAt)
-
 		if t.After(afterTime) && t.Before(beforeTime) {
 			return true
 		}
-
 		return false
+	}
+}
+
+func XORfunc(items ...string) func([]byte) []byte {
+	return func(data []byte) []byte {
+		return XOR(data, items...)
 	}
 }
 
@@ -197,53 +181,35 @@ func (app *App) Query(query []byte) tmsp.Result {
 		return tmsp.NewResultOK(data, "")
 
 	case QuerySearch:
-		search, _, err := wire.GetByteSlice(query[1:])
+		data, _, err := wire.GetByteSlice(query[1:])
 		if err != nil {
 			panic(err)
 		}
-
-		s := struct {
-			AfterTime  time.Time
-			BeforeTime time.Time
-			Issue      string
-		}{}
-
-		err = wire.ReadBinaryBytes(search, &s)
+		var s Search
+		err = wire.ReadBinaryBytes(data, &s)
 		if err != nil {
 			return tmsp.ErrEncodingError
 		}
-
-		// Checks if forms are in filters
-		fun1 := app.state.FilterFunc(s.Issue)
+		// Checks if forms are in filter(s)
+		fun1 := app.state.Filterfunc(s.Issue) //s.Location
 
 		// Checks if forms are in time range
-		fun2 := TimeRangeFunc(s.AfterTime, s.BeforeTime)
+		fun2 := TimeRangefunc(s.After, s.Before)
 
-		in := make(chan []byte)
-		out := make(chan []byte)
+		ch1 := make(chan []byte)
+		ch2 := make(chan []byte)
+		ch3 := make(chan []byte)
 
-		go app.IterQueryIndex(fun1, in)
-		go app.IterQueryValue(fun2, in, out)
-
-		var datas [][]byte
-
-		for {
-
-			data, ok := <-out
-
-			if !ok {
-				break
-			}
-
-			datas = append(datas, data)
-		}
+		go app.IterQuery(ch1)
+		go app.IterCheck(fun1, ch1, ch2)
+		go app.IterCheck(fun2, ch2, ch3)
+		datas := app.IterResult(ch3)
 
 		if len(datas) == 0 {
 			return tmsp.NewResultOK(nil, "")
 		}
 
-		data := wire.BinaryBytes(datas)
-
+		data = wire.BinaryBytes(datas)
 		return tmsp.NewResultOK(data, "")
 
 	default:

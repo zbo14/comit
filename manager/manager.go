@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
-	// "fmt"
+	"fmt"
 	"github.com/gorilla/websocket"
 	"github.com/ipfs/go-ipfs/blocks"
 	core "github.com/ipfs/go-ipfs/core"
@@ -65,6 +65,7 @@ func (m *Manager) AddRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/remove_account", m.RemoveAccount)
 	mux.HandleFunc("/submit_form", m.SubmitForm)
 	mux.HandleFunc("/find_form", m.FindForm)
+	mux.HandleFunc("/search_forms", m.SearchForms)
 	mux.HandleFunc("/updates", m.Updates)
 }
 
@@ -643,79 +644,44 @@ func (m *Manager) Updates(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-/*
-func (am *Manager) SearchForms(w http.ResponseWriter, req *http.Request) {
+func (m *Manager) SearchForms(w http.ResponseWriter, req *http.Request) {
 
-	// Websocket wsection
-	ws, err := upgrader.Upgrade(w, req, nil)
+	// Get values from request body
+	vals, err := UrlValues(req)
+
+	if err != nil {
+		http.Error(w, "Failed to read request data", http.StatusBadRequest)
+		return
+	}
+
+	issue := vals.Get("issue")
+	after := vals.Get("after")
+	before := vals.Get("before")
+
+	// Search
+	s := NewSearch(after, before, issue)
+	query := KeyQuery(wire.BinaryBytes(s), QuerySearch)
+
+	result, err := m.proxy.TMSPQuery(query)
 
 	if err != nil {
 		panic(err)
 	}
 
-	defer ws.Close()
+	err = ResultToError(result)
 
-	// Create connection to TMSP server
-	conn,_ := net.Dial("tcp", am.ServerAddr)
-	defer conn.Close()
+	if err != nil {
+		panic(err)
+	}
 
-	for {
+	var datas [][]byte
 
-		// TODO: add location
+	err = wire.ReadBinaryBytes(result.Result.Data, &datas)
+	if err != nil {
+		panic(err)
+	}
 
-		v := &struct {
-			After  string `json:"after"`
-			Before string `json:"before"`
-			Issue  string `json:"issue"`
-		}{}
-
-		err = ws.ReadJSON(v)
-
-		if err != nil {
-			panic(err)
-		}
-
-		// Search
-		s := struct {
-			AfterTime  time.Time
-			BeforeTime time.Time
-			Issue      string
-		}{}
-
-		s.AfterTime = ParseMomentString(v.After)
-		s.BeforeTime = ParseMomentString(v.Before)
-		s.Issue = v.Issue
-
-		log.Println(v.After)
-		log.Printf("%v\n", s.AfterTime)
-
-		search := wire.BinaryBytes(s)
-		reqQuery := am.SearchQuery(search)
-
-		err = am.WriteRequest(reqQuery, conn)
-
-		if err != nil {
-			panic(err)
-		}
-
-		res := am.ReadResponse(conn)
-
-		if res == nil {
-			panic(err)
-		}
-
-		resQuery := res.GetQuery()
-
-		if resQuery == nil {
-			panic(err)
-		}
-
-		am.Info("Search finished")
-
-		var datas [][]byte
-		wire.ReadBinaryBytes(resQuery.Data, &datas)
-
-		log.Printf("%v\n", datas)
+	for _, data := range datas {
+		fmt.Println(BytesToHexstr(data))
 	}
 }
-*/

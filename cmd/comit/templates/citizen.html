@@ -281,8 +281,9 @@
     width: 50%;
     padding: 8px;
   }
- 
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.13.0/moment.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datetimepicker/4.17.37/js/bootstrap-datetimepicker.min.js"></script>
   
   <div class="left col-md-6 container">
     <header>submit a form</header>
@@ -301,6 +302,38 @@
       <input type="submit" class="my-btn" value="find" />
     </form>
     <div id="found" class="content"></div>
+
+    <header>search forms</header>
+    <form id="search-forms" name="search-forms" class="content">
+      <select name="issue" form="search-forms" class="component" required></select>
+        <div class="form-group">
+          <div class="input-group date" id="after">
+            <input type="text" name="after" class="form-control" placeholder="after" />
+              <span class="input-group-addon">
+                  <span class="glyphicon glyphicon-calendar"></span>
+              </span>
+          </div>
+        </div>
+        <script type="text/javascript">
+            $(function () {
+                $("#after").datetimepicker();
+            });
+        </script><br>
+        <div class="form-group">
+          <div class="input-group date" id="before">
+            <input type="text" name="before" class="form-control" placeholder="before" />
+            <span class="input-group-addon">
+                <span class="glyphicon glyphicon-calendar"></span>
+            </span>
+          </div>
+        </div>
+        <script type="text/javascript">
+            $(function () {
+                $("#before").datetimepicker();
+            });
+        </script>
+      <input type="submit" class="my-btn" value="search" \>
+      </form>
   </div>
 
   <div class="right col-md-6 container">
@@ -475,6 +508,13 @@
       }
    };
 
+   function searchFormsCb(responseText) {
+
+    var json = JSON.parse(responseText);
+    console.log(json);
+
+   };
+
     function updateFeedCb(responseText) {
 
       ws.send(responseText);
@@ -576,6 +616,19 @@
 
         httpPostAsync("http://localhost:8888/find_form", formData, findFormCb);
       });
+
+     // Search
+
+     $("#search-forms").submit(function(event) {
+
+        event.preventDefault();
+
+        var formData = $("#search-forms").serialize();
+
+        console.log(formData);
+
+        httpPostAsync("http://localhost:8888/search_forms", formData, searchFormsCb);
+     });
     }
   </script>
 {{end}}
